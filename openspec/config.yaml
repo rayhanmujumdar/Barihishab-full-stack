@@ -1,0 +1,44 @@
+schema: spec-driven
+
+# Project context — constraints an agent cannot infer from the code alone.
+context: |
+  BariHisab: house rental + co-owner accounting app. BDT currency, Asia/Dhaka timezone, Bangla + English UI.
+  Stack: Next.js 16 App Router (breaking changes vs older Next — read node_modules/next/dist/docs/ first),
+  React 19, Prisma 7 + PostgreSQL, better-auth, zod 4, Tailwind v4, pnpm.
+
+  Source of truth: docs/barihishab_management_README.md (PRD v1.0) unless the user names another file.
+  Auth/authz work also follows docs/barihishab_authentication_autorization.md.
+  Cite PRD requirement IDs (e.g. PAY-01, DST-03) in proposals, specs and tasks. If a request conflicts
+  with the PRD, flag the conflict instead of silently choosing.
+
+  Accounting non-negotiables:
+  - Money is integer paisa (BigInt), never floats.
+  - Entitlement and payment are separate ledgers; balances are computed, never stored.
+  - Never hard-delete financial data — void/reverse with a reason.
+  - All accounting formulas live in a pure accounting module with 100% test coverage.
+  - Every write: permission check can(user,'x.y') -> zod validation -> one DB transaction
+    (data + audit_log + email_outbox). Every query scoped by property_id.
+
+  API conventions:
+  - All endpoints under /api/v1 (app/api/v1/<module>/route.ts + schema.ts). Breaking changes go to v2.
+  - Responses via ok()/fail() envelope helpers in lib/api/response.ts; never leak internal errors.
+  - Every endpoint registered in Swagger (import schema.ts in app/api/v1/openapi.ts) — not done until documented.
+  - GET handlers that read runtime data call `await connection()` (cacheComponents is on).
+
+  UI: follow the barihisab-design-system skill (.agents/skills/barihisab-design-system/SKILL.md) —
+  ink-on-paper, zero radius, tokens only, one yellow signal fill.
+
+  Development is test-first (TDD skill in .agents/skills/tdd).
+
+rules:
+  proposal:
+    - List the PRD requirement IDs and sections the change covers
+    - State what is out of scope
+  specs:
+    - Use SHALL/MUST language; every requirement has at least one scenario
+    - Money amounts in scenarios are expressed in paisa
+  design:
+    - Note any deviation from the PRD and why
+  tasks:
+    - Write failing tests before implementation tasks
+    - Include a task to register new endpoints in Swagger and verify /api/v1/openapi.json
