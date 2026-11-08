@@ -1,0 +1,21 @@
+// Prisma schema — https://pris.ly/d/prisma-schema
+// Connection URL lives in prisma.config.ts (Prisma 7 no longer reads it here).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Throwaway table used by `pnpm db:check` to prove the
+// Docker Postgres <-> Prisma wiring works end to end.
+model ConnectionTest {
+  id        Int      @id @default(autoincrement())
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("connection_tests")
+}
