@@ -10,7 +10,8 @@ registry.registerComponent("securitySchemes", "cookieAuth", {
   type: "apiKey",
   in: "cookie",
   name: "bh_at",
-  description: "JWT access token (15 min). Refreshed via POST /auth/refresh using the bh_rt cookie.",
+  description:
+    "JWT access token (15 min). Refreshed via POST /auth/refresh using the bh_rt cookie. In these docs all three schemes are filled automatically after POST /auth/login.",
 });
 registry.registerComponent("securitySchemes", "csrfHeader", {
   type: "apiKey",

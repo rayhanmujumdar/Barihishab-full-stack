@@ -29,4 +29,9 @@ registry.registerPath({
   responses: { 307: { description: "Redirect" } },
 });
 
-registry.registerComponent("securitySchemes", "refreshCookie", { type: "apiKey", in: "cookie", name: "bh_rt" });
+registry.registerComponent("securitySchemes", "refreshCookie", {
+  type: "apiKey",
+  in: "cookie",
+  name: "bh_rt",
+  description: "httpOnly refresh token cookie, set by POST /auth/login. In these docs it is filled automatically after logging in.",
+});
