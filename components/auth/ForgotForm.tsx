@@ -8,11 +8,13 @@ import { TextField } from "@/components/forms/fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 
 export function ForgotForm({ locale }: { locale: Locale }) {
   const tr = translator(locale);
+  const forgot = useApiMutation(["auth", "forgot"], (email: string) => apiFetch("/auth/forgot", { method: "POST", body: { email } }));
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export function ForgotForm({ locale }: { locale: Locale }) {
     e.preventDefault();
     setPending(true);
     setError(null);
-    const res = await apiFetch("/auth/forgot", { method: "POST", body: { email } });
+    const res = await forgot.run(email);
     setPending(false);
     // PWD-01: the outcome never reveals whether the account exists.
     if (!res.ok && res.status === 429) setError(tr("common.rateLimited"));

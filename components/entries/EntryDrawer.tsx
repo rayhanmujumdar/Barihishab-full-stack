@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowRightIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { ErrorStrip } from "@/components/forms/error-strip";
@@ -13,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch, fieldErrors, type ApiResult } from "@/lib/api/client";
+import { apiGet, qk, useApiMutation } from "@/lib/api/query";
+import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
@@ -109,9 +112,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
   const [form, setForm] = useState<Form>(() => initialForm(data, mode));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   const [uploads, setUploads] = useState<{ ids: string[]; busy: boolean }>({ ids: [], busy: false });
-  const [vendors, setVendors] = useState<string[]>([]);
   const [fundTouched, setFundTouched] = useState(correcting);
   // One key per open drawer: a double tap or retry never creates two entries (DUP-01).
   const [idempotencyKey] = useState(newIdempotencyKey);
@@ -136,15 +137,27 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
   const units = data.units.filter((u) => u.isActive || u.id === mode.entry?.unitId);
   const amountPaisa = parseAmount(form.amount);
 
-  // Vendor autocomplete (EXP-03), debounced.
-  useEffect(() => {
-    if (form.kind !== "EXPENSE") return;
-    const t = setTimeout(async () => {
-      const res = await apiFetch<{ items: string[] }>(`/transactions/vendors?q=${encodeURIComponent(form.vendor.trim())}`);
-      if (res.ok) setVendors(res.data.items);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [form.kind, form.vendor]);
+  // Vendor autocomplete (EXP-03), debounced; each search term is cached.
+  const vendorQ = useDebouncedValue(form.vendor.trim());
+  const vendorQuery = useQuery({
+    queryKey: qk.transactions.vendors(vendorQ),
+    queryFn: () => apiGet<{ items: string[] }>(`/transactions/vendors?q=${encodeURIComponent(vendorQ)}`),
+    enabled: form.kind === "EXPENSE",
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+  });
+  const vendors = vendorQuery.data?.items ?? [];
+
+  // Create / correct; success invalidates every cached transaction query.
+  const save = useApiMutation(
+    ["transactions", "save"],
+    (v: { id?: string; body: Record<string, unknown> }) =>
+      v.id
+        ? apiFetch<WriteResult>(`/transactions/${v.id}`, { method: "PATCH", body: v.body })
+        : apiFetch<WriteResult>("/transactions", { method: "POST", body: v.body, headers: { "Idempotency-Key": idempotencyKey } }),
+    { invalidate: [qk.transactions.all] },
+  );
+  const pending = save.isPending;
 
   // Live soft warnings (FND-01, G5): shown, never blocking.
   const liveWarnings = useMemo(() => {
@@ -210,12 +223,8 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
     const local = validate();
     setErrors(local);
     if (Object.keys(local).length) return;
-    setPending(true);
     setError(null);
-    const res: ApiResult<WriteResult> = mode.entry
-      ? await apiFetch<WriteResult>(`/transactions/${mode.entry.id}`, { method: "PATCH", body: body() })
-      : await apiFetch<WriteResult>("/transactions", { method: "POST", body: body(), headers: { "Idempotency-Key": idempotencyKey } });
-    setPending(false);
+    const res: ApiResult<WriteResult> = await save.run({ id: mode.entry?.id, body: body() });
     if (!res.ok) {
       const fields = fieldErrors(res);
       if (Object.keys(fields).length) {

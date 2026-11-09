@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch, fieldErrors, type ApiResult } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import type { CategoryDto, FundAccountDto, UnitDto } from "@/lib/master-data/dto";
@@ -59,6 +60,7 @@ export function SettingsView({
 }) {
   const tr = translator(locale);
   const router = useRouter();
+  const toggleActive = useApiMutation(["master-data", "set-active"], (v: { path: string; isActive: boolean }) => apiFetch(v.path, { method: "PATCH", body: { isActive: v.isActive } }), { invalidate: [qk.transactions.all] });
   const [editing, setEditing] = useState<Editing>(null);
   const [deactivating, setDeactivating] = useState<Deactivating>(null);
   const [busy, setBusy] = useState(false);
@@ -70,7 +72,7 @@ export function SettingsView({
   async function setActive(path: string, isActive: boolean) {
     setBusy(true);
     setError(null);
-    const res = await apiFetch(path, { method: "PATCH", body: { isActive } });
+    const res = await toggleActive.run({ path, isActive });
     setBusy(false);
     setDeactivating(null);
     if (!res.ok) return setError(message(res));
@@ -250,6 +252,8 @@ function EditSheet({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Cached transaction lists/details embed category, fund and unit names.
+  const saveMaster = useApiMutation(["master-data", "save"], (v: { path: string; method: string; body: Record<string, unknown> }) => apiFetch(v.path, { method: v.method, body: v.body }), { invalidate: [qk.transactions.all] });
   const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
   const required = tr("settings.err.required");
 
@@ -288,7 +292,7 @@ function EditSheet({
     setErrors({});
     setPending(true);
     setError(null);
-    const res = await apiFetch(req.path as string, { method: req.method as string, body: req.body });
+    const res = await saveMaster.run({ path: req.path as string, method: req.method as string, body: req.body as Record<string, unknown> });
     setPending(false);
     if (!res.ok) {
       const fields = fieldErrors(res);

@@ -5,6 +5,7 @@ import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 import { hardNavigate } from "./navigate";
@@ -13,6 +14,7 @@ import { ResetExpired } from "./ResetExpired";
 
 export function ResetForm({ locale, token, navigate = hardNavigate }: { locale: Locale; token: string; navigate?: (path: string) => void }) {
   const tr = translator(locale);
+  const reset = useApiMutation(["auth", "reset"], (password: string) => apiFetch("/auth/reset", { method: "POST", body: { token, password } }));
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export function ResetForm({ locale, token, navigate = hardNavigate }: { locale: 
     setPending(true);
     setError(null);
     setFieldError(null);
-    const res = await apiFetch("/auth/reset", { method: "POST", body: { token, password } });
+    const res = await reset.run(password);
     if (res.ok) {
       navigate(localePath(locale, "/"));
       return;

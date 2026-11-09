@@ -7,6 +7,7 @@ import { RequiredLegend, TextField } from "@/components/forms/fields";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { parseAmount } from "@/lib/money";
 import { Choice } from "./Choice";
@@ -20,6 +21,7 @@ export function OpeningDialog({ locale, ownerId, onClose, onSaved }: { locale: L
   const [err, setErr] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const saveOpening = useApiMutation(["owners", "opening"], (body: { amountPaisa: number; note: string | null }) => apiFetch(`/owners/${ownerId}/opening`, { method: "PUT", body }), { invalidate: [qk.owners.all] });
 
   async function onSubmit(ev: FormEvent) {
     ev.preventDefault();
@@ -27,7 +29,7 @@ export function OpeningDialog({ locale, ownerId, onClose, onSaved }: { locale: L
     if (!paisa) return setErr(tr("pay.err.amount"));
     setBusy(true);
     setError(null);
-    const res = await apiFetch(`/owners/${ownerId}/opening`, { method: "PUT", body: { amountPaisa: sign === "plus" ? paisa : -paisa, note: note.trim() || null } });
+    const res = await saveOpening.run({ amountPaisa: sign === "plus" ? paisa : -paisa, note: note.trim() || null });
     setBusy(false);
     if (!res.ok) return setError(res.status === 0 ? tr("common.network") : res.error.message);
     toast(tr("open.toast"));

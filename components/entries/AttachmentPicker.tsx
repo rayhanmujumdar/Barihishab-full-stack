@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { CameraIcon, DocumentIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { translator, type Locale } from "@/lib/i18n";
+import { useMutation } from "@tanstack/react-query";
 import { ACCEPT, uploadBill } from "./upload";
 
 type Item = { key: string; name: string; status: "uploading" | "done" | "error"; id?: string; preview?: string };
@@ -21,6 +22,8 @@ export function AttachmentPicker({
   onChange: (ids: string[], busy: boolean) => void;
 }) {
   const tr = translator(locale);
+  // Presign + PUT to the bucket, tracked as a mutation (one per file).
+  const upload = useMutation({ mutationKey: ["attachments", "upload"], mutationFn: uploadBill });
   const input = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +55,7 @@ export function AttachmentPicker({
     const started = current.slice(current.length - chosen.length);
     await Promise.all(
       chosen.map(async (file, n) => {
-        const r = await uploadBill(file);
+        const r = await upload.mutateAsync(file);
         if (!r.ok) setError(tr(r.reason === "bad" ? "entry.files.bad" : "entry.files.failed"));
         current = current.map((i) => (i.key === started[n].key ? { ...i, status: r.ok ? "done" : "error", id: r.ok ? r.id : undefined } : i));
         publish(current);

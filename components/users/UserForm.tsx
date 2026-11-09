@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch, fieldErrors, type ApiResult } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import type { PublicUser } from "@/lib/users/dto";
 
@@ -75,6 +76,10 @@ export function UserForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [roleConfirmOpen, setRoleConfirmOpen] = useState(false);
+  // The list cache is patched by the parent (onSaved / onProfileSaved → UsersManager.replaceUser).
+  const createUser = useApiMutation(["users", "create"], (body: Record<string, unknown>) => apiFetch<{ user: PublicUser }>("/users", { method: "POST", body }));
+  const updateUser = useApiMutation(["users", "update"], (v: { id: string; body: Record<string, unknown> }) => apiFetch<{ user: PublicUser }>(`/users/${v.id}`, { method: "PATCH", body: v.body }));
+  const setRoles = useApiMutation(["users", "roles"], (v: { id: string; roles: string[] }) => apiFetch<{ user: PublicUser }>(`/users/${v.id}/roles`, { method: "PUT", body: { roles: v.roles } }));
   const isNew = !user;
   const currentRole = user?.roles.includes("SUPER_ADMIN") ? "SUPER_ADMIN" : "OWNER";
   // USR-02: the server revokes the user's sessions on any role change, so
@@ -121,14 +126,14 @@ export function UserForm({
     };
 
     if (isNew) {
-      const res = await apiFetch<{ user: PublicUser }>("/users", { method: "POST", body: { ...profile, role: form.role } });
+      const res = await createUser.run({ ...profile, role: form.role });
       setPending(false);
       if (res.ok) onSaved(res.data.user, true);
       else applyErrors(res);
       return;
     }
 
-    const res = await apiFetch<{ user: PublicUser }>(`/users/${user.id}`, { method: "PATCH", body: profile });
+    const res = await updateUser.run({ id: user.id, body: profile });
     if (!res.ok) {
       setPending(false);
       setRoleConfirmOpen(false);
@@ -139,7 +144,7 @@ export function UserForm({
     if (roleChanging) {
       // Promoting keeps an existing Owner role (one person can be both).
       const roles = form.role === "SUPER_ADMIN" ? [...(user.roles.includes("OWNER") ? ["OWNER"] : []), "SUPER_ADMIN"] : ["OWNER"];
-      const r = await apiFetch<{ user: PublicUser }>(`/users/${user.id}/roles`, { method: "PUT", body: { roles } });
+      const r = await setRoles.run({ id: user.id, roles });
       if (!r.ok) {
         // The profile half already saved: show it in the table, keep the
         // drawer open with the role error so the admin can retry.

@@ -9,6 +9,7 @@ import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { apiFetch } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
 import { hoursLeft } from "@/lib/auth/invite-hours";
 import { translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
@@ -38,6 +39,7 @@ export function AcceptInviteForm({
   navigate?: (path: string) => void;
 }) {
   const tr = translator(locale);
+  const accept = useApiMutation(["auth", "accept-invite"], (v: { password: string; locale: Locale }) => apiFetch("/auth/accept-invite", { method: "POST", body: { token, ...v } }));
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
   const [chosen, setChosen] = useState<Locale>(info.locale ?? locale);
@@ -51,7 +53,7 @@ export function AcceptInviteForm({
     setPending(true);
     setError(null);
     setFieldError(null);
-    const res = await apiFetch("/auth/accept-invite", { method: "POST", body: { token, password, locale: chosen } });
+    const res = await accept.run({ password, locale: chosen });
     if (res.ok) {
       navigate(localePath(chosen, "/"));
       return;

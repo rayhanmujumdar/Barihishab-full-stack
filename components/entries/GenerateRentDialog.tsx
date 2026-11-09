@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { DateField } from "@/components/forms/fields";
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { apiFetch } from "@/lib/api/client";
+import { apiGet, qk, queryErrorMessage, useApiMutation } from "@/lib/api/query";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale } from "@/lib/i18n";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
@@ -24,51 +26,52 @@ type Row = { unitId: string; unit: string; tenant: string | null; checked: boole
 export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale: Locale; data: EntriesData; onClose: () => void; onSaved: () => void }) {
   const tr = translator(locale);
   const period = data.status === "OPEN" ? data.month : (data.latestOpen ?? data.month);
-  const [rows, setRows] = useState<Row[] | null>(null);
+  // Rows the user has edited; until then they come straight from the preview.
+  const [edited, setEdited] = useState<Row[] | null>(null);
   const [txnDate, setTxnDate] = useState(() => {
     const today = todayIsoInDhaka();
     return today.startsWith(period) ? today : today > period ? `${period}-28` : today;
   });
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [key] = useState(newIdempotencyKey);
   const funds = data.funds.filter((f) => f.isActive);
 
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      const res = await apiFetch<{ rows: DraftRow[] }>("/transactions/generate-rent/preview", { method: "POST", body: { period } });
-      if (!live) return;
-      if (!res.ok) {
-        setError(res.status === 0 ? tr("common.network") : res.error.message);
-        setRows([]);
-        return;
-      }
-      setRows(res.data.rows.map((r) => ({ unitId: r.unitId, unit: r.unit, tenant: r.tenant, checked: true, amount: paisaToInput(r.amountPaisa), fundAccountId: r.fundAccountId ?? funds[0]?.id ?? "" })));
-    })();
-    return () => {
-      live = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per open
-  }, [period]);
+  // The preview is a read (POST only to carry the body): cached per month and
+  // re-checked on every open, since entries may have changed in the meantime.
+  const preview = useQuery({
+    queryKey: qk.transactions.rentPreview(period),
+    queryFn: () => apiGet<{ rows: DraftRow[] }>("/transactions/generate-rent/preview", { method: "POST", body: { period } }),
+    staleTime: 0,
+    // Don't swap the rows under the user when they tab back in.
+    refetchOnWindowFocus: false,
+  });
+  const fromPreview: Row[] | null = preview.data
+    ? preview.data.rows.map((r) => ({ unitId: r.unitId, unit: r.unit, tenant: r.tenant, checked: true, amount: paisaToInput(r.amountPaisa), fundAccountId: r.fundAccountId ?? funds[0]?.id ?? "" }))
+    : preview.isError
+      ? []
+      : null;
+  const rows = edited ?? fromPreview;
+  const error = saveError ?? queryErrorMessage(preview.error, tr("common.network"));
+
+  const generate = useApiMutation(
+    ["transactions", "generate-rent"],
+    (body: { period: string; txnDate: string; rows: { unitId: string; amountPaisa: number; fundAccountId: string }[] }) =>
+      apiFetch<{ created: number; skipped: { unit: string }[] }>("/transactions/generate-rent", { method: "POST", headers: { "Idempotency-Key": key }, body }),
+    { invalidate: [qk.transactions.all] },
+  );
+  const pending = generate.isPending;
 
   const ticked = (rows ?? []).filter((r) => r.checked);
   const total = ticked.reduce((s, r) => s + (parseAmount(r.amount) ?? 0), 0);
   const invalid = !txnDate || ticked.some((r) => !parseAmount(r.amount) || !r.fundAccountId);
-  const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs!.map((r, n) => (n === i ? { ...r, ...patch } : r)));
+  const update = (i: number, patch: Partial<Row>) => setEdited(rows!.map((r, n) => (n === i ? { ...r, ...patch } : r)));
 
   async function save() {
     if (!ticked.length || invalid || pending) return;
-    setPending(true);
-    setError(null);
-    const res = await apiFetch<{ created: number; skipped: { unit: string }[] }>("/transactions/generate-rent", {
-      method: "POST",
-      headers: { "Idempotency-Key": key },
-      body: { period, txnDate, rows: ticked.map((r) => ({ unitId: r.unitId, amountPaisa: parseAmount(r.amount)!, fundAccountId: r.fundAccountId })) },
-    });
-    setPending(false);
+    setSaveError(null);
+    const res = await generate.run({ period, txnDate, rows: ticked.map((r) => ({ unitId: r.unitId, amountPaisa: parseAmount(r.amount)!, fundAccountId: r.fundAccountId })) });
     if (!res.ok) {
-      setError(res.status === 0 ? tr("common.network") : res.error.message);
+      setSaveError(res.status === 0 ? tr("common.network") : res.error.message);
       return;
     }
     toast(tr("rent.toast", { count: res.data.created }));

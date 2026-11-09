@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { apiFetch } from "@/lib/api/client";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { apiGet, qk, useServerSeed } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -16,6 +17,8 @@ import { EntryDrawer } from "./EntryDrawer";
 import { categoryName, entriesHref, num, shortDate } from "./format";
 import { GenerateRentDialog } from "./GenerateRentDialog";
 import type { EntriesData, Kind, TxnDto } from "./types";
+
+type TxnPage = { items: TxnDto[]; nextCursor: string | null };
 
 type Drawer = { mode: "create"; kind: Kind; key: number } | { mode: "correct"; entry: TxnDto; key: number } | null;
 
@@ -26,15 +29,28 @@ export function EntriesView({ locale, data }: { locale: Locale; data: EntriesDat
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [rentOpen, setRentOpen] = useState(false);
-  const [extra, setExtra] = useState<{ items: TxnDto[]; cursor: string | null; key: string }>({ items: [], cursor: data.nextCursor, key: "" });
 
   const month = monthLabel(locale, data.month);
   const open = data.status === "OPEN";
   const canCreate = data.perms.create && open;
-  const viewKey = `${data.month}|${data.type}|${data.category}|${data.items[0]?.id ?? ""}|${data.items.length}`;
-  // "Show more" pages belong to the current view only.
-  const more = extra.key === viewKey ? extra : { items: [], cursor: data.nextCursor, key: viewKey };
-  const items = [...data.items, ...more.items];
+  // One cached list per month / kind / category. Page 1 is seeded from the
+  // server render; "Show more" pages are fetched and cached on the client.
+  const filter = { period: data.month, kind: data.type, category: data.category };
+  const list = useInfiniteQuery({
+    queryKey: qk.transactions.list(filter),
+    queryFn: ({ pageParam }) => {
+      const sp = new URLSearchParams({ period: filter.period, kind: filter.kind, limit: "200" });
+      if (filter.category !== "ALL") sp.set("category", filter.category);
+      if (pageParam) sp.set("cursor", pageParam);
+      return apiGet<TxnPage>(`/transactions?${sp}`);
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    initialData: { pages: [{ items: data.items, nextCursor: data.nextCursor }], pageParams: [null] },
+  });
+  // A fresh server render (navigation, router.refresh) wins over an older cached list.
+  useServerSeed(qk.transactions.list(filter), data, (d) => ({ pages: [{ items: d.items, nextCursor: d.nextCursor }], pageParams: [null] }));
+  const items = list.data.pages.flatMap((p) => p.items);
 
   const go = (q: { period?: string; type?: Kind; category?: string }) =>
     router.push(entriesHref(locale, { period: q.period ?? data.month, type: q.type ?? data.type, category: q.category }), { scroll: false });
@@ -47,14 +63,8 @@ export function EntriesView({ locale, data }: { locale: Locale; data: EntriesDat
   const kindLabel = tr(data.type === "INCOME" ? "entries.tab.income" : "entries.tab.expense");
   const footerLabel = activeChip ? categoryName(locale, activeChip) : kindLabel;
 
-  async function loadMore() {
-    if (!more.cursor) return;
-    const sp = new URLSearchParams({ period: data.month, kind: data.type, limit: "200", cursor: more.cursor });
-    if (data.category !== "ALL") sp.set("category", data.category);
-    const res = await apiFetch<{ items: TxnDto[]; nextCursor: string | null }>(`/transactions?${sp}`);
-    if (res.ok) setExtra({ items: [...more.items, ...res.data.items], cursor: res.data.nextCursor, key: viewKey });
-  }
-
+  // Writes invalidate the cached lists themselves (useApiMutation); the server
+  // still owns totals, fund balances and month status, so re-render it too.
   const refresh = () => router.refresh();
   const startCreate = (kind: Kind) => setDrawer({ mode: "create", kind, key: Date.now() });
 
@@ -166,8 +176,8 @@ export function EntriesView({ locale, data }: { locale: Locale; data: EntriesDat
                 </li>
               ))}
             </ul>
-            {more.cursor ? (
-              <Button variant="outline" className="mt-3" onClick={loadMore}>
+            {list.hasNextPage ? (
+              <Button variant="outline" className="mt-3" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
                 {tr("entries.more.load")}
               </Button>
             ) : null}

@@ -22,6 +22,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
@@ -58,6 +59,8 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
   const [excess, setExcess] = useState<Excess | null>(null);
   // One key per open drawer: a double tap or retry never pays twice (DUP-01).
   const [key] = useState(newIdempotencyKey);
+  const createPayout = useApiMutation(["owners", "payout"], (body: Record<string, unknown>) => apiFetch<PayoutData>("/payouts", { method: "POST", body, headers: { "Idempotency-Key": key } }), { invalidate: [qk.owners.all] });
+  const createAdvance = useApiMutation(["owners", "advance"], (body: Record<string, unknown>) => apiFetch<{ warnings: Warning[] }>("/advances", { method: "POST", body, headers: { "Idempotency-Key": key } }), { invalidate: [qk.owners.all] });
   const amountRef = useRef<HTMLInputElement>(null);
 
   const paisa = parseAmount(amount);
@@ -97,12 +100,8 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
     };
     const res =
       mode === "pay"
-        ? await apiFetch<PayoutData>("/payouts", {
-            method: "POST",
-            body: { ...common, note: note.trim() || null, ...(splitExcessAs ? { splitExcessAs } : {}) },
-            headers: { "Idempotency-Key": key },
-          })
-        : await apiFetch<{ warnings: Warning[] }>("/advances", { method: "POST", body: { ...common, reason: reason.trim() }, headers: { "Idempotency-Key": key } });
+        ? await createPayout.run({ ...common, note: note.trim() || null, ...(splitExcessAs ? { splitExcessAs } : {}) })
+        : await createAdvance.run({ ...common, reason: reason.trim() });
     setPending(false);
     if (!res.ok) {
       if (res.error.code === "EXCEEDS_BALANCE" && res.error.details) {
