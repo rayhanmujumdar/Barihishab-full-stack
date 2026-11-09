@@ -51,6 +51,15 @@ function row(name: string) {
 }
 
 describe("UsersManager (A6)", () => {
+  it("debounces the search box: a typing burst sends one request for the final term", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: { items: [invited], nextCursor: null, activeSuperAdminCount: 1 } } as never);
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} />);
+    await userEvent.type(screen.getByRole("searchbox"), "kar");
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/users?q=kar", undefined));
+    const searches = api.mock.calls.map(([path]) => path).filter((p) => String(p).includes("q="));
+    expect(searches).toEqual(["/users?q=kar"]);
+  });
+
   it("renders a row per user with status tags and responsibility", () => {
     render(<UsersManager locale="en" viewerId={admin.id} initial={initial} />);
     expect(within(row("Karim")).getByText("Invited")).toBeInTheDocument();
