@@ -580,7 +580,7 @@ All endpoints are JSON; money is always integer paisa; dates ISO (`2026-10-22`);
 | GET | `/dashboard` | Everyone | Role-aware summary (one call) |
 | GET / POST | `/notices`; POST `/notices/:id/read` | Read: everyone; create: Admin | Notices |
 | GET / POST | `/complaints`; POST `/complaints/:id/comments`, PATCH `/complaints/:id/status` | Everyone / Admin (status) | Complaints |
-| POST | `/attachments` (multipart); GET `/attachments/:id` (signed URL) | Upload: per related permission | Files |
+| POST | `/attachments` (multipart); GET `/attachments/:id` (file location) and `/attachments/:id/file` (same-origin file proxy) | Upload: per related permission | Files |
 | GET | `/audit-logs?entity=&actor=&from=&to=` | Everyone (filtered) | History |
 
 ### 10.3 Example: Payment
@@ -652,7 +652,7 @@ Because this is financial data, security, backups and correctness take priority 
 | --- | --- |
 | Security — Auth | Argon2id/bcrypt password hashing; login rate limit (10/min/IP); server-side sessions (revocable); password change invalidates all other sessions |
 | Security — App | HTTPS enforced (HSTS); server-side permission check on every endpoint; input validation (Zod or equivalent); CSP header; OWASP Top 10 checklist |
-| Files | Private bucket (S3 / Cloudflare R2), 5-minute signed URLs; only JPG/PNG/WebP/PDF, ≤ 5 MB; images compressed client-side before upload |
+| Files | Private bucket (S3 / Cloudflare R2); presigned 5-minute upload URLs, viewing only through the authenticated same-origin proxy; only JPG/PNG/WebP/PDF, ≤ 5 MB; images compressed client-side before upload |
 | Data correctness | Money as integer paisa (floats forbidden); every financial operation in one DB transaction; row lock on the period row during Close (two people can't close at once); Idempotency-Key |
 | Audit | Every financial change in the Audit Log, append-only, kept permanently |
 | Backup | Daily automated DB backup, 30-day retention, point-in-time recovery; restore tested monthly; on month close, the monthly report PDF is archived automatically (P2) |
@@ -679,7 +679,7 @@ flowchart LR
         API --> ACC(["accounting module<br/>all formulas here, no DB/HTTP"])
     end
     API --> PG["PostgreSQL<br/>data, audit log, email outbox"]
-    API --> FS["File storage<br/>R2 / S3, signed URL"]
+    API --> FS["File storage<br/>R2 / S3, presigned upload, proxied view"]
     PG -- "reads outbox" --> W["Worker (pg-boss)<br/>email, reports, reminders"]
     W -- "sends" --> EM["Email provider<br/>Resend / Amazon SES"]
 ```

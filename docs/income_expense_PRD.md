@@ -299,7 +299,7 @@ Footer: **Save income / Save expense / Save correction** (primary, arrow) + Canc
 - Kicker = Income / Expense; title = category; amount 44px/800.
 - Tags: **Void · {reason}**, **Corrected**, **🔒 Locked month**.
 - Rows: Month, Date, Fund account, Unit, Payee/vendor, Description, Paid from Reserve, Beneficiary, Reference month, Recorded by (empty rows hidden).
-- **Bills & receipts**: thumbnails; tap → full view via 5-min signed URL; PDFs open in a new tab.
+- **Bills & receipts**: thumbnails; tap an image → in-app lightbox (zoom, download, next/previous) over the drawer; PDFs open in a new tab. Files load from the app's own origin (`/api/v1/attachments/:id/file`), never a storage URL.
 - **History**: Created + every update/void from the audit log, newest last, with before → after and reason.
 - Footer: Admin + Open + not voided → **Correct** (primary), **Void** (secondary); everyone → **Raise an objection** (P2).
 
@@ -355,7 +355,7 @@ Title "Void this entry?", body from 2.1, required **Reason** textarea (min 5 cha
 | LCK-01 | No create/update/void in a Closed period — API `409 PERIOD_CLOSED` + DB trigger | P1 |
 | LCK-02 | Adjustment entries (income or expense) in the Open month for older months, with `reference_period` + reason | P1 |
 | ATT-01 | Upload JPG/PNG/WebP/PDF, max 5 per entry, ≤ 5 MB each; images compressed client-side (max 2000px, ~80% quality) | P1 |
-| ATT-02 | Private storage; view via 5-minute signed URL; files cannot be replaced, only added or removed (removal audited) | P1 |
+| ATT-02 | Private storage; view through the authenticated same-origin file proxy (permission checked on every request, no storage URL reaches the browser); files cannot be replaced, only added or removed (removal audited) | P1 |
 | ATT-03 | Attachments can be added to an entry in an Open month after saving | P1 |
 | FND-01 | Fund account balance shown in the form; soft warning if the entry would make it negative | P1 |
 | FND-02 | Fund transfer between accounts (not income/expense) | P2 |
@@ -598,7 +598,8 @@ REST under `/api/v1`, JSON, cookie session + `X-CSRF-Token`. Money = integer pai
 | POST | `/attachments/presign` | `transaction.create` | Get upload URL `{ fileName, mime, size }` |
 | POST | `/transactions/:id/attachments` | `transaction.update` | Link uploaded files |
 | DELETE | `/transactions/:id/attachments/:attId` | `transaction.update` | Soft-remove (Open month, audited) |
-| GET | `/attachments/:id` | `attachment.view` | 5-min signed URL |
+| GET | `/attachments/:id` | `attachment.view` | `{ url, mime, fileName }` — `url` is the same-origin file path |
+| GET | `/attachments/:id/file` | `attachment.view` | Streams the file from the private bucket (same-origin proxy; ETag / 304) |
 | GET / POST / PATCH | `/units`, `/units/:id` | read: view · write: `unit.manage` | Units |
 | GET / POST / PATCH | `/fund-accounts`, `/fund-accounts/:id` | read: view · write: `fund.manage` | Fund accounts + live balance |
 | GET / POST / PATCH | `/categories?kind=`, `/categories/:id` | read: view · write: `category.manage` | Categories |
@@ -768,7 +769,7 @@ All are financial (`fin = true`) so owners see them in the Audit Log.
 | Concurrency | `SELECT … FOR SHARE` on the period row during create/update so a Close can't run mid-write |
 | Performance | List of a month (≤ 200 rows) p95 < 300 ms; summary < 100 ms; form opens < 200 ms |
 | Mobile | Usable at 360px; numeric keypad on amount; camera capture on attachments; drawer is full screen under 560px |
-| Files | Private bucket (S3 / R2), 5-min signed URLs, magic-byte MIME check, EXIF GPS stripped |
+| Files | Private bucket (S3 / R2), presigned 5-min upload URLs, viewing via the authenticated same-origin proxy (nosniff, script-free CSP), magic-byte MIME check, EXIF GPS stripped |
 | Offline | Not in v1; form keeps a draft in memory if the request fails, with a Retry button |
 | Localization | Category names in both languages; Bangla digits and month names; lakh grouping |
 | Accessibility | Labels on every field, errors linked by `aria-describedby`, tabs are real buttons with `aria-pressed`, rows are buttons |
@@ -835,7 +836,7 @@ Estimate for one full-time developer: about 2 weeks for P1.
 | 3 | `POST/PATCH/void /transactions` with `can()`, period checks, idempotency, audit |
 | 4 | List + summary APIs; S3 list screen (tabs, chips, rows, total, empty, lock banner) |
 | 5 | S4 entry drawer (create + correct), validation, warnings |
-| 6 | Attachments: presign, upload, compress, signed view, thumbnails |
+| 6 | Attachments: presign, upload, compress, proxied view + lightbox, thumbnails |
 | 7 | Detail drawer with history; Void dialog |
 | 8 | Generate rent preview + save + dialog |
 | 9 | Settings › Units, Fund accounts, Categories screens |
