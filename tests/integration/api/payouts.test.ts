@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as presign from "@/app/api/v1/attachments/presign/route";
 import * as view from "@/app/api/v1/attachments/[id]/route";
+import * as file from "@/app/api/v1/attachments/[id]/file/route";
 import * as payouts from "@/app/api/v1/payouts/route";
 import { prisma } from "@/lib/prisma";
 import { createFund, setPeriodStatus } from "../../helpers/factory";
@@ -161,7 +162,11 @@ describe("POST /api/v1/payouts (F11, PAY-01..04)", () => {
     const att = good.data.entries[0].attachments[0];
     expect(att).toMatchObject({ fileName: "r.png", mime: "image/png" });
     expect(await prisma.attachment.findUniqueOrThrow({ where: { id: att.id } })).toMatchObject({ entityType: "owner_ledger_entry", entityId: good.data.entries[0].id });
-    expect((await view.GET(apiRequest(`/attachments/${att.id}`, { login: w.ownerLogin }), params({ id: att.id }))).status).toBe(200);
+    const meta = await json(await view.GET(apiRequest(`/attachments/${att.id}`, { login: w.ownerLogin }), params({ id: att.id })));
+    expect(meta.data.url).toBe(`/api/v1/attachments/${att.id}/file`);
+    const bytes = await file.GET(apiRequest(meta.data.url.replace("/api/v1", ""), { login: w.ownerLogin }), params({ id: att.id }));
+    expect(bytes.status).toBe(200);
+    expect(bytes.headers.get("content-type")).toBe("image/png");
   });
 
   it("replays a double click and lets one of two racing full payouts win", async () => {

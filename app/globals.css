@@ -1178,3 +1178,70 @@ button.stair-cell {
     column-gap: 32px;
   }
 }
+
+/* ─── Bills & receipts lightbox (yet-another-react-lightbox) ───
+   Ink panel, paper controls, square buttons; no accent colours (the yellow
+   signal stays reserved). Mounted inside the drawer, so it must out-layer it. */
+.yarl__root.bh-viewer {
+  --yarl__color_backdrop: var(--color-text);
+  --yarl__container_background_color: var(--color-text);
+  --yarl__color_button: var(--color-bg);
+  --yarl__color_button_active: #ffffff;
+  --yarl__color_button_disabled: color-mix(in srgb, var(--color-bg) 35%, transparent);
+  --yarl__button_filter: none;
+  --yarl__button_padding: 10px;
+  --yarl__button_margin: 0;
+  --yarl__icon_size: 24px;
+  --yarl__toolbar_padding: 0;
+  --yarl__slide_icon_loading_color: color-mix(in srgb, var(--color-bg) 70%, transparent);
+  --yarl__slide_icon_error_color: var(--color-bg);
+  z-index: 100;
+  font-family: var(--font);
+}
+.bh-viewer .yarl__toolbar {
+  border-bottom: 2px solid color-mix(in srgb, var(--color-bg) 25%, transparent);
+  left: 0;
+  justify-content: flex-end;
+}
+.bh-viewer .yarl__button {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 0;
+}
+.bh-viewer .yarl__button:hover:not(:disabled) {
+  background: var(--color-accent-600);
+}
+.bh-viewer .yarl__button:focus-visible {
+  outline: 2px solid var(--color-bg);
+  outline-offset: -2px;
+}
+.bh-viewer-info {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 2px solid color-mix(in srgb, var(--color-bg) 25%, transparent);
+  color: var(--color-bg);
+  pointer-events: none;
+}
+.bh-viewer-counter {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.bh-viewer-caption {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.bh-viewer-error {
+  margin: 0;
+  color: var(--color-bg);
+  font-size: 14px;
+  font-weight: 600;
+}

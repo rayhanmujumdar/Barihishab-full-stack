@@ -106,8 +106,30 @@ test("an expense with a bill photo is saved once even on a double click, and its
   const detail = admin.getByRole("dialog", { name: "Electricity" });
   const bill = detail.getByRole("button", { name: "Open desco.jpg" });
   await expect(bill).toBeVisible();
-  // The thumbnail loads from the private bucket through a signed URL (and the CSP allows it).
+  // The thumbnail streams from the private bucket through the same-origin proxy — never a storage URL.
+  const origin = new URL(admin.url()).origin;
+  await expect(bill.locator("img")).toHaveAttribute("src", /^\/api\/v1\/attachments\/[\w-]+\/file$/);
   await expect.poll(() => bill.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  expect(await bill.locator("img").evaluate((img: HTMLImageElement) => new URL(img.currentSrc).origin)).toBe(origin);
+
+  // Tapping it opens the in-app lightbox over the drawer — no new tab (attachment-viewer).
+  const popups: unknown[] = [];
+  const onPopup = (p: unknown) => popups.push(p);
+  admin.context().on("page", onPopup);
+  await bill.click();
+  const viewer = admin.getByRole("dialog", { name: "Bills & receipts viewer" });
+  await expect(viewer).toBeVisible();
+  const slide = viewer.getByRole("img", { name: "desco.jpg" });
+  await expect.poll(() => slide.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  expect(await slide.evaluate((img: HTMLImageElement) => new URL(img.currentSrc).origin)).toBe(origin);
+  await expect(viewer.getByRole("button", { name: "Download" })).toBeVisible();
+  await expect(viewer.getByRole("button", { name: "Zoom in" })).toBeVisible(); // disabled here: the 1px test image can't zoom
+  await admin.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(detail).toBeVisible(); // the drawer stays open
+  await expect(bill).toBeFocused();
+  admin.context().off("page", onPopup);
+  expect(popups).toHaveLength(0);
 });
 
 test("a correction needs a reason and shows Corrected with before → after (COR-01)", async () => {

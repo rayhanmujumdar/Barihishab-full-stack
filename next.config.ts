@@ -2,8 +2,10 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// Bills live in a private S3-compatible bucket: browsers PUT uploads and load
-// signed thumbnails straight from it (Income & Expenses PRD ATT-01/02).
+// Bills live in a private S3-compatible bucket: browsers PUT uploads straight
+// to it (ATT-01), so only connect-src needs the storage origin. Viewing goes
+// through the same-origin proxy /api/v1/attachments/:id/file (ATT-02), so
+// img-src stays 'self' and a storage URL can't load on our pages.
 // headers() is resolved at build time, so S3_PUBLIC_ENDPOINT / S3_ENDPOINT
 // must be set for `next build` — changing them later needs a rebuild.
 const storageEndpoint = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT;
@@ -16,7 +18,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob:${storageOrigin}`,
+  "img-src 'self' data: blob:",
   "font-src 'self' data:",
   `connect-src 'self'${storageOrigin}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
@@ -53,7 +55,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/((?!api/v1/docs).*)", headers: [{ key: "Content-Security-Policy", value: csp }] },
+      // The bill/receipt file proxy sets its own, stricter CSP (no scripts at all).
+      { source: "/((?!api/v1/docs|api/v1/attachments/[^/]+/file$).*)", headers: [{ key: "Content-Security-Policy", value: csp }] },
     ];
   },
 };

@@ -5,12 +5,13 @@ import { randomUUID } from "node:crypto";
 import type { Prisma, Attachment } from "@/lib/generated/prisma/client";
 import { Abort, inTransaction as run } from "@/lib/api/in-transaction";
 import { failWith, fieldFail, type Actor, type Fail, type Result } from "@/lib/api/result";
+import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import { audit } from "@/lib/audit";
 import { addMs, HOUR, now, SECOND } from "@/lib/clock";
 import { matchesMime, SNIFF_BYTES } from "@/lib/files/magic";
 import { lockPeriod } from "@/lib/periods/period-service";
 import { prisma } from "@/lib/prisma";
-import { storage, URL_TTL_SECONDS } from "@/lib/storage";
+import { storage, URL_TTL_SECONDS, type StoredObject } from "@/lib/storage";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -162,16 +163,40 @@ export async function removeAttachment(propertyId: string, txnId: string, attId:
   });
 }
 
-/** ATT-02: 5-minute signed view URL for a linked, non-removed file. */
-export async function viewUrl(propertyId: string, id: string) {
+/** `If-None-Match` holds the ETag (weak or strong, or `*`)? */
+function etagMatches(ifNoneMatch: string, etag: string) {
+  const bare = (t: string) => t.trim().replace(/^W\//, "");
+  return ifNoneMatch.split(",").some((t) => t.trim() === "*" || bare(t) === bare(etag));
+}
+
+export type OpenedFile =
+  | { notModified: true; etag: string }
+  | ({ notModified: false; mime: string; fileName: string } & StoredObject);
+
+/**
+ * ATT-02: a linked, non-removed file of this property, streamed from the
+ * private bucket for the same-origin proxy. Null when the row or the stored
+ * object doesn't exist. A matching `If-None-Match` is answered from a HEAD,
+ * so an unchanged file is never downloaded from storage again.
+ */
+export async function openFile(propertyId: string, id: string, opts: { ifNoneMatch?: string | null } = {}): Promise<OpenedFile | null> {
   const att = await prisma.attachment.findFirst({ where: { id, propertyId, ...LINKED } });
   if (!att) return null;
-  return {
-    url: await storage().presignGet(att.storageKey, att.fileName, att.mime),
-    mime: att.mime,
-    fileName: att.fileName,
-    expiresAt: addMs(now(), URL_TTL_SECONDS * SECOND).toISOString(),
-  };
+  if (opts.ifNoneMatch) {
+    const info = await storage().head(att.storageKey);
+    if (!info) return null;
+    if (info.etag && etagMatches(opts.ifNoneMatch, info.etag)) return { notModified: true, etag: info.etag };
+  }
+  const obj = await storage().get(att.storageKey);
+  if (!obj) return null;
+  return { notModified: false, mime: att.mime, fileName: att.fileName, ...obj };
+}
+
+/** ATT-02: what a client needs to show a linked, non-removed file of this property. */
+export async function fileMeta(propertyId: string, id: string) {
+  const att = await prisma.attachment.findFirst({ where: { id, propertyId, ...LINKED }, select: { id: true, mime: true, fileName: true } });
+  if (!att) return null;
+  return { url: attachmentFileUrl(att.id), mime: att.mime, fileName: att.fileName };
 }
 
 // ─── Housekeeping ───

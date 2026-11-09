@@ -8,14 +8,24 @@ registry.registerPath({
   method: "get",
   path: "/attachments/{id}",
   tags: ["Attachments"],
-  summary: "5-minute signed URL to view a bill or receipt",
-  description: "Permission `attachment.view`. Linked, non-removed files only.",
+  summary: "Where to load a bill or receipt from",
+  description:
+    "Permission `attachment.view`. Linked, non-removed files only. `url` is the same-origin path of the file proxy (`GET /attachments/{id}/file`) — no storage URL and no expiry; access is checked on every file request.",
   security: cookieAuthRead,
   request: { params: idParam },
   responses: {
     200: jsonResponse(
-      "Signed URL",
-      apiSuccessSchema("AttachmentUrlResponse", z.object({ url: z.url(), mime: z.string(), fileName: z.string(), expiresAt: z.iso.datetime() }).meta({ id: "AttachmentUrl" })),
+      "File location",
+      apiSuccessSchema(
+        "AttachmentUrlResponse",
+        z
+          .object({
+            url: z.string().startsWith("/api/v1/attachments/").meta({ description: "Same-origin path; resolve against the app's origin", example: "/api/v1/attachments/3f1c…/file" }),
+            mime: z.string(),
+            fileName: z.string(),
+          })
+          .meta({ id: "AttachmentUrl" }),
+      ),
     ),
     ...readErrors,
     404: jsonResponse("NOT_FOUND", ApiErrorSchema),

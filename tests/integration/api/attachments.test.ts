@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as presign from "@/app/api/v1/attachments/presign/route";
 import * as view from "@/app/api/v1/attachments/[id]/route";
+import * as file from "@/app/api/v1/attachments/[id]/file/route";
 import * as txnAttach from "@/app/api/v1/transactions/[id]/attachments/route";
 import * as txnAttachOne from "@/app/api/v1/transactions/[id]/attachments/[attId]/route";
 import * as one from "@/app/api/v1/transactions/[id]/route";
@@ -8,7 +9,7 @@ import * as txns from "@/app/api/v1/transactions/route";
 import { inTransaction } from "@/lib/api/in-transaction";
 import { linkAttachments, sweepUnlinkedUploads, UNLINKED_TTL_MS } from "@/lib/attachments/attachment-service";
 import { prisma } from "@/lib/prisma";
-import { createProperty, createTxn, moneyWorld } from "../../helpers/factory";
+import { createProperty, createTxn, createUser, moneyWorld } from "../../helpers/factory";
 import { fileBytes, useFakeStorage } from "../../helpers/fake-storage";
 import { apiRequest, json, loginAs, params, type Login } from "../../helpers/http";
 import { freezeDhaka, moneyPost } from "../../helpers/money";
@@ -140,7 +141,8 @@ describe("removal and viewing (ATT-02)", () => {
 
     const seen = await view.GET(apiRequest(`/attachments/${id}`, { login: w.ownerLogin }), params({ id }));
     expect(seen.status).toBe(200);
-    expect((await json(seen)).data).toMatchObject({ url: expect.stringContaining("https://s3.test/get/"), mime: "image/png", fileName: "bill.png", expiresAt: expect.any(String) });
+    expect(seen.headers.get("cache-control")).toBe("no-store");
+    expect((await json(seen)).data).toEqual({ url: `/api/v1/attachments/${id}/file`, mime: "image/png", fileName: "bill.png" });
 
     const del = await txnAttachOne.DELETE(apiRequest(`/transactions/${w.entry.id}/attachments/${id}`, { method: "DELETE", login: w.adminLogin }), params({ id: w.entry.id, attId: id }));
     expect(del.status).toBe(204);
@@ -158,6 +160,106 @@ describe("removal and viewing (ATT-02)", () => {
     await prisma.period.update({ where: { id: w.oct.id }, data: { status: "CLOSED" } });
     const del = await txnAttachOne.DELETE(apiRequest(`/transactions/${w.entry.id}/attachments/${id}`, { method: "DELETE", login: w.adminLogin }), params({ id: w.entry.id, attId: id }));
     expect((await json(del)).error.code).toBe("PERIOD_CLOSED");
+  });
+});
+
+describe("GET /api/v1/attachments/:id/file — same-origin proxy (ATT-02)", () => {
+  const getFile = (id: string, login: Login | null, query = "", headers: Record<string, string> = {}) =>
+    file.GET(apiRequest(`/attachments/${id}/file${query}`, { login, headers }), params({ id }));
+
+  async function linked(kind: "png" | "pdf" = "png") {
+    const w = await setup();
+    const { id } = await upload(w.adminLogin, kind);
+    await link(w, [id]);
+    const row = await prisma.attachment.findUniqueOrThrow({ where: { id } });
+    return { w, id, row };
+  }
+
+  it("streams the stored bytes to an Owner without exposing storage", async () => {
+    const { w, id, row } = await linked();
+    const res = await getFile(id, w.ownerLogin);
+    expect(res.status).toBe(200);
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(fileBytes("png"));
+    const headers = [...res.headers.entries()].map(([k, v]) => `${k}: ${v}`).join("\n");
+    expect(headers).not.toContain("s3.test");
+    expect(headers).not.toContain(row.storageKey);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("sets safe headers from the stored row", async () => {
+    const { w, id } = await linked("pdf");
+    await prisma.attachment.update({ where: { id }, data: { fileName: "desco-oct.pdf" } });
+    const res = await getFile(id, w.ownerLogin);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(res.headers.get("content-length")).toBe("64");
+    expect(res.headers.get("content-disposition")).toMatch(/^inline; filename="desco-oct\.pdf"; filename\*=UTF-8''desco-oct\.pdf$/);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(res.headers.get("content-security-policy")).not.toContain("script-src");
+    expect(res.headers.get("cache-control")).toBe("private, max-age=300");
+    expect(res.headers.get("etag")).toMatch(/^".+"$/);
+
+    const dl = await getFile(id, w.ownerLogin, "?download=1");
+    expect(dl.headers.get("content-disposition")).toMatch(/^attachment; filename="desco-oct\.pdf"/);
+  });
+
+  it("answers 304 when the browser's copy is current", async () => {
+    const { w, id } = await linked();
+    const etag = (await getFile(id, w.ownerLogin)).headers.get("etag")!;
+    const res = await getFile(id, w.ownerLogin, "", { "if-none-match": etag });
+    expect(res.status).toBe(304);
+    expect(res.headers.get("etag")).toBe(etag);
+    expect(await res.text()).toBe("");
+    expect((await getFile(id, w.ownerLogin, "", { "if-none-match": '"stale"' })).status).toBe(200);
+  });
+
+  it("404s for malformed, unknown, unlinked, removed and other-property files", async () => {
+    const { w, id } = await linked();
+    expect((await getFile("not-a-uuid", w.ownerLogin)).status).toBe(404);
+    expect((await getFile("00000000-0000-4000-8000-000000000000", w.ownerLogin)).status).toBe(404);
+
+    const { id: unlinked } = await upload(w.adminLogin);
+    expect((await getFile(unlinked, w.ownerLogin)).status).toBe(404);
+
+    const other = await createProperty();
+    const foreign = await prisma.attachment.create({
+      data: { propertyId: other.id, storageKey: "p/other/att/x", fileName: "x.png", mime: "image/png", sizeBytes: 64, uploadedById: w.admin.id, entityId: w.entry.id, linkedAt: new Date() },
+    });
+    store.put(foreign.storageKey, fileBytes("png"));
+    const res = await getFile(foreign.id, w.ownerLogin);
+    expect(res.status).toBe(404);
+    expect((await json(res)).error.code).toBe("NOT_FOUND");
+
+    await txnAttachOne.DELETE(apiRequest(`/transactions/${w.entry.id}/attachments/${id}`, { method: "DELETE", login: w.adminLogin }), params({ id: w.entry.id, attId: id }));
+    expect((await getFile(id, w.ownerLogin)).status).toBe(404);
+    // the removed file stays in the bucket — only its viewing stops
+    expect(store.has((await prisma.attachment.findUniqueOrThrow({ where: { id } })).storageKey)).toBe(true);
+  });
+
+  it("401s without a session and 403s without attachment.view", async () => {
+    const { id } = await linked();
+    const anon = await getFile(id, null);
+    expect(anon.status).toBe(401);
+    expect(anon.headers.get("content-type")).toContain("application/json");
+    const viewer = await loginAs(await createUser({ roles: ["VIEWER"] }));
+    expect((await getFile(id, viewer)).status).toBe(403);
+  });
+
+  it("404s when the object is gone and 500s, without details, when storage fails", async () => {
+    const { w, id, row } = await linked();
+    store.fail(new Error(`connect ECONNREFUSED s3.internal ${row.storageKey}`));
+    const broken = await getFile(id, w.ownerLogin);
+    expect(broken.status).toBe(500);
+    const body = await broken.text();
+    expect(body).toContain("INTERNAL_ERROR");
+    expect(body).not.toContain("s3.internal");
+    store.fail(null);
+
+    store.reset();
+    store = useFakeStorage();
+    const gone = await getFile(id, w.ownerLogin);
+    expect(gone.status).toBe(404);
+    expect((await json(gone)).error.code).toBe("NOT_FOUND");
   });
 });
 

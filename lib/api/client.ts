@@ -53,6 +53,14 @@ function refreshOnce(): Promise<boolean> {
   return refreshing;
 }
 
+/**
+ * Renews the access token (one request however many callers). For requests
+ * that can't refresh themselves, like an `<img>` hitting an expired token.
+ */
+export function refreshSession(): Promise<boolean> {
+  return refreshOnce();
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {},

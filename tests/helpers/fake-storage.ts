@@ -1,12 +1,24 @@
 // In-memory stand-in for the S3 bucket (integration tests never hit the network).
+import { createHash } from "node:crypto";
 import { setStorageForTests, type Storage } from "@/lib/storage";
+
+const etagOf = (bytes: Uint8Array) => `"${createHash("sha1").update(bytes).digest("hex")}"`;
 
 export function useFakeStorage() {
   const objects = new Map<string, Uint8Array>();
+  let failing: Error | null = null;
   const fake: Storage = {
     presignPut: async (key, mime, size) => `https://s3.test/put/${key}?type=${encodeURIComponent(mime)}&size=${size}`,
-    presignGet: async (key, fileName) => `https://s3.test/get/${key}?name=${encodeURIComponent(fileName)}&expires=300`,
-    head: async (key) => (objects.has(key) ? { size: objects.get(key)!.length } : null),
+    head: async (key) => {
+      if (failing) throw failing;
+      const bytes = objects.get(key);
+      return bytes ? { size: bytes.length, etag: etagOf(bytes) } : null;
+    },
+    get: async (key) => {
+      if (failing) throw failing;
+      const bytes = objects.get(key);
+      return bytes ? { body: new Response(bytes.slice()).body!, size: bytes.length, etag: etagOf(bytes) } : null;
+    },
     readHead: async (key, bytes) => (objects.get(key) ?? new Uint8Array()).slice(0, bytes),
     delete: async (key) => {
       objects.delete(key);
@@ -16,8 +28,13 @@ export function useFakeStorage() {
   return {
     put: (key: string, bytes: Uint8Array) => objects.set(key, bytes),
     has: (key: string) => objects.has(key),
+    /** Make every head/get throw (storage outage) until called with null. */
+    fail: (err: Error | null) => {
+      failing = err;
+    },
     reset: () => {
       objects.clear();
+      failing = null;
       setStorageForTests(undefined);
     },
   };
