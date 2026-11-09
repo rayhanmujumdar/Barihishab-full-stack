@@ -28,6 +28,14 @@ beforeEach(() => {
 const sent = (method: string) => api.mock.calls.filter(([, o]) => o?.method === method);
 
 describe("EntryDrawer (S4)", () => {
+  it("debounces vendor autocomplete: a typing burst queries only the final term", async () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ kind: "EXPENSE" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await userEvent.type(screen.getByLabelText("Payee / vendor"), "DES");
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/transactions/vendors?q=DES", undefined));
+    const terms = api.mock.calls.map(([p]) => String(p)).filter((p) => p.startsWith("/transactions/vendors?q=") && p !== "/transactions/vendors?q=");
+    expect(terms).toEqual(["/transactions/vendors?q=DES"]);
+  });
+
   it("parses a Bangla amount and posts an expense with an Idempotency-Key", async () => {
     const onSaved = vi.fn();
     render(<EntryDrawer locale="bn" data={entriesData()} mode={{ kind: "EXPENSE" }} onClose={vi.fn()} onSaved={onSaved} />);
