@@ -1,6 +1,6 @@
 import { readJson } from "@/lib/api/body";
 import { apiError, fieldError } from "@/lib/api/errors";
-import { COOKIE, readCookie } from "@/lib/auth/cookies";
+import { readRefreshCookie } from "@/lib/auth/cookies";
 import { withAuth } from "@/lib/auth/guard";
 import { withAuthCookies } from "@/lib/auth/issue";
 import { PASSWORD_MESSAGES } from "@/lib/auth/password-policy";
@@ -13,7 +13,7 @@ export const POST = withAuth(
     const body = await readJson(req, ChangePasswordBodySchema);
     if (!body.ok) return body.response;
     const result = await changePassword(
-      { userId: auth.userId, sessionId: auth.sessionId, refreshToken: readCookie(req, COOKIE.refresh), ...body.data },
+      { userId: auth.userId, sessionId: auth.sessionId, refreshToken: readRefreshCookie(req), ...body.data },
       requestMeta(req),
     );
     if (!result.ok) {

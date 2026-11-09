@@ -32,6 +32,15 @@ describe("POST /api/v1/auth/refresh", () => {
     expect((await json(res)).data.csrfToken).toBe(next.bh_csrf.value);
   });
 
+  it("refreshes with the real token when a shadow bh_rt is sent first, and deletes the shadow", async () => {
+    const user = await createUser();
+    const first = await loginViaApi(user.username);
+    const shadow = `bh_rt=${encodeURIComponent("(httpOnly cookie, sent by the browser)")}; `;
+    const res = await refresh(apiRequest("/auth/refresh", { method: "POST", cookie: shadow + first.cookie }), p);
+    expect(res.status).toBe(200);
+    expect(res.headers.getSetCookie()).toContain("bh_rt=; Path=/api/v1; Max-Age=0; SameSite=Lax");
+  });
+
   it("detects reuse: 401, cookies cleared, whole family revoked, audited", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     const user = await createUser();
