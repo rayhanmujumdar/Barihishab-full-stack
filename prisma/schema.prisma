@@ -19,3 +19,274 @@ model ConnectionTest {
 
   @@map("connection_tests")
 }
+
+// ─── Auth & authorization (docs/barihishab_authentication_autorization.md §6) ───
+// The auth_foundation migration also holds hand-written SQL Prisma can't
+// express: citext extension, username CHECK, the user_roles COALESCE unique
+// index, partial indexes on sessions/auth_tokens, and the audit_logs
+// append-only triggers. If `migrate dev` ever proposes dropping them, keep them.
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+}
+
+enum Locale {
+  bn
+  en
+}
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  ACCOUNTANT
+  VIEWER
+}
+
+enum AuthTokenType {
+  INVITE
+  RESET
+}
+
+enum EmailTemplate {
+  INVITE
+  RESET
+  PASSWORD_CHANGED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+}
+
+// One row in v1; every property-scoped table references it.
+model Property {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  currency  String   @default("BDT")
+  timezone  String   @default("Asia/Dhaka")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roles UserRole[]
+
+  @@map("properties")
+}
+
+// better-auth `user` model + BariHisab profile columns. No financial data.
+// The password hash lives in `accounts` (provider_id = 'credential').
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  name                String
+  email               String     @unique @db.Citext
+  emailVerified       Boolean    @default(false) @map("email_verified")
+  image               String?
+  username            String     @unique @db.Citext
+  displayUsername     String     @map("display_username")
+  firstName           String?    @map("first_name")
+  lastName            String?    @map("last_name")
+  surname             String?
+  birthday            DateTime?  @db.Date
+  profession          String?
+  phone               String?
+  whatsapp            String?
+  whatsappSameAsPhone Boolean    @default(false) @map("whatsapp_same_as_phone")
+  houseResponsibility String?    @map("house_responsibility")
+  locale              Locale     @default(bn)
+  status              UserStatus @default(INVITED)
+  failedLoginCount    Int        @default(0) @map("failed_login_count")
+  lockedUntil         DateTime?  @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  passwordChangedAt   DateTime?  @map("password_changed_at") @db.Timestamptz(6)
+  tokenVersion        Int        @default(0) @map("token_version")
+  createdById         String?    @map("created_by") @db.Uuid
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy   User?         @relation("UserCreatedBy", fields: [createdById], references: [id])
+  created     User[]        @relation("UserCreatedBy")
+  accounts    Account[]
+  baSessions  BaSession[]
+  roles       UserRole[]    @relation("UserRoles")
+  grants      UserRole[]    @relation("RoleGrantedBy")
+  sessions    AuthSession[]
+  authTokens  AuthToken[]   @relation("AuthTokenUser")
+  issuedTokens AuthToken[]  @relation("AuthTokenCreatedBy")
+  emails      EmailOutbox[]
+
+  @@index([status])
+  @@map("users")
+}
+
+// better-auth `account` model; holds the Argon2id password hash.
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id") @db.Uuid
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+// better-auth `verification` model (required by the library; identifiers hashed).
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// better-auth's own `session` model. Unused: BariHisab issues its own
+// access/refresh tokens (see AuthSession). Kept so the adapter schema is complete.
+model BaSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ba_sessions")
+}
+
+// System role grants. property_id NULL = global. Uniqueness over
+// (user_id, coalesce(property_id), role) is enforced by a SQL index in the migration.
+model UserRole {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  propertyId  String?   @map("property_id") @db.Uuid
+  role        Role
+  grantedById String?   @map("granted_by") @db.Uuid
+  grantedAt   DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+
+  user      User      @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  // Restrict: NULL property means "global", so deleting a property must never
+  // silently widen its scoped grants via SET NULL.
+  property  Property? @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  grantedBy User?     @relation("RoleGrantedBy", fields: [grantedById], references: [id])
+
+  @@index([role])
+  @@map("user_roles")
+}
+
+// Refresh-token store. Only the SHA-256 hash of the refresh token is kept.
+model AuthSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  familyId      String    @map("family_id") @db.Uuid
+  replacedById  String?   @map("replaced_by_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash") @db.Char(64)
+  remember      Boolean   @default(false)
+  ip            String?
+  userAgent     String?   @map("user_agent")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  idleExpiresAt DateTime? @map("idle_expires_at") @db.Timestamptz(6)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(6)
+  rotatedAt     DateTime? @map("rotated_at") @db.Timestamptz(6)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokedReason String?   @map("revoked_reason")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@map("sessions")
+}
+
+// Single-use INVITE (72 h) and RESET (1 h) tokens, stored as SHA-256 hashes.
+model AuthToken {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  type        AuthTokenType
+  tokenHash   String        @unique @map("token_hash") @db.Char(64)
+  expiresAt   DateTime      @map("expires_at") @db.Timestamptz(6)
+  usedAt      DateTime?     @map("used_at") @db.Timestamptz(6)
+  revokedAt   DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  createdById String?       @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User  @relation("AuthTokenUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("AuthTokenCreatedBy", fields: [createdById], references: [id])
+
+  @@map("auth_tokens")
+}
+
+// INSERT-only (trigger + REVOKE in the migration). No FK to users on purpose:
+// the log must outlive and never block changes to the rows it describes.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  before     Json?
+  after      Json?
+  reason     String?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([action])
+  @@index([entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+// Transactional outbox; a worker sends, the API never emails directly.
+model EmailOutbox {
+  id                String        @id @default(uuid()) @db.Uuid
+  toUserId          String?       @map("to_user_id") @db.Uuid
+  toEmail           String        @map("to_email")
+  template          EmailTemplate
+  locale            Locale        @default(bn)
+  payload           Json          @default("{}")
+  status            EmailStatus   @default(QUEUED)
+  attempts          Int           @default(0)
+  nextAttemptAt     DateTime      @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  lastError         String?       @map("last_error")
+  sentAt            DateTime?     @map("sent_at") @db.Timestamptz(6)
+  providerMessageId String?       @map("provider_message_id")
+  dedupeKey         String        @unique @map("dedupe_key")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  toUser User? @relation(fields: [toUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@map("email_outbox")
+}
+
+// Fixed-window counters for login / reset rate limits.
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @map("window_start") @db.Timestamptz(6)
+
+  @@map("rate_limits")
+}

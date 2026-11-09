@@ -1,0 +1,33 @@
+import type { Metadata } from "next";
+import { t } from "@/lib/i18n";
+import { Suspense } from "react";
+import { HomeDesk } from "@/components/app/HomeDesk";
+import { requireViewer } from "@/lib/auth/server";
+import { getLocale } from "@/lib/i18n/server";
+import { can } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: t(await getLocale(), "meta.home") };
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <Home />
+    </Suspense>
+  );
+}
+
+async function Home() {
+  const viewer = await requireViewer();
+  const locale = await getLocale();
+  // A5: admin blocks only for dashboard.admin, checked on the server.
+  const stats = can(viewer, "dashboard.admin")
+    ? {
+        pendingInvites: await prisma.user.count({ where: { status: "INVITED" } }),
+        activeUsers: await prisma.user.count({ where: { status: "ACTIVE" } }),
+      }
+    : null;
+  return <HomeDesk locale={locale} name={viewer.firstName ?? viewer.username} permissions={viewer.permissions} stats={stats} />;
+}

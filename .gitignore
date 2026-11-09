@@ -42,3 +42,12 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Local agent workspace (screenshots, Playwright output, e2e state with live invite URLs)
+/.context/
