@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
+import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import type { PublicUser } from "@/lib/users/dto";
 import { Toaster } from "@/components/ui/sonner";
 import { UsersManager } from "./UsersManager";
@@ -308,5 +309,31 @@ describe("UsersManager (A6)", () => {
       await waitFor(() => expect(api).toHaveBeenCalledWith(`/users/${owner.id}`, expect.objectContaining({ method: "PATCH" })));
       expect(screen.queryByRole("alertdialog")).toBeNull();
     });
+  });
+});
+
+describe("user drawer required markers (form-required-indicator)", () => {
+  const marked = (id: string) => document.querySelector(`label[for="${id}"]`)?.getAttribute("data-required") === "true";
+
+  it("marks Username, Email and Role only, shows the legend, and keeps the star out of label text", async () => {
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} />);
+    await userEvent.click(screen.getByRole("button", { name: /New user/ }));
+    const drawer = screen.getByRole("dialog", { name: "New user" });
+    expect(marked("u-username") && marked("u-email") && marked("u-role")).toBe(true);
+    for (const id of ["u-first", "u-last", "u-surname", "u-profession", "u-phone", "u-whatsapp", "u-locale", "u-resp"]) expect(marked(id), id).toBe(false);
+    expect(within(drawer).getByText("* Required")).toBeInTheDocument();
+    expect(within(drawer).getByRole("textbox", { name: "Username" })).toBeRequired();
+    expect(within(drawer).getByRole("combobox", { name: "System role" })).toBeRequired();
+    for (const l of drawer.querySelectorAll("label")) expect(l.textContent).not.toMatch(/\*$/);
+    expectRequiredMarkersMatch(drawer);
+  });
+
+  it("marks the deactivate reason", async () => {
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} />);
+    await userEvent.click(within(row("Karim")).getByRole("button", { name: /Actions for Karim/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Deactivate" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Deactivate Karim?" });
+    expect(marked("confirm-reason")).toBe(true);
+    expectRequiredMarkersMatch(dialog);
   });
 });

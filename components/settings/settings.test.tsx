@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
+import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import { entriesData } from "@/components/entries/fixtures";
 import { SettingsView } from "./SettingsView";
 
@@ -75,5 +76,38 @@ describe("SettingsView (MST-01..03)", () => {
     await userEvent.type(screen.getByLabelText("Bangla name"), "ইন্টারনেট");
     await userEvent.click(screen.getByRole("button", { name: /^Save/ }));
     await waitFor(() => expect(api).toHaveBeenCalledWith("/categories", { method: "POST", body: { kind: "EXPENSE", nameEn: "Internet", nameBn: "ইন্টারনেট" } }));
+  });
+});
+
+describe("Settings drawers required markers (form-required-indicator)", () => {
+  const marked = (id: string) => document.querySelector(`label[for="${id}"]`)?.getAttribute("data-required") === "true";
+  const open = async (region: string) => {
+    render(<SettingsView {...props} />);
+    await userEvent.click(within(screen.getByRole("region", { name: region })).getByRole("button", { name: "Add" }));
+    return screen.getByRole("dialog");
+  };
+
+  it("unit drawer marks only the name and shows the legend", async () => {
+    const drawer = await open("Units");
+    expect(marked("m-name")).toBe(true);
+    for (const id of ["m-tenant", "m-rent", "m-fund"]) expect(marked(id), id).toBe(false);
+    expect(within(drawer).getByText("* Required")).toBeInTheDocument();
+    expectRequiredMarkersMatch(drawer);
+  });
+
+  it("fund drawer marks name, type and opening date, not the opening balance", async () => {
+    const drawer = await open("Fund accounts");
+    expect(marked("m-name") && marked("m-type")).toBe(true);
+    expect(document.getElementById("m-opening-date-label")).toHaveAttribute("data-required", "true");
+    expect(marked("m-opening")).toBe(false);
+    expect(within(drawer).getByText("* Required")).toBeInTheDocument();
+    expectRequiredMarkersMatch(drawer);
+  });
+
+  it("category drawer marks both names with no legend", async () => {
+    const drawer = await open("Expense categories");
+    expect(marked("m-name-en") && marked("m-name-bn")).toBe(true);
+    expect(within(drawer).queryByText("* Required")).toBeNull();
+    expectRequiredMarkersMatch(drawer);
   });
 });

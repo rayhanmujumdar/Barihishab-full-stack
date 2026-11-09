@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ArrowRightIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { ErrorStrip } from "@/components/forms/error-strip";
-import { DateField, SelectField, TextField } from "@/components/forms/fields";
+import { DateField, RequiredLegend, requiredProps, SelectField, TextField } from "@/components/forms/fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,6 +124,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
   const category = data.categories.find((c) => c.id === form.categoryId);
   const code = category?.code;
   const isRentLike = code === "RENT" || code === "ARREAR";
+  const needsUnit = form.kind === "INCOME" && isRentLike;
   // Arrear rent and Adjustments (LCK-02) always point at a closed month.
   const needsReference = code === "ARREAR" || mode.entry?.source === "ADJUSTMENT";
   const openMonths = data.periods.filter((p) => p.status === "OPEN");
@@ -165,7 +166,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
     if (!form.categoryId) e.categoryId = tr("entry.err.category");
     if (!form.fundAccountId) e.fundAccountId = tr("entry.err.fund");
     if (!form.period) e.period = tr("entry.err.period");
-    if (form.kind === "INCOME" && isRentLike && !form.unitId) e.unitId = tr("entry.err.unit");
+    if (needsUnit && !form.unitId) e.unitId = tr("entry.err.unit");
     if (needsReference && !form.referencePeriod) e.referencePeriod = tr("entry.err.reference");
     if (!form.txnDate || isAfterTomorrow(form.txnDate, todayIsoInDhaka())) e.txnDate = tr("entry.err.date");
     if (correcting && form.reason.trim().length < 5) e.reason = tr("entry.err.reason");
@@ -277,6 +278,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
               <AlertDescription>{liveWarnings.join(" ")}</AlertDescription>
             </Alert>
           ) : null}
+          <RequiredLegend text={tr("common.required")} />
 
           {!correcting ? (
             <div role="group" aria-label={tr("entry.type")} className="grid grid-cols-2 border border-border">
@@ -298,6 +300,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <SelectField
               id="e-period"
               label={tr("entry.field.period")}
+              required
               value={form.period}
               onChange={(e) => set("period", e.target.value)}
               error={errors.period}
@@ -306,6 +309,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <SelectField
               id="e-category"
               label={tr("entry.field.category")}
+              required
               value={form.categoryId}
               onChange={(e) => set("categoryId", e.target.value)}
               error={errors.categoryId}
@@ -317,6 +321,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <SelectField
               id="e-reference"
               label={tr("entry.field.reference")}
+              required
               hint={tr("entry.field.referenceHint")}
               value={form.referencePeriod}
               onChange={(e) => set("referencePeriod", e.target.value)}
@@ -326,7 +331,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
           ) : null}
 
           <Field>
-            <FieldLabel htmlFor="e-amount" className="text-xs font-semibold text-muted-foreground">
+            <FieldLabel htmlFor="e-amount" className="text-xs font-semibold text-muted-foreground" {...requiredProps(true)}>
               {tr("entry.field.amount")}
             </FieldLabel>
             <Input
@@ -334,6 +339,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
               name="amount"
               inputMode="decimal"
               autoComplete="off"
+              required
               className="amount-input"
               placeholder={tr("entry.ph.amount")}
               value={form.amount}
@@ -352,6 +358,8 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <DateField
               id="e-date"
               label={tr("entry.field.date")}
+              required
+              requiredText={tr("common.required")}
               placeholder={tr("entry.ph.date")}
               clearLabel={tr("common.clear")}
               locale={locale}
@@ -364,6 +372,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <SelectField
               id="e-fund"
               label={tr("entry.field.fund")}
+              required
               value={form.fundAccountId}
               onChange={(e) => {
                 setFundTouched(true);
@@ -381,6 +390,7 @@ export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: 
             <SelectField
               id="e-unit"
               label={tr("entry.field.unit")}
+              required={needsUnit}
               value={form.unitId}
               onChange={(e) => pickUnit(e.target.value)}
               error={errors.unitId}

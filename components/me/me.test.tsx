@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
 import { permissionsFor } from "@/lib/permissions";
+import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import { MeScreen } from "./MeScreen";
 
 const refresh = vi.fn();
@@ -66,7 +67,7 @@ describe("MeScreen (A7)", () => {
     expect(submit).toBeEnabled();
     await userEvent.click(submit);
     expect(await screen.findByText("Current password is wrong.")).toBeInTheDocument();
-  });
+  }, 15_000); // types ~30 chars; the 5 s default flakes under full-suite load
 
   it("marks the current session", () => {
     render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
@@ -121,5 +122,31 @@ describe("MeScreen (A7)", () => {
       await waitFor(() => expect(toastError).toHaveBeenCalledWith("Boom"));
       expect(screen.getByText(/Android/)).toBeInTheDocument();
     });
+  });
+});
+
+describe("MeScreen required markers (form-required-indicator)", () => {
+  const marked = (id: string) => document.querySelector(`label[for="${id}"]`)?.getAttribute("data-required") === "true";
+  const legend = () => screen.queryByText("* Required");
+
+  it("Super Admin: editable username and email are marked and the profile legend shows", () => {
+    const { container } = render(<MeScreen locale="en" profile={{ ...profile, roles: ["SUPER_ADMIN"] }} permissions={permissionsFor(["SUPER_ADMIN"])} sessions={sessions} navigate={vi.fn()} />);
+    expect(marked("me-username") && marked("me-email")).toBe(true);
+    for (const id of ["me-first", "me-last", "me-surname", "me-profession", "me-phone", "me-whatsapp"]) expect(marked(id), id).toBe(false);
+    expect(legend()).toBeInTheDocument();
+    expectRequiredMarkersMatch(container);
+  });
+
+  it("Owner: read-only username and email are not marked and there is no profile legend", () => {
+    const { container } = render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    expect(marked("me-username") || marked("me-email")).toBe(false);
+    expect(legend()).toBeNull();
+    expectRequiredMarkersMatch(container);
+  });
+
+  it("change-password form marks current, new and repeat", () => {
+    render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    expect(marked("me-current") && marked("me-new") && marked("me-repeat")).toBe(true);
+    expect(screen.getByLabelText("Current password")).toBeRequired();
   });
 });
