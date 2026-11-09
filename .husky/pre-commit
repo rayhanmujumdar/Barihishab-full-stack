@@ -1,0 +1,15 @@
+# Block the commit unless TypeScript and ESLint are green.
+
+echo "▶ Type-checking project (tsc --noEmit)…"
+pnpm run -s typecheck || {
+  echo "✖ TypeScript errors found. Fix them before committing."
+  exit 1
+}
+
+echo "▶ Linting staged files (eslint)…"
+pnpm exec lint-staged || {
+  echo "✖ ESLint failed on staged files. Fix them before committing."
+  exit 1
+}
+
+echo "✔ TypeScript and ESLint are green."

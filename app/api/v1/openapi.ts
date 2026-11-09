@@ -7,6 +7,22 @@ import { registry } from "./registry";
 
 import "./health/schema";
 import "./health/db/schema";
+import "./auth/login/schema";
+import "./auth/refresh/schema";
+import "./auth/session/schema";
+import "./auth/logout/schema";
+import "./auth/logout-all/schema";
+import "./auth/forgot/schema";
+import "./auth/reset/schema";
+import "./auth/reset/[token]/schema";
+import "./auth/invite/[token]/schema";
+import "./auth/accept-invite/schema";
+import "./me/schema";
+import "./me/password/schema";
+import "./me/sessions/schema";
+import "./users/schema";
+import "./users/[id]/schema";
+import "./audit/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 
