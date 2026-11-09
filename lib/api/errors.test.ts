@@ -39,6 +39,14 @@ describe("error catalogue", () => {
     expect(ERRORS.NO_OPEN_PERIOD.en).toBe("Open a month first — payments are recorded in an open month.");
   });
 
+  it("maps the Distribution PRD §9 codes", () => {
+    for (const code of ["CLOSE_BLOCKED", "PREVIOUS_MONTH_OPEN", "PERIOD_ALREADY_CLOSED", "PERIOD_CHANGED", "REOPEN_NOT_ALLOWED", "LOAN_NOT_ACTIVE"] as const) {
+      expect(ERRORS[code].status, code).toBe(409);
+    }
+    expect(ERRORS.PREVIOUS_MONTH_OPEN.en).toBe("Close the previous month first — months close in order.");
+    expect(ERRORS.REOPEN_NOT_ALLOWED.en).toBe("Only the latest closed month can be reopened. For older months, record an Adjustment in the open month.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

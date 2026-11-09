@@ -51,6 +51,16 @@ describe("ShellNav (RBAC-05)", () => {
     }
   });
 
+  it("shows Distribution after Entries to Owners and Super Admins (distribution-ui)", () => {
+    for (const roles of [["OWNER"], ["SUPER_ADMIN"]] as const) {
+      const { unmount } = render(<ShellNav locale="en" viewer={viewer([...roles])} pendingInvites={0} />);
+      const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+      expect(links).toContain("/en/distribution");
+      expect(links.indexOf("/en/distribution")).toBe(links.indexOf("/en/entries") + 1);
+      unmount();
+    }
+  });
+
   it("marks the current page", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(screen.getAllByRole("link", { name: /Home/ })[0]).toHaveAttribute("aria-current", "page");
@@ -154,5 +164,27 @@ describe("HomeDesk statement shortcut (F17)", () => {
   it("shows no shortcut when the viewer is not an owner", () => {
     render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} ownerId={null} />);
     expect(screen.queryByRole("link", { name: /Statement/ })).toBeNull();
+  });
+});
+
+describe("HomeDesk close reminder (Distribution F14)", () => {
+  it("shows the open month, unpaid units and a link to its distribution", () => {
+    render(
+      <HomeDesk
+        locale="en"
+        name="Rayhan"
+        permissions={permissionsFor(["SUPER_ADMIN"])}
+        stats={{ pendingInvites: 0, activeUsers: 2 }}
+        closeReminder={{ month: "2026-10", unpaid: [{ name: "Flat 3A", tenantName: "Nusrat Jahan" }] }}
+      />,
+    );
+    const strip = screen.getByRole("note");
+    expect(strip).toHaveTextContent("October 2026 is open. Flat 3A (Nusrat Jahan) has not paid rent yet.");
+    expect(screen.getByRole("link", { name: /Review distribution/ })).toHaveAttribute("href", "/en/distribution?month=2026-10");
+  });
+
+  it("is absent without a reminder", () => {
+    render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} />);
+    expect(screen.queryByRole("link", { name: /Review distribution/ })).toBeNull();
   });
 });

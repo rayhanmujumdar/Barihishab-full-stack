@@ -111,3 +111,40 @@ describe("Settings drawers required markers (form-required-indicator)", () => {
     expectRequiredMarkersMatch(drawer);
   });
 });
+
+describe("Settings › Reserve holdback (Distribution F9, SET-02)", () => {
+  const reserve = { rule: { mode: "PERCENT" as const, percentBp: 500, startingPaisa: 0 }, balancePaisa: 636200 };
+
+  it("is hidden without settings.manage and shows the rule and balance with it", () => {
+    const { unmount } = render(<SettingsView {...props} />);
+    expect(screen.queryByRole("heading", { name: "Reserve holdback" })).toBeNull();
+    unmount();
+    render(<SettingsView {...props} reserve={reserve} />);
+    expect(screen.getByRole("heading", { name: "Reserve holdback" })).toBeInTheDocument();
+    expect(screen.getByText("Reserve balance now ৳6,362")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Percent" })).toBeChecked();
+    expect(screen.getByLabelText(/^Percent of/)).toHaveValue("5");
+  });
+
+  it("saves a percent in basis points and a fixed amount in paisa", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: {} });
+    render(<SettingsView {...props} reserve={reserve} />);
+    await userEvent.clear(screen.getByLabelText(/^Percent of/));
+    await userEvent.type(screen.getByLabelText(/^Percent of/), "2.5");
+    await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
+    expect(api).toHaveBeenLastCalledWith("/settings/reserve", { method: "PUT", body: { mode: "PERCENT", percentBp: 250, startingPaisa: 0 } });
+    await userEvent.click(screen.getByRole("radio", { name: "Fixed" }));
+    await userEvent.type(screen.getByLabelText(/^Fixed amount/), "10000");
+    await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
+    expect(api).toHaveBeenLastCalledWith("/settings/reserve", { method: "PUT", body: { mode: "FIXED", fixedPaisa: 1000000, startingPaisa: 0 } });
+  });
+
+  it("refuses a bad percent before sending", async () => {
+    render(<SettingsView {...props} reserve={reserve} />);
+    await userEvent.clear(screen.getByLabelText(/^Percent of/));
+    await userEvent.type(screen.getByLabelText(/^Percent of/), "120");
+    await userEvent.click(screen.getByRole("button", { name: "Save rule" }));
+    expect(api).not.toHaveBeenCalled();
+    expect(screen.getByText("Enter a valid amount.")).toBeInTheDocument();
+  });
+});

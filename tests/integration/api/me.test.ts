@@ -19,7 +19,7 @@ describe("GET /api/v1/me", () => {
     const body = await json(res);
     expect(body.data.profile).toMatchObject({ id: owner.id, phone: "01712345678" });
     expect(body.data.roles).toEqual(["OWNER"]);
-    expect(body.data.permissions).toHaveLength(7); // RBAC-02: 6 auth/money keys + owner.view
+    expect(body.data.permissions).toHaveLength(8); // RBAC-02: 6 auth/money keys + owner.view + distribution.view
     expect(JSON.stringify(body)).not.toMatch(/argon2|tokenVersion|failedLoginCount/);
   });
 

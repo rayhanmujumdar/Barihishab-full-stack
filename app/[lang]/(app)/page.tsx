@@ -5,6 +5,7 @@ import { HomeDesk } from "@/components/app/HomeDesk";
 import { requireViewer } from "@/lib/auth/server";
 import { getLocale } from "@/lib/i18n/server";
 import { can } from "@/lib/permissions";
+import { closeReminder } from "@/lib/distribution/distribution-service";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
 
@@ -30,6 +31,11 @@ async function Home() {
         activeUsers: await prisma.user.count({ where: { status: "ACTIVE" } }),
       }
     : null;
-  const owner = can(viewer, "owner.view") ? await prisma.owner.findFirst({ where: { propertyId: await currentPropertyId(), userId: viewer.id }, select: { id: true } }) : null;
-  return <HomeDesk locale={locale} name={viewer.firstName ?? viewer.username} permissions={viewer.permissions} stats={stats} ownerId={owner?.id ?? null} />;
+  const propertyId = await currentPropertyId();
+  const [owner, reminder] = await Promise.all([
+    can(viewer, "owner.view") ? prisma.owner.findFirst({ where: { propertyId, userId: viewer.id }, select: { id: true } }) : null,
+    // F14: Close-the-month reminder for whoever can close it.
+    can(viewer, "period.close") ? closeReminder(propertyId) : null,
+  ]);
+  return <HomeDesk locale={locale} name={viewer.firstName ?? viewer.username} permissions={viewer.permissions} stats={stats} ownerId={owner?.id ?? null} closeReminder={reminder} />;
 }

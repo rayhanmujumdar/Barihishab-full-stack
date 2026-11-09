@@ -14,13 +14,15 @@ import { monthLabel } from "@/lib/periods/month";
 import { cn } from "@/lib/utils";
 import { balanceText, balanceTone, num, ownerHref, percent } from "./format";
 import { AdjustmentDialog, VoidLedgerDialog } from "./LedgerDialogs";
+import { LoanInstalmentDialog } from "./LoanInstalmentDialog";
 import { OpeningDialog } from "./OpeningDialog";
 import { OwnerFormDialog } from "./OwnerFormDialog";
 import { PayDrawer } from "./PayDrawer";
 import { StatementTable } from "./StatementTable";
+import type { LoanDto } from "@/lib/owners/loan-service";
 import type { LedgerEntryDto, OwnerPageData } from "./types";
 
-type Open = { kind: "pay" | "advance" | "adjust" | "edit" | "opening" } | { kind: "void"; entry: LedgerEntryDto } | null;
+type Open = { kind: "pay" | "advance" | "adjust" | "edit" | "opening" } | { kind: "void"; entry: LedgerEntryDto } | { kind: "loan"; loan: LoanDto } | null;
 
 /** Owner detail: summary, statement, share history and Super Admin actions (F2, F3, F5, F11–F14). */
 export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageData }) {
@@ -180,6 +182,31 @@ export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageD
         <StatementTable locale={locale} statement={statement} onVoid={perms.void && canMove ? (entry) => setOpen({ kind: "void", entry }) : undefined} />
       </section>
 
+      {owner.loans.length ? (
+        <section aria-labelledby="loans-title" className="flex flex-col">
+          <div className="section-head">
+            <h2 id="loans-title">{tr("loan.list")}</h2>
+          </div>
+          <ul className="m-0 list-none p-0">
+            {owner.loans.map((l) => (
+              <li key={l.id} className="list-row flex-wrap">
+                <span className="flex flex-col">
+                  <span className="font-extrabold">{tr("loan.outstanding", { amount: formatMoney(locale, l.outstandingPaisa) })}</span>
+                  <span className="muted">
+                    {l.reason} · {l.installmentPaisa ? tr("loan.instalmentShow", { amount: formatMoney(locale, l.installmentPaisa) }) : tr("loan.noInstalment")}
+                  </span>
+                </span>
+                {perms.loan ? (
+                  <Button variant="outline" onClick={() => setOpen({ kind: "loan", loan: l })}>
+                    {tr("loan.edit")}
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section aria-labelledby="history-title" className="flex flex-col">
         <div className="section-head">
           <h2 id="history-title">{tr("owner.history")}</h2>
@@ -201,6 +228,7 @@ export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageD
         <AdjustmentDialog locale={locale} ownerId={owner.id} month={data.latestOpen} periodMonths={data.periodMonths} onClose={() => setOpen(null)} onDone={done} />
       ) : null}
       {open?.kind === "edit" ? <OwnerFormDialog locale={locale} owner={owner} users={data.linkableUsers} onClose={() => setOpen(null)} onSaved={() => router.refresh()} onGiveShares={() => setOpen(null)} /> : null}
+      {open?.kind === "loan" ? <LoanInstalmentDialog locale={locale} loan={open.loan} onClose={() => setOpen(null)} onDone={done} /> : null}
       {open?.kind === "opening" ? <OpeningDialog locale={locale} ownerId={owner.id} onClose={() => setOpen(null)} onSaved={done} /> : null}
     </div>
   );

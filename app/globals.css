@@ -349,9 +349,10 @@ svg[data-slot="icon"] {
   display: none;
 }
 .shell-main {
+  /* Full width of the screen beside the sidebar; padding scales with it. */
+  min-width: 0;
   padding: clamp(16px, 3vw, 40px);
   padding-bottom: 120px;
-  max-width: 1320px;
 }
 .topbar {
   position: sticky;
@@ -998,5 +999,182 @@ svg[data-slot="icon"] {
   }
   .st-table tr {
     break-inside: avoid;
+  }
+}
+
+/* ─── Distribution (Distribution PRD §2.1) ─── */
+.stair {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr);
+  border-top: 2px solid var(--color-text);
+}
+.stair-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+  color: var(--color-text);
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  font: inherit;
+}
+.stair-cell:first-child {
+  padding-left: 0;
+}
+a.stair-cell:hover,
+button.stair-cell:hover {
+  background: var(--color-neutral-200);
+}
+button.stair-cell {
+  border-top: 0;
+  border-left: 0;
+  cursor: pointer;
+}
+.stair-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  min-height: 30px;
+}
+.stair-op {
+  font-size: 20px;
+  font-weight: 800;
+}
+.stair-total {
+  background: var(--signal);
+  padding-left: 16px !important;
+}
+.stair-total .stat-value {
+  font-size: clamp(30px, 4vw, 44px);
+  letter-spacing: -0.04em;
+}
+.stair-notes {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.dist-table {
+  min-width: 980px;
+}
+/* Row headers (owner names, staircase lines) read as body text, not column headings. */
+.dist-table tbody th,
+.dist-table tfoot th,
+.changes-table tbody th {
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-divider);
+  padding: 10px 8px 10px 0;
+  white-space: normal;
+  vertical-align: top;
+}
+.dist-table tfoot th {
+  border-top: 2px solid var(--color-text);
+  border-bottom: 0;
+}
+.dist-table tfoot td {
+  font-weight: 800;
+  border-top: 2px solid var(--color-text);
+  border-bottom: 0;
+}
+.dist-table tr[data-viewer="true"] > * {
+  background: var(--signal-100);
+}
+.dist-cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--color-text);
+}
+.dist-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.dist-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin: 0;
+}
+.dist-card-grid dt {
+  font-size: 11px;
+  color: var(--color-neutral-700);
+}
+.dist-card-grid dd {
+  margin: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.dist-foot {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.reminder-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--color-surface);
+  border-top: 2px solid var(--signal);
+  padding: 12px 14px;
+  font-size: 14px;
+}
+.check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.check-list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+/* Phones and tablets (and laptops with the sidebar under ~1200px): the
+   staircase stacks in pairs with Distributable full width, and the board
+   becomes owner cards — one column on phones, more as the screen widens. */
+@media (max-width: 1199.98px) {
+  .stair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stair-cell:nth-child(odd) {
+    padding-left: 0;
+  }
+  .stair-cell:nth-child(even) {
+    padding-left: 16px;
+  }
+  .stair-total {
+    grid-column: 1 / -1;
+  }
+  .dist-table-wrap {
+    display: none;
+  }
+  .dist-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    column-gap: 32px;
   }
 }

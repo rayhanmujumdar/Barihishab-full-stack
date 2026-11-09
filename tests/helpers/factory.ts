@@ -191,6 +191,7 @@ export async function createLedgerEntry(data: {
   referencePeriodId?: string | null;
   voided?: string;
   method?: "CASH" | "BANK" | "BKASH" | "NAGAD" | null;
+  loanId?: string | null;
 }) {
   return prisma.ownerLedgerEntry.create({
     data: {
@@ -205,12 +206,22 @@ export async function createLedgerEntry(data: {
       entryDate: new Date(`${data.entryDate ?? "2026-10-10"}T00:00:00Z`),
       reversesId: data.reversesId ?? null,
       referencePeriodId: data.referencePeriodId ?? null,
+      loanId: data.loanId ?? null,
       ...(data.voided ? { voidedAt: new Date(), voidReason: data.voided, voidedById: data.createdById } : {}),
     },
   });
 }
 
-export async function createLoan(data: { propertyId: string; ownerId: string; fundAccountId: string; createdById: string; principalPaisa: number; status?: "ACTIVE" | "REPAID" }) {
+export async function createLoan(data: {
+  propertyId: string;
+  ownerId: string;
+  fundAccountId: string;
+  createdById: string;
+  principalPaisa: number;
+  status?: "ACTIVE" | "REPAID";
+  installmentPaisa?: number | null;
+  disbursedOn?: string;
+}) {
   return prisma.loan.create({
     data: {
       propertyId: data.propertyId,
@@ -218,10 +229,18 @@ export async function createLoan(data: { propertyId: string; ownerId: string; fu
       fundAccountId: data.fundAccountId,
       createdById: data.createdById,
       principalPaisa: BigInt(data.principalPaisa),
-      disbursedOn: new Date("2026-10-10T00:00:00Z"),
+      disbursedOn: new Date(`${data.disbursedOn ?? "2026-10-10"}T00:00:00Z`),
       method: "CASH",
       reason: "Loan",
       status: data.status ?? "ACTIVE",
+      installmentPaisa: data.installmentPaisa ? BigInt(data.installmentPaisa) : null,
     },
   });
+}
+
+// ─── Distribution ───
+
+/** Saves the property's reserve rule (Distribution PRD F9). */
+export function setReserveRule(propertyId: string, reserve: { mode: "OFF" } | { mode: "PERCENT"; percentBp: number } | { mode: "FIXED"; fixedPaisa: number }, startingPaisa = 0) {
+  return prisma.property.update({ where: { id: propertyId }, data: { settings: { reserve: { ...reserve, startingPaisa } } } });
 }

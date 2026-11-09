@@ -108,6 +108,7 @@ export function ownerPage(extra: Partial<OwnerPageData> = {}): OwnerPageData {
       paidOutPaisa: 500000,
       oldestDueMonth: "2026-10",
       shareHistory: [{ shareSetId: "s-jan", effectiveMonth: "2026-01", units: 15, sharePercent: 15, reason: "Initial shares", savedBy: "Rayhan Ahmed", savedAt: "2026-01-01T00:00:00.000Z" }],
+      loans: [{ id: "l-1", ownerId: "o-tanvir", principalPaisa: 3500000, disbursedOn: "2026-03-10", status: "ACTIVE", reason: "Medical", installmentPaisa: null, outstandingPaisa: 3500000 }],
     },
     statement: {
       owner: { id: "o-tanvir", displayName: "Tanvir Ahmed", units: 15, sharePercent: 15 },
@@ -128,9 +129,9 @@ export function ownerPage(extra: Partial<OwnerPageData> = {}): OwnerPageData {
     houseFundPaisa: 2100000,
     linkableUsers: [],
     periodMonths: ["2026-08", "2026-09", "2026-10"],
-    perms: { pay: true, advance: true, void: true, adjust: true, manage: true },
+    perms: { pay: true, advance: true, void: true, adjust: true, manage: true, loan: true },
     ...extra,
   };
 }
 
-export const ownerPagePermsNone = { pay: false, advance: false, void: false, adjust: false, manage: false };
+export const ownerPagePermsNone = { pay: false, advance: false, void: false, adjust: false, manage: false, loan: false };

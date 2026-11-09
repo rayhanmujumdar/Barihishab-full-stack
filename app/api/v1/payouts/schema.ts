@@ -55,7 +55,16 @@ export const LedgerWarningSchema = z
   .meta({ id: "LedgerWarning" });
 
 export const LoanSchema = z
-  .object({ id: z.uuid(), ownerId: z.uuid(), principalPaisa: z.number().int(), disbursedOn: IsoDateSchema, status: z.enum(["ACTIVE", "REPAID", "WRITTEN_OFF"]), reason: z.string() })
+  .object({
+    id: z.uuid(),
+    ownerId: z.uuid(),
+    principalPaisa: z.number().int(),
+    disbursedOn: IsoDateSchema,
+    status: z.enum(["ACTIVE", "REPAID", "WRITTEN_OFF"]),
+    reason: z.string(),
+    installmentPaisa: z.number().int().nullable().meta({ description: "Monthly instalment deducted from entitlement on month close" }),
+    outstandingPaisa: z.number().int().meta({ description: "Principal − loan deductions" }),
+  })
   .meta({ id: "Loan" });
 
 /** Fields shared by payouts and advances. */
@@ -80,6 +89,7 @@ export const PayoutBodySchema = z
     note: z.string().trim().max(200, "At most 200 characters").nullable().optional(),
     splitExcessAs: z.enum(["ADVANCE", "LOAN"]).optional().meta({ description: "How to record the part above the owner's positive balance" }),
     excessReason: z.string().trim().max(300, "At most 300 characters").nullable().optional(),
+    loanInstallmentPaisa: PositiveAmountSchema.nullable().optional().meta({ description: "Monthly instalment when the excess is recorded as a LOAN (≤ the excess)" }),
   })
   .strict()
   .refine(needsReference, { path: ["referenceNo"], message: REF_REQUIRED })

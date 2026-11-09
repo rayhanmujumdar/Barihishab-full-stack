@@ -84,6 +84,7 @@ model Property {
   shareSets       ShareSet[]
   ledgerEntries   OwnerLedgerEntry[]
   loans           Loan[]
+  periodReopens   PeriodReopen[]
 
   @@map("properties")
 }
@@ -141,6 +142,7 @@ model User {
   ledgerCreated  OwnerLedgerEntry[] @relation("LedgerCreatedBy")
   ledgerVoided   OwnerLedgerEntry[] @relation("LedgerVoidedBy")
   loansCreated   Loan[]             @relation("LoanCreatedBy")
+  periodReopens  PeriodReopen[]     @relation("PeriodReopenedBy")
 
   @@index([status])
   @@map("users")
@@ -345,14 +347,19 @@ enum TxnSource {
 
 // One accounting month. `month` is the 1st of the month.
 model Period {
-  id         String       @id @default(uuid()) @db.Uuid
-  propertyId String       @map("property_id") @db.Uuid
-  month      DateTime     @db.Date
-  status     PeriodStatus @default(OPEN)
-  closedAt   DateTime?    @map("closed_at") @db.Timestamptz(6)
-  closedById String?      @map("closed_by") @db.Uuid
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                    String       @id @default(uuid()) @db.Uuid
+  propertyId            String       @map("property_id") @db.Uuid
+  month                 DateTime     @db.Date
+  status                PeriodStatus @default(OPEN)
+  closedAt              DateTime?    @map("closed_at") @db.Timestamptz(6)
+  closedById            String?      @map("closed_by") @db.Uuid
+  // Distribution (design D1): saved on close, kept on reopen until re-close.
+  reopenCount           Int          @default(0) @map("reopen_count")
+  snapshot              Json?
+  reserveOverridePaisa  BigInt?      @map("reserve_override_paisa")
+  reserveOverrideReason String?      @map("reserve_override_reason")
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   property         Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   closedBy         User?              @relation("PeriodClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
@@ -360,9 +367,29 @@ model Period {
   referencedBy     HouseTransaction[] @relation("TxnReferencePeriod")
   ledgerEntries    OwnerLedgerEntry[] @relation("LedgerPeriod")
   ledgerReferenced OwnerLedgerEntry[] @relation("LedgerReferencePeriod")
+  reopens          PeriodReopen[]
 
   @@unique([propertyId, month])
   @@map("periods")
+}
+
+// Reopen history (Distribution PRD F7, G7): who, when, why, and the snapshot
+// the month had before, for the re-close before → after view (F8).
+model PeriodReopen {
+  id             String   @id @default(uuid()) @db.Uuid
+  propertyId     String   @map("property_id") @db.Uuid
+  periodId       String   @map("period_id") @db.Uuid
+  reason         String
+  reopenedById   String   @map("reopened_by") @db.Uuid
+  reopenedAt     DateTime @default(now()) @map("reopened_at") @db.Timestamptz(6)
+  snapshotBefore Json?    @map("snapshot_before")
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  period     Period   @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  reopenedBy User     @relation("PeriodReopenedBy", fields: [reopenedById], references: [id], onDelete: Restrict)
+
+  @@index([periodId, reopenedAt])
+  @@map("period_reopens")
 }
 
 model Unit {
@@ -609,6 +636,7 @@ model OwnerLedgerEntry {
   voidedAt          DateTime?  @map("voided_at") @db.Timestamptz(6)
   voidedById        String?    @map("voided_by") @db.Uuid
   voidReason        String?    @map("void_reason")
+  loanId            String?    @map("loan_id") @db.Uuid
 
   property        Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   owner           Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
@@ -619,34 +647,38 @@ model OwnerLedgerEntry {
   reversedBy      OwnerLedgerEntry? @relation("LedgerReversal")
   createdBy       User              @relation("LedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   voidedBy        User?             @relation("LedgerVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
-  loans           Loan[]
+  loans           Loan[]            @relation("LoanPayoutEntry")
+  loan            Loan?             @relation("LoanDeductions", fields: [loanId], references: [id], onDelete: Restrict)
 
   @@index([ownerId, periodId])
   @@index([fundAccountId])
+  @@index([loanId])
   @@map("owner_ledger_entries")
 }
 
 // Loan ledger (PRD §5.5) — disbursement only until the Loans section ships.
 model Loan {
-  id             String     @id @default(uuid()) @db.Uuid
-  propertyId     String     @map("property_id") @db.Uuid
-  ownerId        String     @map("owner_id") @db.Uuid
-  principalPaisa BigInt     @map("principal_paisa")
-  disbursedOn    DateTime   @map("disbursed_on") @db.Date
-  fundAccountId  String     @map("fund_account_id") @db.Uuid
-  method         PayMethod
-  referenceNo    String?    @map("reference_no")
-  reason         String
-  status         LoanStatus @default(ACTIVE)
-  payoutEntryId  String?    @map("payout_entry_id") @db.Uuid
-  createdById    String     @map("created_by") @db.Uuid
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String     @id @default(uuid()) @db.Uuid
+  propertyId       String     @map("property_id") @db.Uuid
+  ownerId          String     @map("owner_id") @db.Uuid
+  principalPaisa   BigInt     @map("principal_paisa")
+  disbursedOn      DateTime   @map("disbursed_on") @db.Date
+  fundAccountId    String     @map("fund_account_id") @db.Uuid
+  method           PayMethod
+  referenceNo      String?    @map("reference_no")
+  reason           String
+  installmentPaisa BigInt?    @map("installment_paisa")
+  status           LoanStatus @default(ACTIVE)
+  payoutEntryId    String?    @map("payout_entry_id") @db.Uuid
+  createdById      String     @map("created_by") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  owner       Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  fundAccount FundAccount       @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
-  payoutEntry OwnerLedgerEntry? @relation(fields: [payoutEntryId], references: [id], onDelete: Restrict)
-  createdBy   User              @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  owner       Owner              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  fundAccount FundAccount        @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  payoutEntry OwnerLedgerEntry?  @relation("LoanPayoutEntry", fields: [payoutEntryId], references: [id], onDelete: Restrict)
+  deductions  OwnerLedgerEntry[] @relation("LoanDeductions")
+  createdBy   User               @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([ownerId, status])
   @@map("loans")

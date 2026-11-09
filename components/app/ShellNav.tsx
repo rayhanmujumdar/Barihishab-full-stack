@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightStartOnRectangleIcon, BanknotesIcon, Cog6ToothIcon, HomeIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightStartOnRectangleIcon, BanknotesIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -34,9 +34,10 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
     [
       { href: "/", label: "nav.home", icon: HomeIcon },
       { href: "/entries", label: "nav.entries", short: "nav.entriesShort", icon: BanknotesIcon, permission: "transaction.view" },
+      { href: "/distribution", label: "nav.distribution", icon: ScaleIcon, permission: "distribution.view" },
       { href: "/owners", label: "nav.owners", icon: UserGroupIcon, permission: "owner.view" },
       { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: pendingInvites },
-      { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage"] },
+      { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
       { href: "/me", label: "nav.profile", icon: UserIcon },
     ] satisfies NavItem[]
   ).filter((i: NavItem) => (!i.permission || can(viewer, i.permission)) && (!i.anyOf || i.anyOf.some((p) => can(viewer, p))));

@@ -221,7 +221,7 @@ export async function setOpening(propertyId: string, ownerId: string, input: { a
 
 // ─── F11 Pay an owner ───
 
-export type PayoutInput = CashOut & { note?: string | null; splitExcessAs?: "ADVANCE" | "LOAN"; excessReason?: string | null };
+export type PayoutInput = CashOut & { note?: string | null; splitExcessAs?: "ADVANCE" | "LOAN"; excessReason?: string | null; loanInstallmentPaisa?: number | null };
 export type PayoutResult = { entries: LedgerEntryDto[]; loan: LoanDto | null; balancePaisa: number; warnings: LedgerWarning[] };
 
 const EXCESS_REASON = "Paid beyond balance";
@@ -237,6 +237,9 @@ export async function createPayout(propertyId: string, input: PayoutInput, actor
     if (excessPaisa > 0 && !input.splitExcessAs) {
       throw new Abort(failWith("EXCEEDS_BALANCE", undefined, { balancePaisa: balance, payoutPaisa, excessPaisa }));
     }
+    if (input.splitExcessAs === "LOAN" && (input.loanInstallmentPaisa ?? 0) > excessPaisa) {
+      throw new Abort(fieldFail("loanInstallmentPaisa", "The instalment can't be more than the loan."));
+    }
     const cash = { date: input.date, fundAccountId: input.fundAccountId, method: input.method, referenceNo: input.referenceNo };
     const rows: EntryRow[] = [];
     if (payoutPaisa > 0) {
@@ -250,7 +253,7 @@ export async function createPayout(propertyId: string, input: PayoutInput, actor
     } else if (excessPaisa > 0) {
       loan = await createLoanInTx(
         tx,
-        { propertyId, ownerId: input.ownerId, principalPaisa: excessPaisa, disbursedOn: dateOf(input.date), fundAccountId: input.fundAccountId, method: input.method, referenceNo: input.referenceNo || null, reason: excessReason, payoutEntryId: rows[0]?.id ?? null },
+        { propertyId, ownerId: input.ownerId, principalPaisa: excessPaisa, disbursedOn: dateOf(input.date), fundAccountId: input.fundAccountId, method: input.method, referenceNo: input.referenceNo || null, reason: excessReason, payoutEntryId: rows[0]?.id ?? null, installmentPaisa: input.loanInstallmentPaisa ?? null },
         actor,
       );
     }

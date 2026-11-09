@@ -8,6 +8,7 @@ import { getLocale } from "@/lib/i18n/server";
 import { listCategories } from "@/lib/master-data/category-service";
 import { listFunds } from "@/lib/master-data/fund-service";
 import { listUnits } from "@/lib/master-data/unit-service";
+import { getReserveSettings } from "@/lib/distribution/reserve-service";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
 
@@ -28,8 +29,14 @@ async function Settings() {
   const locale = await getLocale();
   const viewer = await requireViewer();
   const allowed = { units: can(viewer, "unit.manage"), funds: can(viewer, "fund.manage"), categories: can(viewer, "category.manage") };
-  if (!allowed.units && !allowed.funds && !allowed.categories) return <Forbidden locale={locale} />;
+  const reserveAllowed = can(viewer, "settings.manage");
+  if (!allowed.units && !allowed.funds && !allowed.categories && !reserveAllowed) return <Forbidden locale={locale} />;
   const propertyId = await currentPropertyId();
-  const [units, funds, categories] = await Promise.all([listUnits(propertyId), listFunds(propertyId), listCategories(propertyId)]);
-  return <SettingsView locale={locale} units={units} funds={funds} categories={categories} can={allowed} />;
+  const [units, funds, categories, reserve] = await Promise.all([
+    listUnits(propertyId),
+    listFunds(propertyId),
+    listCategories(propertyId),
+    reserveAllowed ? getReserveSettings(propertyId) : null,
+  ]);
+  return <SettingsView locale={locale} units={units} funds={funds} categories={categories} can={allowed} reserve={reserve} />;
 }

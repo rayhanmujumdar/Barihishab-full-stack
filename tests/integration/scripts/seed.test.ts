@@ -90,4 +90,15 @@ describe("seed — Income & Expenses master data (EXP-02)", () => {
       ["2026-06", 100],
     ]);
   });
+
+  it("sets the Distribution PRD §11 5 % reserve rule only with SEED_DEMO=true and never overwrites a saved one", async () => {
+    await runSeed(env);
+    expect(((await prisma.property.findFirstOrThrow()).settings as { reserve?: unknown }).reserve).toBeUndefined();
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    const property = await prisma.property.findFirstOrThrow();
+    expect((property.settings as { reserve: unknown }).reserve).toEqual({ mode: "PERCENT", percentBp: 500, startingPaisa: 0 });
+    await prisma.property.update({ where: { id: property.id }, data: { settings: { reserve: { mode: "OFF", startingPaisa: 0 } } } });
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    expect(((await prisma.property.findFirstOrThrow()).settings as { reserve: unknown }).reserve).toEqual({ mode: "OFF", startingPaisa: 0 });
+  });
 });

@@ -1,3 +1,4 @@
+import type { LoanDto } from "./loan-service";
 // Owner read models (Owners PRD F1, F2). Money is integer paisa as `number`.
 import type { BalanceLabel, OwnerStatus } from "@/lib/accounting/owners";
 
@@ -42,6 +43,8 @@ export type OwnerDetailDto = OwnerDto & {
   paidOutPaisa: number;
   oldestDueMonth: string | null;
   shareHistory: ShareHistoryRow[];
+  /** ACTIVE loans with outstanding and monthly instalment (Distribution PRD F11). */
+  loans: LoanDto[];
 };
 
 export type OwnerListDto = { houseName: string; totalUnits: number; owners: OwnerDto[]; formerOwners: OwnerDto[] };

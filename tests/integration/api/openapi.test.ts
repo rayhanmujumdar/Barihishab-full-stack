@@ -123,3 +123,32 @@ describe("GET /api/v1/openapi.json — Owners", () => {
     }
   });
 });
+
+const DISTRIBUTION: [string, string][] = [
+  ["get", "/distribution"],
+  ["get", "/periods/{month}/close-preview"],
+  ["post", "/periods/{month}/close"],
+  ["post", "/periods/{month}/reopen"],
+  ["put", "/periods/{month}/reserve"],
+  ["get", "/settings/reserve"],
+  ["put", "/settings/reserve"],
+];
+
+describe("GET /api/v1/openapi.json — Distribution", () => {
+  it("documents all 7 distribution, close, reopen and reserve operations under the Distribution tag", async () => {
+    const doc = await (await GET()).json();
+    for (const [method, path] of DISTRIBUTION) {
+      expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(doc.paths[path][method].tags).toEqual(["Distribution"]);
+    }
+    expect(doc.components.schemas).toHaveProperty("Distribution");
+    expect(doc.components.schemas).toHaveProperty("ClosePreview");
+  });
+
+  it("documents the loan instalment endpoint and the payout instalment field", async () => {
+    const doc = await (await GET()).json();
+    expect(doc.paths["/loans/{id}"]?.patch?.tags).toEqual(["Owners"]);
+    expect(doc.components.schemas.PayoutBody.properties).toHaveProperty("loanInstallmentPaisa");
+    expect(doc.components.schemas.Loan.properties).toHaveProperty("installmentPaisa");
+  });
+});
