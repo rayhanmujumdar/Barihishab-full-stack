@@ -4,7 +4,7 @@
 //   - reads   → `useQuery` / `useInfiniteQuery` with `apiGet` + a key from `qk`
 //   - writes  → `useApiMutation`, which invalidates the keys it lists
 
-import { QueryClient, useMutation, useQueryClient, type Query, type QueryKey } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { apiFetch, type ApiErrorBody, type ApiResult } from "./client";
 
@@ -51,9 +51,6 @@ export const qk = {
     vendors: (q: string) => ["transactions", "vendors", q] as const,
     rentPreview: (period: string) => ["transactions", "rent-preview", period] as const,
   },
-  attachments: {
-    signed: (id: string) => ["attachments", "signed", id] as const,
-  },
   users: {
     all: ["users"] as const,
     list: (f: UserListFilter) => ["users", "list", f] as const,
@@ -62,21 +59,8 @@ export const qk = {
   me: { all: ["me"] as const },
 };
 
-export type SignedUrl = { url: string; mime: string; expiresAt: string };
-
-/** A signed URL with at least 30 s left is still safe to hand out. */
-export const isFreshSignedUrl = (s: SignedUrl | undefined): s is SignedUrl => !!s && Date.parse(s.expiresAt) - Date.now() > 30_000;
-
-/**
- * Signed 5-minute attachment URL (ATT-02), shared by every screen that shows a
- * bill. It goes stale 30 s before it expires, so the cache never hands out a dead link.
- */
-export const signedAttachmentQuery = (id: string) => ({
-  queryKey: qk.attachments.signed(id),
-  queryFn: () => apiGet<SignedUrl>(`/attachments/${id}`),
-  staleTime: (q: Query<SignedUrl, Error, SignedUrl, readonly unknown[]>) =>
-    q.state.data ? Math.max(0, Date.parse(q.state.data.expiresAt) - Date.now() - 30_000) : 0,
-});
+/** Same-origin URL of a bill/receipt (thumbnails, lightbox, PDF links). */
+export { attachmentFileUrl } from "@/lib/attachments/file-url";
 
 /** Retry transient failures only: never a 4xx (auth/validation/not-found won't fix itself). */
 export function shouldRetry(failureCount: number, err: unknown): boolean {

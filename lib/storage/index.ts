@@ -1,30 +1,33 @@
 // Private S3-compatible bucket for bills & receipts (design D7). Browsers
-// upload/download directly with short-lived presigned URLs; the server only
-// signs, HEADs and sniffs the first bytes. Tests swap in a fake.
+// upload directly with short-lived presigned PUTs; viewing goes through the
+// same-origin file proxy (GET /api/v1/attachments/:id/file), which streams
+// objects with `get`. Tests swap in a fake.
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { storageEnv } from "@/lib/env";
 
 export const URL_TTL_SECONDS = 300;
 
-export type ObjectInfo = { size: number };
+export type ObjectInfo = { size: number; etag: string | null };
+export type StoredObject = ObjectInfo & { body: ReadableStream<Uint8Array> };
 
 export interface Storage {
   /** Presigned PUT bound to content type + length. */
   presignPut(key: string, mime: string, size: number): Promise<string>;
-  /** Presigned GET, served inline with the original file name. */
-  presignGet(key: string, fileName: string, mime: string): Promise<string>;
-  /** Object size, or null when it doesn't exist. */
+  /** Object size and ETag, or null when it doesn't exist. */
   head(key: string): Promise<ObjectInfo | null>;
+  /** Streams the whole object, or null when it doesn't exist. */
+  get(key: string): Promise<StoredObject | null>;
   /** First `bytes` bytes of the object. */
   readHead(key: string, bytes: number): Promise<Uint8Array>;
   /** Removes the object; a missing object is not an error. */
   delete(key: string): Promise<void>;
 }
 
-function contentDisposition(fileName: string) {
-  const ascii = fileName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+function isNotFound(err: unknown) {
+  const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+  const name = (err as Error).name;
+  return status === 404 || name === "NotFound" || name === "NoSuchKey";
 }
 
 function s3Storage(): Storage {
@@ -49,19 +52,22 @@ function s3Storage(): Storage {
         expiresIn: URL_TTL_SECONDS,
         signableHeaders: new Set(["content-type", "content-length"]),
       }),
-    presignGet: (Key, fileName, mime) =>
-      getSignedUrl(
-        browser,
-        new GetObjectCommand({ Bucket, Key, ResponseContentType: mime, ResponseContentDisposition: contentDisposition(fileName) }),
-        { expiresIn: URL_TTL_SECONDS },
-      ),
     async head(Key) {
       try {
         const res = await server.send(new HeadObjectCommand({ Bucket, Key }));
-        return { size: Number(res.ContentLength ?? 0) };
+        return { size: Number(res.ContentLength ?? 0), etag: res.ETag ?? null };
       } catch (err) {
-        const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
-        if (status === 404 || (err as Error).name === "NotFound") return null;
+        if (isNotFound(err)) return null;
+        throw err;
+      }
+    },
+    async get(Key) {
+      try {
+        const res = await server.send(new GetObjectCommand({ Bucket, Key }));
+        if (!res.Body) return null;
+        return { body: res.Body.transformToWebStream() as ReadableStream<Uint8Array>, size: Number(res.ContentLength ?? 0), etag: res.ETag ?? null };
+      } catch (err) {
+        if (isNotFound(err)) return null;
         throw err;
       }
     },

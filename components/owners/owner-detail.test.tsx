@@ -61,6 +61,25 @@ describe("Statement (F3)", () => {
     expect(await screen.findByRole("dialog", { name: "Entry details" })).toHaveTextContent("Wrong owner");
   });
 
+  it("shows a receipt photo in the lightbox over the row detail, and PDFs as same-origin links", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const data = ownerPage();
+    const live = data.statement.rows.find((r) => r.id === "e-3")!;
+    live.attachments = [
+      { id: "att-photo", fileName: "bkash-receipt.jpg", mime: "image/jpeg" },
+      { id: "att-pdf", fileName: "cheque.pdf", mime: "application/pdf" },
+    ];
+    render(<OwnerDetail locale="en" data={data} />);
+    await userEvent.click(screen.getAllByRole("button", { name: /Details of Payout/ }).at(-1)!);
+    const sheet = await screen.findByRole("dialog", { name: "Entry details" });
+    expect(within(sheet).getByRole("link", { name: "Open cheque.pdf (PDF, new tab)" })).toHaveAttribute("href", "/api/v1/attachments/att-pdf/file");
+    await userEvent.click(within(sheet).getByRole("button", { name: "bkash-receipt.jpg" }));
+    const viewer = await screen.findByRole("dialog", { name: "Bills & receipts viewer" });
+    expect(within(viewer).getByRole("img", { name: "bkash-receipt.jpg" })).toHaveAttribute("src", "/api/v1/attachments/att-photo/file");
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
   it("changes the range through the URL and offers Latest", async () => {
     render(<OwnerDetail locale="en" data={ownerPage()} />);
     const to = screen.getByLabelText("To");

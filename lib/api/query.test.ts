@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "./client";
-import { ApiError, apiGet, isFreshSignedUrl, makeQueryClient, qk, queryErrorMessage, shouldRetry, signedAttachmentQuery } from "./query";
+import { ApiError, apiGet, attachmentFileUrl, makeQueryClient, queryErrorMessage, shouldRetry } from "./query";
 
 vi.mock("./client", () => ({ apiFetch: vi.fn() }));
 const api = vi.mocked(apiFetch);
@@ -48,26 +48,14 @@ describe("shouldRetry", () => {
   });
 });
 
-describe("signed attachment URLs", () => {
-  const signed = (msLeft: number) => ({ url: "https://s3/x", mime: "image/jpeg", expiresAt: new Date(Date.now() + msLeft).toISOString() });
-
-  it("treats a URL as fresh only with more than 30 s left", () => {
-    expect(isFreshSignedUrl(undefined)).toBe(false);
-    expect(isFreshSignedUrl(signed(20_000))).toBe(false);
-    expect(isFreshSignedUrl(signed(120_000))).toBe(true);
+describe("attachmentFileUrl", () => {
+  it("points at the same-origin file proxy, never at storage", () => {
+    expect(attachmentFileUrl("a1")).toBe("/api/v1/attachments/a1/file");
   });
-
-  it("caches until 30 s before expiry, then re-signs", async () => {
-    const qc = makeQueryClient();
-    api.mockResolvedValueOnce({ ok: true, status: 200, data: signed(300_000) });
-    await qc.fetchQuery(signedAttachmentQuery("a1"));
-    await qc.fetchQuery(signedAttachmentQuery("a1"));
-    expect(api).toHaveBeenCalledTimes(1); // still fresh: served from cache
-
-    qc.setQueryData(qk.attachments.signed("a1"), signed(10_000)); // about to expire
-    api.mockResolvedValueOnce({ ok: true, status: 200, data: signed(300_000) });
-    await qc.fetchQuery(signedAttachmentQuery("a1"));
-    expect(api).toHaveBeenCalledTimes(2);
-    expect(api).toHaveBeenLastCalledWith("/attachments/a1", undefined);
+  it("asks for a download when told to", () => {
+    expect(attachmentFileUrl("a1", { download: true })).toBe("/api/v1/attachments/a1/file?download=1");
+  });
+  it("encodes the id", () => {
+    expect(attachmentFileUrl("a/../b")).toBe("/api/v1/attachments/a%2F..%2Fb/file");
   });
 });

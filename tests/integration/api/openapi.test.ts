@@ -70,12 +70,13 @@ const MONEY: [string, string][] = [
   ["delete", "/transactions/{id}/attachments/{attId}"],
   ["post", "/attachments/presign"],
   ["get", "/attachments/{id}"],
+  ["get", "/attachments/{id}/file"],
 ];
 
 describe("GET /api/v1/openapi.json — Income & Expenses", () => {
-  it("documents all 24 periods, master-data, transactions and attachments operations", async () => {
+  it("documents all 25 periods, master-data, transactions and attachments operations", async () => {
     const doc = await (await GET()).json();
-    expect(MONEY).toHaveLength(24);
+    expect(MONEY).toHaveLength(25);
     for (const [method, path] of MONEY) {
       expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
     }
@@ -150,5 +151,18 @@ describe("GET /api/v1/openapi.json — Distribution", () => {
     expect(doc.paths["/loans/{id}"]?.patch?.tags).toEqual(["Owners"]);
     expect(doc.components.schemas.PayoutBody.properties).toHaveProperty("loanInstallmentPaisa");
     expect(doc.components.schemas.Loan.properties).toHaveProperty("installmentPaisa");
+  });
+});
+
+describe("GET /api/v1/openapi.json — attachment viewing", () => {
+  it("documents the same-origin file proxy and a metadata response without a signed URL", async () => {
+    const doc = await (await GET()).json();
+    const file = doc.paths["/attachments/{id}/file"]?.get;
+    expect(file?.tags).toEqual(["Attachments"]);
+    expect(Object.keys(file.responses)).toEqual(expect.arrayContaining(["200", "304", "401", "403", "404"]));
+    expect(Object.keys(file.responses["200"].content)).toEqual(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+    expect((file.parameters ?? []).map((p: { name: string; in: string }) => `${p.in}:${p.name}`)).toEqual(expect.arrayContaining(["path:id", "query:download", "header:If-None-Match"]));
+    const meta = doc.components.schemas.AttachmentUrl;
+    expect(Object.keys(meta.properties).sort()).toEqual(["fileName", "mime", "url"]);
   });
 });

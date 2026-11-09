@@ -1,17 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DocumentIcon, LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
+import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { AttachmentGallery } from "@/components/attachments/AttachmentGallery";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { TextField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api/client";
-import { apiGet, isFreshSignedUrl, qk, queryErrorMessage, signedAttachmentQuery, useApiMutation, type SignedUrl } from "@/lib/api/query";
+import { apiGet, qk, queryErrorMessage, useApiMutation } from "@/lib/api/query";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -43,7 +44,6 @@ export function DetailDrawer({
   onCorrect: (entry: TxnDto) => void;
 }) {
   const tr = translator(locale);
-  const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [voidOpen, setVoidOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -58,13 +58,6 @@ export function DetailDrawer({
     enabled: !!id,
   });
   const detail = detailQuery.data ?? null;
-  // Signed 5-minute URLs for thumbnails (ATT-02), one cached query per file.
-  const signed = useQueries({ queries: (detail?.attachments ?? []).map((a) => signedAttachmentQuery(a.id)) });
-  const urls: Record<string, SignedUrl> = {};
-  detail?.attachments.forEach((a, i) => {
-    const d = signed[i]?.data;
-    if (d) urls[a.id] = d;
-  });
   const shownError = error ?? queryErrorMessage(detailQuery.error, tr("common.network"));
 
   // Every write below invalidates all transaction queries (this detail and the lists).
@@ -77,26 +70,6 @@ export function DetailDrawer({
   const writable = !!detail && detail.periodStatus === "OPEN" && !detail.voidedAt;
   const canFix = writable && perms.update;
   const canVoid = writable && perms.void;
-
-  async function openFile(attId: string) {
-    const cached = urls[attId];
-    if (isFreshSignedUrl(cached)) {
-      window.open(cached.url, "_blank", "noopener");
-      return;
-    }
-    // The thumbnail URL is stale: open the tab now, while the click still
-    // counts as a user gesture (Safari blocks window.open after an await),
-    // then point it at a freshly signed URL.
-    const tab = window.open("", "_blank");
-    if (tab) tab.opener = null;
-    try {
-      const fresh = await qc.fetchQuery(signedAttachmentQuery(attId));
-      if (tab) tab.location.href = fresh.url;
-    } catch (err) {
-      tab?.close();
-      setError(queryErrorMessage(err, tr("common.network")));
-    }
-  }
 
   async function doVoid() {
     if (!detail) return;
@@ -198,25 +171,18 @@ export function DetailDrawer({
                   <h3>{tr("entry.files")}</h3>
                 </div>
                 {detail.attachments.length ? (
-                  <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-                    {detail.attachments.map((a) => (
-                      <li key={a.id} className="relative">
-                        <button type="button" className="flex size-24 items-center justify-center border border-border bg-card" aria-label={tr("detail.open", { name: a.fileName })} onClick={() => openFile(a.id)}>
-                          {a.mime.startsWith("image/") && urls[a.id] ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from the private bucket
-                            <img src={urls[a.id].url} alt="" className="size-full object-cover" />
-                          ) : (
-                            <DocumentIcon className="size-9" aria-hidden />
-                          )}
-                        </button>
-                        {canFix ? (
-                          <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 size-7 bg-background" aria-label={tr("entry.files.remove", { name: a.fileName })} onClick={() => setRemoveId(a.id)}>
-                            <XMarkIcon />
-                          </Button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+                  <AttachmentGallery
+                    locale={locale}
+                    items={detail.attachments}
+                    variant="thumbnails"
+                    tileExtra={(a) =>
+                      canFix ? (
+                        <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 size-7 bg-background" aria-label={tr("entry.files.remove", { name: a.fileName })} onClick={() => setRemoveId(a.id)}>
+                          <XMarkIcon />
+                        </Button>
+                      ) : null
+                    }
+                  />
                 ) : (
                   <p className="muted m-0">{tr("detail.noFiles")}</p>
                 )}

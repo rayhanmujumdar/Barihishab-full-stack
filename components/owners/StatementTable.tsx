@@ -4,9 +4,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AttachmentGallery } from "@/components/attachments/AttachmentGallery";
 import { shortDate } from "@/components/entries/format";
-import { useQueryClient } from "@tanstack/react-query";
-import { isFreshSignedUrl, signedAttachmentQuery, type SignedUrl } from "@/lib/api/query";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -134,24 +133,6 @@ export function StatementTable({
 
 function RowDetail({ locale, row, onClose, onOriginal }: { locale: Locale; row: Row | null; onClose: () => void; onOriginal: (id: string) => void }) {
   const tr = translator(locale);
-  const qc = useQueryClient();
-  // Same cached signed URL as the entry drawer (lib/api/query.ts).
-  async function openFile(id: string) {
-    const cached = qc.getQueryData<SignedUrl>(signedAttachmentQuery(id).queryKey);
-    if (isFreshSignedUrl(cached)) {
-      window.open(cached.url, "_blank", "noopener");
-      return;
-    }
-    // Open the tab inside the click (Safari blocks window.open after an await), then point it at the fresh URL.
-    const tab = window.open("", "_blank");
-    if (tab) tab.opener = null;
-    try {
-      const fresh = await qc.fetchQuery(signedAttachmentQuery(id));
-      if (tab) tab.location.href = fresh.url;
-    } catch {
-      tab?.close();
-    }
-  }
   const items: [MessageKey, React.ReactNode][] = row
     ? (
         [
@@ -163,13 +144,7 @@ function RowDetail({ locale, row, onClose, onOriginal }: { locale: Locale; row: 
           ["st.detail.reason", row.voidReason],
           [
             "st.detail.files",
-            row.attachments.length
-              ? row.attachments.map((a) => (
-                  <Button key={a.id} variant="link" className="h-auto p-0" onClick={() => openFile(a.id)}>
-                    {a.fileName}
-                  </Button>
-                ))
-              : null,
+            row.attachments.length ? <AttachmentGallery locale={locale} items={row.attachments} variant="links" /> : null,
           ],
         ] as [MessageKey, React.ReactNode][]
       ).filter(([, v]) => v)

@@ -37,6 +37,7 @@ import "./transactions/[id]/void/schema";
 import "./transactions/[id]/attachments/schema";
 import "./attachments/presign/schema";
 import "./attachments/[id]/schema";
+import "./attachments/[id]/file/schema";
 import "./owners/schema";
 import "./owners/shares/schema";
 import "./owners/[id]/schema";

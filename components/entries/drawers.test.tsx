@@ -208,35 +208,40 @@ describe("DetailDrawer + Void dialog (DET-01, VOD-01)", () => {
     expect(screen.queryByRole("button", { name: "Correct" })).toBeNull();
   });
 
-  describe("opening a bill", () => {
-    const bill = { id: "00000000-0000-4000-8000-0000000000d1", fileName: "desco.pdf", mime: "application/pdf", sizeBytes: 900 };
-    const signed = (ms: number, url = "https://s3.test/get/desco") => ({ ok: true as const, status: 200, data: { url, mime: bill.mime, expiresAt: new Date(Date.now() + ms).toISOString() } });
+  describe("opening a bill (attachment-viewer)", () => {
+    const pdf = { id: "00000000-0000-4000-8000-0000000000d1", fileName: "desco.pdf", mime: "application/pdf", sizeBytes: 900 };
+    const photo = { id: "00000000-0000-4000-8000-0000000000d2", fileName: "receipt.jpg", mime: "image/jpeg", sizeBytes: 900 };
 
-    it("opens a still-fresh signed URL straight away", async () => {
+    it("views a receipt photo in the lightbox without leaving the drawer", async () => {
       const open = vi.spyOn(window, "open").mockReturnValue(null);
-      api.mockImplementation(async (path: string) => (path.startsWith("/attachments/") ? signed(300_000) : { ok: true, status: 200, data: detail({ attachments: [bill] }) }));
+      api.mockResolvedValue({ ok: true, status: 200, data: detail({ attachments: [photo, pdf] }) });
       render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
-      await userEvent.click(await screen.findByRole("button", { name: "Open desco.pdf" }));
-      expect(open).toHaveBeenCalledWith("https://s3.test/get/desco", "_blank", "noopener");
-      expect(api.mock.calls.filter(([p]) => p === `/attachments/${bill.id}`)).toHaveLength(1); // thumbnail only
+      const thumb = await screen.findByRole("button", { name: "Open receipt.jpg" });
+      expect(thumb.querySelector("img")).toHaveAttribute("src", `/api/v1/attachments/${photo.id}/file`);
+      await userEvent.click(thumb);
+      const viewer = await screen.findByRole("dialog", { name: "Bills & receipts viewer" });
+      expect(within(viewer).getByRole("img", { name: "receipt.jpg" })).toHaveAttribute("src", `/api/v1/attachments/${photo.id}/file`);
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Bills & receipts viewer" })).toBeNull());
+      expect(screen.getByText("Payee / vendor")).toBeInTheDocument(); // drawer still open
+      expect(open).not.toHaveBeenCalled();
+      // no signed-URL round trips: files load straight from the same-origin proxy
+      expect(api.mock.calls.filter(([p]) => p.startsWith("/attachments/"))).toHaveLength(0);
       open.mockRestore();
     });
 
-    it("opens the tab inside the click, then re-signs a stale URL into it", async () => {
-      const tab = { opener: {} as unknown, location: { href: "" }, close: vi.fn() };
-      const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
-      let calls = 0;
-      api.mockImplementation(async (path: string) => {
-        if (!path.startsWith("/attachments/")) return { ok: true, status: 200, data: detail({ attachments: [bill] }) };
-        calls += 1;
-        return calls === 1 ? signed(10_000) : signed(300_000, "https://s3.test/get/desco-fresh");
-      });
+    it("opens a PDF from the app's origin in a new tab", async () => {
+      api.mockResolvedValue({ ok: true, status: 200, data: detail({ attachments: [pdf] }) });
       render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
-      await userEvent.click(await screen.findByRole("button", { name: "Open desco.pdf" }));
-      expect(open).toHaveBeenCalledWith("", "_blank");
-      expect(tab.opener).toBeNull();
-      await waitFor(() => expect(tab.location.href).toBe("https://s3.test/get/desco-fresh"));
-      open.mockRestore();
+      const link = await screen.findByRole("link", { name: "Open desco.pdf (PDF, new tab)" });
+      expect(link).toHaveAttribute("href", `/api/v1/attachments/${pdf.id}/file`);
+      expect(link).toHaveAttribute("target", "_blank");
+    });
+
+    it("keeps the remove ✕ for admins on an open month", async () => {
+      api.mockResolvedValue({ ok: true, status: 200, data: detail({ attachments: [photo] }) });
+      render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+      expect(await screen.findByRole("button", { name: "Remove receipt.jpg" })).toBeInTheDocument();
     });
   });
 

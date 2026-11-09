@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "./client";
+import { apiFetch, refreshSession } from "./client";
 
 const jsonRes = (status: number, body: unknown) =>
   new Response(body === null ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -73,5 +73,21 @@ describe("apiFetch", () => {
   it("reports network failures without throwing", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     expect(await apiFetch("/me")).toEqual({ ok: false, status: 0, error: { code: "NETWORK", message: "Network error" } });
+  });
+});
+
+describe("refreshSession", () => {
+  it("coalesces parallel callers into one /auth/refresh", async () => {
+    const fetchMock = vi.fn(async () => jsonRes(200, { success: true, data: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+    const results = await Promise.all([refreshSession(), refreshSession(), refreshSession()]);
+    expect(results).toEqual([true, true, true]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]).toEqual(["/api/v1/auth/refresh", expect.objectContaining({ method: "POST" })]);
+  });
+
+  it("reports a failed refresh", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonRes(401, { success: false, error: { code: "UNAUTHENTICATED", message: "x" } })));
+    expect(await refreshSession()).toBe(false);
   });
 });
