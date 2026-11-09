@@ -43,6 +43,14 @@ describe("ShellNav (RBAC-05)", () => {
     expect(screen.getAllByRole("link", { name: /Settings/ })[0]).toHaveAttribute("href", "/en/settings");
   });
 
+  it("shows Owners to Owners and Super Admins (owners-ui)", () => {
+    for (const roles of [["OWNER"], ["SUPER_ADMIN"]] as const) {
+      const { unmount } = render(<ShellNav locale="en" viewer={viewer([...roles])} pendingInvites={0} />);
+      expect(screen.getAllByRole("link", { name: /^Owners/ })[0]).toHaveAttribute("href", "/en/owners");
+      unmount();
+    }
+  });
+
   it("marks the current page", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(screen.getAllByRole("link", { name: /Home/ })[0]).toHaveAttribute("aria-current", "page");
@@ -134,5 +142,17 @@ describe("HomeDesk (A5)", () => {
     render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} />);
     expect(screen.queryByText("Bookkeeper's desk")).toBeNull();
     expect(screen.getByRole("heading", { name: "Welcome, Karim" })).toBeInTheDocument();
+  });
+});
+
+describe("HomeDesk statement shortcut (F17)", () => {
+  it("links to the viewer's own owner detail when linked", () => {
+    render(<HomeDesk locale="en" name="Nasrin" permissions={permissionsFor(["OWNER"])} stats={null} ownerId="o-1" />);
+    expect(screen.getByRole("link", { name: /Statement/ })).toHaveAttribute("href", "/en/owners/o-1");
+  });
+
+  it("shows no shortcut when the viewer is not an owner", () => {
+    render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} ownerId={null} />);
+    expect(screen.queryByRole("link", { name: /Statement/ })).toBeNull();
   });
 });

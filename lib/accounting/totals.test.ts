@@ -32,4 +32,9 @@ describe("fundBalance", () => {
     expect(fundBalance(200000, 1800000, 630000)).toBe(1370000);
     expect(fundBalance(200000, 0, 500000)).toBe(-300000);
   });
+
+  it("adds signed owner-ledger moves and subtracts loans disbursed", () => {
+    // 1370000 − payout 400000 − advance 100000 + its reversal 100000 − loan 200000
+    expect(fundBalance(200000, 1800000, 630000, -400000, 200000)).toBe(770000);
+  });
 });

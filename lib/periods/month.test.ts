@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentMonthKey, daysFromPeriod, isMonthKey, monthDate, monthKey, monthLabel } from "./month";
+import { currentMonthKey, daysFromPeriod, isMonthKey, monthDate, monthKey, monthLabel, addMonths } from "./month";
 
 describe("month keys", () => {
   it("validates YYYY-MM", () => {
@@ -18,6 +18,14 @@ describe("month keys", () => {
     // 31 Oct 18:30 UTC is already 1 Nov 00:30 in Dhaka (UTC+6).
     expect(currentMonthKey(new Date("2026-10-31T18:30:00Z"))).toBe("2026-11");
     expect(currentMonthKey(new Date("2026-10-31T17:59:00Z"))).toBe("2026-10");
+  });
+});
+
+describe("addMonths", () => {
+  it("moves across year boundaries", () => {
+    expect(addMonths("2026-10", 1)).toBe("2026-11");
+    expect(addMonths("2026-12", 1)).toBe("2027-01");
+    expect(addMonths("2026-01", -1)).toBe("2025-12");
   });
 });
 

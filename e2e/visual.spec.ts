@@ -21,6 +21,7 @@ mkdirSync(".context/screens", { recursive: true });
 
 for (const locale of ["bn", "en"] as const) {
   test(`auth screens render cleanly in ${locale}`, async ({ page, context, baseURL }, info) => {
+    test.setTimeout(150_000); // may wait out the shared auth rate limit once
     const url = new URL(baseURL!);
 
     for (const [name, path] of PUBLIC) {
@@ -33,14 +34,23 @@ for (const locale of ["bn", "en"] as const) {
 
     // Log in through the API (shares the cookie jar) — username on one project, email on the other.
     const identifier = info.project.name === "desktop" ? ADMIN.username : ADMIN.email;
-    const res = await context.request.post("/api/v1/auth/login", {
-      data: { identifier, password: ADMIN.password, remember: false },
-      headers: { origin: url.origin },
-    });
+    const login = () =>
+      context.request.post("/api/v1/auth/login", { data: { identifier, password: ADMIN.password, remember: false }, headers: { origin: url.origin } });
+    let res = await login();
+    // Earlier specs share the per-IP auth limit (10/min): wait it out once instead of skipping.
+    if (res.status() === 429) {
+      await page.waitForTimeout((Number(res.headers()["retry-after"] ?? 60) + 1) * 1000);
+      res = await login();
+    }
     // The admin exists only after auth.spec accepted the seed invite; run the full suite.
     test.skip(res.status() !== 200, "needs the admin onboarded by auth.spec — run `pnpm test:e2e`");
 
-    for (const [name, path] of PRIVATE) {
+    // Owners screens (owners-ui): the list and the first owner's statement.
+    const ownersRes = await context.request.get("/api/v1/owners");
+    const ownerId: string | undefined = (await ownersRes.json()).data?.owners?.[0]?.id;
+    const pages: (readonly [string, string])[] = [...PRIVATE, ["owners", "/owners"], ...(ownerId ? ([["owner", `/owners/${ownerId}`]] as const) : [])];
+
+    for (const [name, path] of pages) {
       await page.goto(path === "/" ? `/${locale}` : `/${locale}${path}`);
       await expect(page.locator("main h1").first()).toBeVisible();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

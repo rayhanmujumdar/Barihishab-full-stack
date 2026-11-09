@@ -34,6 +34,14 @@ export const ALL_PERMISSIONS = [
   "category.manage",
   "unit.manage",
   "fund.manage",
+  // Owners PRD §4 (P1)
+  "owner.view",
+  "owner.manage",
+  "share.manage",
+  "payout.create",
+  "advance.create",
+  "ledger.void",
+  "ledger.adjust",
 ] as const;
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
@@ -46,6 +54,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "audit.view.financial",
     "transaction.view",
     "attachment.view",
+    "owner.view",
   ],
   ACCOUNTANT: [],
   VIEWER: [],

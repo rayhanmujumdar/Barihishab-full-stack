@@ -80,6 +80,10 @@ model Property {
   transactions    HouseTransaction[]
   attachments     Attachment[]
   idempotencyKeys IdempotencyKey[]
+  owners          Owner[]
+  shareSets       ShareSet[]
+  ledgerEntries   OwnerLedgerEntry[]
+  loans           Loan[]
 
   @@map("properties")
 }
@@ -114,16 +118,16 @@ model User {
   createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  createdBy   User?         @relation("UserCreatedBy", fields: [createdById], references: [id])
-  created     User[]        @relation("UserCreatedBy")
-  accounts    Account[]
-  baSessions  BaSession[]
-  roles       UserRole[]    @relation("UserRoles")
-  grants      UserRole[]    @relation("RoleGrantedBy")
-  sessions    AuthSession[]
-  authTokens  AuthToken[]   @relation("AuthTokenUser")
-  issuedTokens AuthToken[]  @relation("AuthTokenCreatedBy")
-  emails      EmailOutbox[]
+  createdBy    User?         @relation("UserCreatedBy", fields: [createdById], references: [id])
+  created      User[]        @relation("UserCreatedBy")
+  accounts     Account[]
+  baSessions   BaSession[]
+  roles        UserRole[]    @relation("UserRoles")
+  grants       UserRole[]    @relation("RoleGrantedBy")
+  sessions     AuthSession[]
+  authTokens   AuthToken[]   @relation("AuthTokenUser")
+  issuedTokens AuthToken[]   @relation("AuthTokenCreatedBy")
+  emails       EmailOutbox[]
 
   closedPeriods      Period[]           @relation("PeriodClosedBy")
   txnsCreated        HouseTransaction[] @relation("TxnCreatedBy")
@@ -131,6 +135,12 @@ model User {
   txnsVoided         HouseTransaction[] @relation("TxnVoidedBy")
   attachmentsAdded   Attachment[]       @relation("AttachmentUploadedBy")
   attachmentsRemoved Attachment[]       @relation("AttachmentRemovedBy")
+
+  owners         Owner[]            @relation("OwnerUser")
+  shareSetsSaved ShareSet[]         @relation("ShareSetCreatedBy")
+  ledgerCreated  OwnerLedgerEntry[] @relation("LedgerCreatedBy")
+  ledgerVoided   OwnerLedgerEntry[] @relation("LedgerVoidedBy")
+  loansCreated   Loan[]             @relation("LoanCreatedBy")
 
   @@index([status])
   @@map("users")
@@ -192,12 +202,12 @@ model BaSession {
 // System role grants. property_id NULL = global. Uniqueness over
 // (user_id, coalesce(property_id), role) is enforced by a SQL index in the migration.
 model UserRole {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @map("user_id") @db.Uuid
-  propertyId  String?   @map("property_id") @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  propertyId  String?  @map("property_id") @db.Uuid
   role        Role
-  grantedById String?   @map("granted_by") @db.Uuid
-  grantedAt   DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  grantedById String?  @map("granted_by") @db.Uuid
+  grantedAt   DateTime @default(now()) @map("granted_at") @db.Timestamptz(6)
 
   user      User      @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
   // Restrict: NULL property means "global", so deleting a property must never
@@ -344,10 +354,12 @@ model Period {
   createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  closedBy     User?              @relation("PeriodClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
-  transactions HouseTransaction[] @relation("TxnPeriod")
-  referencedBy HouseTransaction[] @relation("TxnReferencePeriod")
+  property         Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  closedBy         User?              @relation("PeriodClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  transactions     HouseTransaction[] @relation("TxnPeriod")
+  referencedBy     HouseTransaction[] @relation("TxnReferencePeriod")
+  ledgerEntries    OwnerLedgerEntry[] @relation("LedgerPeriod")
+  ledgerReferenced OwnerLedgerEntry[] @relation("LedgerReferencePeriod")
 
   @@unique([propertyId, month])
   @@map("periods")
@@ -384,9 +396,11 @@ model FundAccount {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  units        Unit[]
-  transactions HouseTransaction[]
+  property      Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  units         Unit[]
+  transactions  HouseTransaction[]
+  ledgerEntries OwnerLedgerEntry[]
+  loans         Loan[]
 
   @@map("fund_accounts")
 }
@@ -488,4 +502,152 @@ model IdempotencyKey {
 
   @@id([propertyId, key])
   @@map("idempotency_keys")
+}
+
+// ─── Owners (docs/owners_sections_PRD.md, PRD §5.4–5.5, §9.2–9.3) ───
+// The owners migration also holds hand-written SQL Prisma can't express:
+// ledger sign/void CHECKs, the one-OPENING and one-active-share-set partial
+// indexes, the closed-period trigger (void marking allowed) and the
+// no-delete triggers. Keep them if `migrate dev` ever proposes dropping them.
+
+enum LedgerType {
+  OPENING
+  ENTITLEMENT
+  PAYOUT
+  ADVANCE
+  LOAN_DEDUCTION
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum PayMethod {
+  CASH
+  BANK
+  BKASH
+  NAGAD
+}
+
+enum LoanStatus {
+  ACTIVE
+  REPAID
+  WRITTEN_OFF
+}
+
+// A person or estate holding part of the house; may have no login. Never deleted.
+model Owner {
+  id          String   @id @default(uuid()) @db.Uuid
+  propertyId  String   @map("property_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  initials    String
+  sortOrder   Int      @default(0) @map("sort_order")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property   Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  user       User?              @relation("OwnerUser", fields: [userId], references: [id], onDelete: Restrict)
+  shareItems ShareSetItem[]
+  entries    OwnerLedgerEntry[]
+  loans      Loan[]
+
+  @@unique([propertyId, userId])
+  @@map("owners")
+}
+
+// All owners' units together, valid from the 1st of a month. A same-month
+// re-save marks the old set replaced (kept for history).
+model ShareSet {
+  id            String    @id @default(uuid()) @db.Uuid
+  propertyId    String    @map("property_id") @db.Uuid
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  reason        String
+  createdById   String    @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  replacedAt    DateTime? @map("replaced_at") @db.Timestamptz(6)
+
+  property  Property       @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  createdBy User           @relation("ShareSetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items     ShareSetItem[]
+
+  @@index([propertyId, effectiveFrom])
+  @@map("share_sets")
+}
+
+model ShareSetItem {
+  shareSetId String @map("share_set_id") @db.Uuid
+  ownerId    String @map("owner_id") @db.Uuid
+  units      Int
+
+  shareSet ShareSet @relation(fields: [shareSetId], references: [id], onDelete: Restrict)
+  owner    Owner    @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@id([shareSetId, ownerId])
+  @@map("share_set_items")
+}
+
+// The owner ledger (PRD §5.4). Signed paisa: + the house owes more, − less.
+// Balance = Σ amount (voided originals and their reversals cancel).
+model OwnerLedgerEntry {
+  id                String     @id @default(uuid()) @db.Uuid
+  propertyId        String     @map("property_id") @db.Uuid
+  ownerId           String     @map("owner_id") @db.Uuid
+  periodId          String     @map("period_id") @db.Uuid
+  type              LedgerType
+  amountPaisa       BigInt     @map("amount_paisa")
+  entryDate         DateTime   @map("entry_date") @db.Date
+  fundAccountId     String?    @map("fund_account_id") @db.Uuid
+  method            PayMethod?
+  referenceNo       String?    @map("reference_no")
+  note              String?
+  referencePeriodId String?    @map("reference_period_id") @db.Uuid
+  reversesId        String?    @unique @map("reverses_id") @db.Uuid
+  isSelf            Boolean    @default(false) @map("is_self")
+  flagged           Boolean    @default(false)
+  createdById       String     @map("created_by") @db.Uuid
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  voidedAt          DateTime?  @map("voided_at") @db.Timestamptz(6)
+  voidedById        String?    @map("voided_by") @db.Uuid
+  voidReason        String?    @map("void_reason")
+
+  property        Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  owner           Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  period          Period            @relation("LedgerPeriod", fields: [periodId], references: [id], onDelete: Restrict)
+  referencePeriod Period?           @relation("LedgerReferencePeriod", fields: [referencePeriodId], references: [id], onDelete: Restrict)
+  fundAccount     FundAccount?      @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  reverses        OwnerLedgerEntry? @relation("LedgerReversal", fields: [reversesId], references: [id], onDelete: Restrict)
+  reversedBy      OwnerLedgerEntry? @relation("LedgerReversal")
+  createdBy       User              @relation("LedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy        User?             @relation("LedgerVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  loans           Loan[]
+
+  @@index([ownerId, periodId])
+  @@index([fundAccountId])
+  @@map("owner_ledger_entries")
+}
+
+// Loan ledger (PRD §5.5) — disbursement only until the Loans section ships.
+model Loan {
+  id             String     @id @default(uuid()) @db.Uuid
+  propertyId     String     @map("property_id") @db.Uuid
+  ownerId        String     @map("owner_id") @db.Uuid
+  principalPaisa BigInt     @map("principal_paisa")
+  disbursedOn    DateTime   @map("disbursed_on") @db.Date
+  fundAccountId  String     @map("fund_account_id") @db.Uuid
+  method         PayMethod
+  referenceNo    String?    @map("reference_no")
+  reason         String
+  status         LoanStatus @default(ACTIVE)
+  payoutEntryId  String?    @map("payout_entry_id") @db.Uuid
+  createdById    String     @map("created_by") @db.Uuid
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  owner       Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  fundAccount FundAccount       @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  payoutEntry OwnerLedgerEntry? @relation(fields: [payoutEntryId], references: [id], onDelete: Restrict)
+  createdBy   User              @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, status])
+  @@map("loans")
 }

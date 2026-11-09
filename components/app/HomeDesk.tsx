@@ -11,11 +11,14 @@ export function HomeDesk({
   name,
   permissions,
   stats,
+  ownerId = null,
 }: {
   locale: Locale;
   name: string;
   permissions: Permission[];
   stats: { pendingInvites: number; activeUsers: number } | null;
+  /** The viewer's own owner record, for the "Statement →" shortcut (Owners PRD F17). */
+  ownerId?: string | null;
 }) {
   const tr = translator(locale);
   const n = (v: number) => (locale === "bn" ? toBanglaDigits(String(v)) : String(v));
@@ -24,6 +27,14 @@ export function HomeDesk({
       <div>
         <p className="kicker">{tr("home.kicker")}</p>
         <h1 className="page-title">{tr("home.welcome", { name })}</h1>
+        {ownerId ? (
+          <Button asChild variant="ghost" className="mt-2 pl-0 font-extrabold">
+            <Link href={localePath(locale, `/owners/${ownerId}`)}>
+              {tr("home.statement")}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Link>
+          </Button>
+        ) : null}
       </div>
       {can({ permissions }, "dashboard.admin") && stats ? (
         <section aria-labelledby="desk-title">

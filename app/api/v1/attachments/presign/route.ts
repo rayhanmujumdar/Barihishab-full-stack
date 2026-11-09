@@ -1,4 +1,5 @@
 import { readJson } from "@/lib/api/body";
+import { apiError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
 import { failResponse } from "@/lib/api/result";
 import { presignUpload } from "@/lib/attachments/attachment-service";
@@ -6,11 +7,14 @@ import { withAuth } from "@/lib/auth/guard";
 import { limitBy } from "@/lib/auth/rate-guard";
 import { LIMITS } from "@/lib/auth/rate-limit";
 import { requestMeta } from "@/lib/auth/request-meta";
+import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
 import { PresignBodySchema } from "./schema";
 
 export const POST = withAuth(
   async (req, { auth }) => {
+    // Entry bills and owner payout/advance receipts (Owners PRD F11).
+    if (!(["transaction.create", "payout.create", "advance.create"] as const).some((p) => can(auth, p))) return apiError("FORBIDDEN");
     const limited = await limitBy(LIMITS.presignPerUser, auth.userId);
     if (limited) return limited;
     const body = await readJson(req, PresignBodySchema);
@@ -19,5 +23,5 @@ export const POST = withAuth(
     if (!r.ok) return failResponse(r);
     return ok({ attachmentId: r.attachmentId, uploadUrl: r.uploadUrl, headers: r.headers, expiresAt: r.expiresAt }, { status: 201 });
   },
-  { permission: "transaction.create" },
+  { strict: true },
 );
