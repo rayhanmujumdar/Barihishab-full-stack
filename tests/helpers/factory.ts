@@ -141,3 +141,87 @@ export async function moneyWorld() {
   const owner = await createUser({ roles: ["OWNER"] });
   return { property, categories, oct, sep, cash, bank, admin, owner };
 }
+
+// ─── Owners ───
+
+export async function createOwner(propertyId: string, opts: { userId?: string | null; displayName?: string; initials?: string; sortOrder?: number; note?: string } = {}) {
+  seq += 1;
+  const displayName = opts.displayName ?? `Owner ${seq}`;
+  return prisma.owner.create({
+    data: {
+      propertyId,
+      userId: opts.userId ?? null,
+      displayName,
+      initials: opts.initials ?? displayName.slice(0, 2).toUpperCase(),
+      sortOrder: opts.sortOrder ?? seq,
+      note: opts.note ?? null,
+    },
+  });
+}
+
+export async function createShareSet(
+  propertyId: string,
+  createdById: string,
+  effectiveMonth: string,
+  units: Record<string, number>,
+  opts: { reason?: string; replaced?: boolean } = {},
+) {
+  return prisma.shareSet.create({
+    data: {
+      propertyId,
+      createdById,
+      effectiveFrom: monthDate(effectiveMonth),
+      reason: opts.reason ?? `Shares from ${effectiveMonth}`,
+      replacedAt: opts.replaced ? new Date() : null,
+      items: { create: Object.entries(units).map(([ownerId, u]) => ({ ownerId, units: u })) },
+    },
+  });
+}
+
+export async function createLedgerEntry(data: {
+  propertyId: string;
+  ownerId: string;
+  periodId: string;
+  createdById: string;
+  type: "OPENING" | "ENTITLEMENT" | "PAYOUT" | "ADVANCE" | "LOAN_DEDUCTION" | "ADJUSTMENT" | "REVERSAL";
+  amountPaisa: number;
+  fundAccountId?: string | null;
+  entryDate?: string;
+  reversesId?: string | null;
+  referencePeriodId?: string | null;
+  voided?: string;
+  method?: "CASH" | "BANK" | "BKASH" | "NAGAD" | null;
+}) {
+  return prisma.ownerLedgerEntry.create({
+    data: {
+      propertyId: data.propertyId,
+      ownerId: data.ownerId,
+      periodId: data.periodId,
+      createdById: data.createdById,
+      type: data.type,
+      amountPaisa: BigInt(data.amountPaisa),
+      fundAccountId: data.fundAccountId ?? null,
+      method: data.method ?? (data.fundAccountId ? "CASH" : null),
+      entryDate: new Date(`${data.entryDate ?? "2026-10-10"}T00:00:00Z`),
+      reversesId: data.reversesId ?? null,
+      referencePeriodId: data.referencePeriodId ?? null,
+      ...(data.voided ? { voidedAt: new Date(), voidReason: data.voided, voidedById: data.createdById } : {}),
+    },
+  });
+}
+
+export async function createLoan(data: { propertyId: string; ownerId: string; fundAccountId: string; createdById: string; principalPaisa: number; status?: "ACTIVE" | "REPAID" }) {
+  return prisma.loan.create({
+    data: {
+      propertyId: data.propertyId,
+      ownerId: data.ownerId,
+      fundAccountId: data.fundAccountId,
+      createdById: data.createdById,
+      principalPaisa: BigInt(data.principalPaisa),
+      disbursedOn: new Date("2026-10-10T00:00:00Z"),
+      method: "CASH",
+      reason: "Loan",
+      status: data.status ?? "ACTIVE",
+    },
+  });
+}

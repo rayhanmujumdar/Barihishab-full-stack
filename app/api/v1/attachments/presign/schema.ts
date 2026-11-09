@@ -30,7 +30,7 @@ registry.registerPath({
   path: "/attachments/presign",
   tags: ["Attachments"],
   summary: "Get a 5-minute upload URL for a bill or receipt",
-  description: "Permission `transaction.create`. JPG/PNG/WebP/PDF ≤ 5 MB. At most 30 per 10 minutes per user; unlinked uploads are removed after 24 h. Link the returned id via the entry create body or POST /transactions/{id}/attachments.",
+  description: "Any of `transaction.create`, `payout.create`, `advance.create`. JPG/PNG/WebP/PDF ≤ 5 MB. At most 30 per 10 minutes per user; unlinked uploads are removed after 24 h. Link the returned id via the entry create body, POST /transactions/{id}/attachments, or a payout/advance `attachmentIds`.",
   security: cookieAuth,
   request: { body: { content: { "application/json": { schema: PresignBodySchema } } } },
   responses: {

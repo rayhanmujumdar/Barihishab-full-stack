@@ -13,28 +13,46 @@ type Db = Prisma.TransactionClient | typeof prisma;
 export type FundInput = { name: string; type: "CASH" | "BANK" | "WALLET"; openingBalancePaisa: number; openingDate: string };
 export type FundPatch = Partial<FundInput> & { isActive?: boolean };
 
-/** Σ non-voided income and expense per fund account. */
+type Movement = { income: number; expense: number; ledger: number; loans: number };
+const NO_MOVES: Movement = { income: 0, expense: 0, ledger: 0, loans: 0 };
+
+/**
+ * Per fund account: Σ non-voided income / expense, Σ owner-ledger moves
+ * (all of them — voided payouts are cancelled by their reversals) and
+ * Σ principal of ACTIVE loans disbursed from it.
+ */
 export async function fundMovements(db: Db, propertyId: string, fundIds?: string[]) {
-  const groups = await db.houseTransaction.groupBy({
-    by: ["fundAccountId", "kind"],
-    where: { propertyId, voidedAt: null, ...(fundIds ? { fundAccountId: { in: fundIds } } : {}) },
+  const fundFilter = fundIds ? { fundAccountId: { in: fundIds } } : {};
+  // Sequential on purpose: `db` may be a transaction client (one connection).
+  const txns = await db.houseTransaction.groupBy({ by: ["fundAccountId", "kind"], where: { propertyId, voidedAt: null, ...fundFilter }, _sum: { amountPaisa: true } });
+  const ledger = await db.ownerLedgerEntry.groupBy({
+    by: ["fundAccountId"],
+    where: { propertyId, fundAccountId: fundIds ? { in: fundIds } : { not: null } },
     _sum: { amountPaisa: true },
   });
-  const map = new Map<string, { income: number; expense: number }>();
-  for (const g of groups) {
-    const m = map.get(g.fundAccountId) ?? { income: 0, expense: 0 };
-    if (g.kind === "INCOME") m.income += Number(g._sum.amountPaisa ?? 0);
-    else m.expense += Number(g._sum.amountPaisa ?? 0);
-    map.set(g.fundAccountId, m);
-  }
+  const loans = await db.loan.groupBy({ by: ["fundAccountId"], where: { propertyId, status: "ACTIVE", ...fundFilter }, _sum: { principalPaisa: true } });
+  const map = new Map<string, Movement>();
+  const at = (id: string) => map.get(id) ?? map.set(id, { ...NO_MOVES }).get(id)!;
+  for (const g of txns) at(g.fundAccountId)[g.kind === "INCOME" ? "income" : "expense"] += Number(g._sum.amountPaisa ?? 0);
+  for (const g of ledger) if (g.fundAccountId) at(g.fundAccountId).ledger += Number(g._sum.amountPaisa ?? 0);
+  for (const g of loans) at(g.fundAccountId).loans += Number(g._sum.principalPaisa ?? 0);
   return map;
 }
+
+const balanceFrom = (openingPaisa: number, m: Movement = NO_MOVES) => fundBalance(openingPaisa, m.income, m.expense, m.ledger, m.loans);
 
 /** Current balance of one account (used by warnings and deactivation). */
 export async function balanceOf(db: Db, propertyId: string, fundId: string, openingPaisa?: number): Promise<number> {
   const fund = openingPaisa === undefined ? await db.fundAccount.findUniqueOrThrow({ where: { id: fundId } }) : null;
-  const m = (await fundMovements(db, propertyId, [fundId])).get(fundId) ?? { income: 0, expense: 0 };
-  return fundBalance(openingPaisa ?? Number(fund!.openingBalancePaisa), m.income, m.expense);
+  const m = (await fundMovements(db, propertyId, [fundId])).get(fundId);
+  return balanceFrom(openingPaisa ?? Number(fund!.openingBalancePaisa), m);
+}
+
+/** House Fund = Σ balances of every active fund account (PAY-04). */
+export async function houseFundBalance(db: Db, propertyId: string): Promise<number> {
+  const rows = await db.fundAccount.findMany({ where: { propertyId, isActive: true } });
+  const moves = await fundMovements(db, propertyId);
+  return rows.reduce((sum, f) => sum + balanceFrom(Number(f.openingBalancePaisa), moves.get(f.id)), 0);
 }
 
 export async function listFunds(propertyId: string, opts: { active?: boolean } = {}): Promise<FundAccountDto[]> {
@@ -45,10 +63,7 @@ export async function listFunds(propertyId: string, opts: { active?: boolean } =
     }),
     fundMovements(prisma, propertyId),
   ]);
-  return rows.map((f) => {
-    const m = moves.get(f.id) ?? { income: 0, expense: 0 };
-    return toFundDto(f, fundBalance(Number(f.openingBalancePaisa), m.income, m.expense));
-  });
+  return rows.map((f) => toFundDto(f, balanceFrom(Number(f.openingBalancePaisa), moves.get(f.id))));
 }
 
 const toDate = (iso: string) => new Date(`${iso}T00:00:00Z`);

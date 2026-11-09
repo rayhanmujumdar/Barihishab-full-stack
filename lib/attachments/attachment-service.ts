@@ -33,6 +33,15 @@ export async function attachmentCounts(db: Db, txnIds: string[]): Promise<Map<st
   return new Map(groups.map((g) => [g.entityId!, g._count._all]));
 }
 
+/** Linked files of many entities at once (statement rows). */
+export async function attachmentsFor(db: Db, entityIds: string[]): Promise<Map<string, AttachmentDto[]>> {
+  const map = new Map<string, AttachmentDto[]>();
+  if (!entityIds.length) return map;
+  const rows = await db.attachment.findMany({ where: { entityId: { in: entityIds }, ...LINKED }, orderBy: { linkedAt: "asc" } });
+  for (const r of rows) map.set(r.entityId!, [...(map.get(r.entityId!) ?? []), toDto(r)]);
+  return map;
+}
+
 export async function listAttachments(db: Db, txnId: string): Promise<AttachmentDto[]> {
   const rows = await db.attachment.findMany({ where: { entityId: txnId, ...LINKED }, orderBy: { linkedAt: "asc" } });
   return rows.map(toDto);
@@ -78,17 +87,26 @@ export async function prepareAttachments(propertyId: string, ids: string[], exis
  * Links verified uploads to an entry inside the caller's transaction (one audit row each).
  * Must run inside `inTransaction`: an upload linked or swept meanwhile aborts with a 422.
  */
-export async function linkAttachments(tx: Tx, propertyId: string, txnId: string, rows: Attachment[], actor: Actor): Promise<void> {
+export type AttachmentEntity = "house_transaction" | "owner_ledger_entry" | "loan";
+
+export async function linkAttachments(
+  tx: Tx,
+  propertyId: string,
+  txnId: string,
+  rows: Attachment[],
+  actor: Actor,
+  entityType: AttachmentEntity = "house_transaction",
+): Promise<void> {
   for (const row of rows) {
     const { count } = await tx.attachment.updateMany({
       where: { id: row.id, propertyId, entityId: null, removedAt: null },
-      data: { entityId: txnId, linkedAt: now() },
+      data: { entityType, entityId: txnId, linkedAt: now() },
     });
     if (count !== 1) throw new Abort(fieldFail("attachmentIds", UPLOAD_AGAIN));
     await audit(tx, {
       actorId: actor.id,
       action: "attachment.added",
-      entityType: "house_transaction",
+      entityType,
       entityId: txnId,
       after: { attachmentId: row.id, fileName: row.fileName },
       ip: actor.ip,

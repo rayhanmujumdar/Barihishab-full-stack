@@ -32,6 +32,13 @@ describe("error catalogue", () => {
     expect(ERRORS.FILE_TOO_LARGE.en).toBe("Only JPG, PNG, WebP or PDF up to 5 MB.");
   });
 
+  it("maps the Owners PRD §8 codes", () => {
+    for (const code of ["USER_ALREADY_OWNER", "NO_OPEN_PERIOD", "EXCEEDS_BALANCE", "NOT_VOIDABLE", "OPENING_LOCKED"] as const) {
+      expect(ERRORS[code].status, code).toBe(409);
+    }
+    expect(ERRORS.NO_OPEN_PERIOD.en).toBe("Open a month first — payments are recorded in an open month.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

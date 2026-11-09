@@ -37,6 +37,15 @@ import "./transactions/[id]/void/schema";
 import "./transactions/[id]/attachments/schema";
 import "./attachments/presign/schema";
 import "./attachments/[id]/schema";
+import "./owners/schema";
+import "./owners/shares/schema";
+import "./owners/[id]/schema";
+import "./owners/[id]/opening/schema";
+import "./owners/[id]/statement/schema";
+import "./payouts/schema";
+import "./advances/schema";
+import "./adjustments/schema";
+import "./ledger/[id]/void/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 

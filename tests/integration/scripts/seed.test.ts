@@ -74,4 +74,20 @@ describe("seed — Income & Expenses master data (EXP-02)", () => {
     expect((await prisma.fundAccount.findMany()).map((f) => f.type).sort()).toEqual(["BANK", "CASH", "WALLET"]);
     expect(units.every((u) => u.defaultFundAccountId)).toBe(true);
   });
+
+  it("adds the Owners PRD §2.2 demo owners and share history only with SEED_DEMO=true", async () => {
+    await runSeed(env);
+    expect(await prisma.owner.count()).toBe(0);
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    const owners = await prisma.owner.findMany({ orderBy: { sortOrder: "asc" } });
+    expect(owners.map((o) => o.displayName)).toEqual(["Nasrin Ahmed", "Rayhan Ahmed", "Tanvir Ahmed", "Farzana Haque", "Sabrina Ahmed"]);
+    const admin = await prisma.user.findFirstOrThrow({ where: { username: "bookkeeper" } });
+    expect(owners[1].userId).toBe(admin.id);
+    const sets = await prisma.shareSet.findMany({ include: { items: true }, orderBy: { effectiveFrom: "asc" } });
+    expect(sets.map((s) => [s.effectiveFrom.toISOString().slice(0, 7), s.items.reduce((a, i) => a + i.units, 0)])).toEqual([
+      ["2026-01", 100],
+      ["2026-06", 100],
+    ]);
+  });
 });

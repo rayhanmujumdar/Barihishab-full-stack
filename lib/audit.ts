@@ -33,6 +33,16 @@ export const AUDIT_ACTIONS = [
   "fund_account.updated",
   "category.created",
   "category.updated",
+  // Owners PRD §11 (financial)
+  "owner.created",
+  "owner.updated",
+  "share_set.saved",
+  "ledger.opening_set",
+  "ledger.payout_created",
+  "ledger.advance_created",
+  "ledger.voided",
+  "ledger.adjustment_created",
+  "loan.created",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

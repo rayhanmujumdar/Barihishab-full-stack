@@ -6,6 +6,7 @@ import { USERNAME_PATTERN } from "../lib/auth/better-auth";
 import { INVITE_TTL_MS, issueToken } from "../lib/auth/token-service";
 import { enqueueEmail } from "../lib/email/outbox";
 import { ensureDefaultCategories, ensureDemoData } from "../lib/master-data/defaults";
+import { ensureDemoOwners } from "../lib/owners/demo";
 import { prisma } from "../lib/prisma";
 
 export type SeedResult = { created: boolean; inviteUrl?: string };
@@ -30,7 +31,10 @@ export async function runSeed(env: Record<string, string | undefined> = process.
       await ensureDefaultCategories(tx, property.id);
       if (env.SEED_DEMO === "true") await ensureDemoData(tx, property.id, new Date(`${new Date().toISOString().slice(0, 7)}-01T00:00:00Z`));
       const existing = await tx.userRole.findFirst({ where: { role: "SUPER_ADMIN" } });
-      if (existing) return { created: false };
+      if (existing) {
+        if (env.SEED_DEMO === "true") await ensureDemoOwners(tx, property.id, existing.userId);
+        return { created: false };
+      }
 
       const user = await tx.user.create({
         data: {
@@ -59,6 +63,7 @@ export async function runSeed(env: Record<string, string | undefined> = process.
       });
       await audit(tx, { actorId: null, action: "user.created", entityType: "user", entityId: user.id, after: { username, email, roles: ["SUPER_ADMIN"] }, reason: "seed" });
       await audit(tx, { actorId: null, action: "auth.invite.sent", entityType: "user", entityId: user.id, reason: "seed" });
+      if (env.SEED_DEMO === "true") await ensureDemoOwners(tx, property.id, user.id);
       return { created: true, inviteUrl: `${appUrl}/bn/invite/${token}` };
     },
     { timeout: 20_000 },
@@ -73,7 +78,7 @@ async function main() {
       console.log("  One-time invite link (valid 72 h) — open it to set the password:");
       console.log(`  ${result.inviteUrl}`);
     } else {
-      console.log("✔ A Super Admin already exists — default categories checked (and demo units/funds if SEED_DEMO=true).");
+      console.log("✔ A Super Admin already exists — default categories checked (and demo units/funds/owners if SEED_DEMO=true).");
     }
   } catch (err) {
     console.error(`✖ Seed failed: ${err instanceof Error ? err.message : String(err)}`);

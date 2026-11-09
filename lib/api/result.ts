@@ -2,14 +2,20 @@
 // HTTP responses; routes turn failures into the error envelope here.
 import { apiError, type ErrorCode } from "./errors";
 
-export type Fail = { ok: false; code: ErrorCode; fields?: Record<string, string> };
+export type Fail = { ok: false; code: ErrorCode; fields?: Record<string, string>; details?: Record<string, unknown> };
 export type Result<T> = ({ ok: true } & T) | Fail;
 
-export const failWith = (code: ErrorCode, fields?: Record<string, string>): Fail => ({ ok: false, code, ...(fields ? { fields } : {}) });
+export const failWith = (code: ErrorCode, fields?: Record<string, string>, details?: Record<string, unknown>): Fail => ({
+  ok: false,
+  code,
+  ...(fields ? { fields } : {}),
+  ...(details ? { details } : {}),
+});
 export const fieldFail = (field: string, message: string): Fail => failWith("VALIDATION_FAILED", { [field]: message });
 
 export function failResponse(r: Fail): Response {
-  return apiError(r.code, r.fields ? { details: { fields: r.fields } } : {});
+  const details = { ...r.details, ...(r.fields ? { fields: r.fields } : {}) };
+  return apiError(r.code, Object.keys(details).length ? { details } : {});
 }
 
 /** Who is acting, for audit rows. */

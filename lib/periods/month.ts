@@ -18,6 +18,12 @@ export function monthKey(date: Date): string {
   return date.toISOString().slice(0, 7);
 }
 
+/** "2026-12" + 1 → "2027-01" */
+export function addMonths(key: string, n: number): string {
+  const d = monthDate(key);
+  return monthKey(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1)));
+}
+
 export function currentMonthKey(at?: Date): string {
   return todayIsoInDhaka(at).slice(0, 7);
 }

@@ -95,6 +95,32 @@ export const ERRORS = {
     en: "An entry can have at most 5 files.",
     bn: "একটি এন্ট্রিতে সর্বোচ্চ ৫টি ফাইল রাখা যায়।",
   },
+  // Owners PRD §8
+  USER_ALREADY_OWNER: {
+    status: 409,
+    en: "That user is already linked to an owner.",
+    bn: "এই ব্যবহারকারী আগেই একজন মালিকের সাথে যুক্ত।",
+  },
+  NO_OPEN_PERIOD: {
+    status: 409,
+    en: "Open a month first — payments are recorded in an open month.",
+    bn: "আগে একটি মাস খুলুন — পেমেন্ট খোলা মাসেই লেখা হয়।",
+  },
+  EXCEEDS_BALANCE: {
+    status: 409,
+    en: "More than the owner's balance — choose whether the excess is an advance or a loan.",
+    bn: "মালিকের ব্যালেন্সের চেয়ে বেশি — বাড়তি অংশ অগ্রিম না ঋণ, তা বেছে নিন।",
+  },
+  NOT_VOIDABLE: {
+    status: 409,
+    en: "Only payouts and advances can be voided here.",
+    bn: "এখানে শুধু পেমেন্ট ও অগ্রিম বাতিল করা যায়।",
+  },
+  OPENING_LOCKED: {
+    status: 409,
+    en: "Opening balances are locked once a month is closed — use a Balance adjustment.",
+    bn: "কোনো মাস বন্ধ হলে প্রারম্ভিক ব্যালেন্স আর বদলানো যায় না — ব্যালেন্স সমন্বয় ব্যবহার করুন।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",

@@ -31,7 +31,11 @@ export function toPeriodTotals(groups: readonly TotalsGroup[]): PeriodTotals {
   return t;
 }
 
-/** Balance(a) = opening + Σ income − Σ expense (transfers/ledger moves come later). */
-export function fundBalance(openingPaisa: number, incomePaisa: number, expensePaisa: number): number {
-  return openingPaisa + incomePaisa - expensePaisa;
+/**
+ * Balance(a) = opening + Σ income − Σ expense + Σ owner-ledger moves − Σ loans
+ * disbursed (PRD §9.5). Ledger moves are signed: payouts/advances negative,
+ * their reversals positive. Transfers come later.
+ */
+export function fundBalance(openingPaisa: number, incomePaisa: number, expensePaisa: number, ledgerPaisa = 0, loansPaisa = 0): number {
+  return openingPaisa + incomePaisa - expensePaisa + ledgerPaisa - loansPaisa;
 }

@@ -89,3 +89,37 @@ describe("GET /api/v1/openapi.json — Income & Expenses", () => {
     }
   });
 });
+
+const OWNERS: [string, string][] = [
+  ["get", "/owners"],
+  ["post", "/owners"],
+  ["get", "/owners/{id}"],
+  ["patch", "/owners/{id}"],
+  ["put", "/owners/{id}/opening"],
+  ["get", "/owners/{id}/statement"],
+  ["get", "/owners/shares"],
+  ["post", "/owners/shares"],
+  ["post", "/payouts"],
+  ["post", "/advances"],
+  ["post", "/adjustments"],
+  ["post", "/ledger/{id}/void"],
+];
+
+describe("GET /api/v1/openapi.json — Owners", () => {
+  it("documents all 12 owners, shares and ledger operations under the Owners tag", async () => {
+    const doc = await (await GET()).json();
+    for (const [method, path] of OWNERS) {
+      expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(doc.paths[path][method].tags).toEqual(["Owners"]);
+    }
+    expect(doc.components.schemas).toHaveProperty("LedgerEntry");
+  });
+
+  it("declares the Idempotency-Key header on owner money POSTs", async () => {
+    const doc = await (await GET()).json();
+    for (const path of ["/payouts", "/advances", "/adjustments", "/owners/shares"]) {
+      const names = (doc.paths[path].post.parameters ?? []).map((p: { name: string; in: string }) => `${p.in}:${p.name}`);
+      expect(names, path).toContain("header:idempotency-key");
+    }
+  });
+});
