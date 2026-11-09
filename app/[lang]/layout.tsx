@@ -1,15 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Hind_Siliguri } from "next/font/google";
 import { notFound } from "next/navigation";
 import { QueryProvider } from "@/components/app/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { t } from "@/lib/i18n";
 import { LOCALES, isLocale } from "@/lib/i18n/locales";
+import { fontVariables } from "../fonts";
 import "../globals.css";
-
-const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], weight: ["400", "600", "800"] });
-const hind = Hind_Siliguri({ variable: "--font-hind", subsets: ["bengali", "latin"], weight: ["400", "600", "700"] });
 
 export async function generateMetadata({ params }: LayoutProps<"/[lang]">): Promise<Metadata> {
   const { lang } = await params;
@@ -33,7 +30,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
   return (
-    <html lang={lang} className={`${archivo.variable} ${hind.variable}`}>
+    <html lang={lang} className={fontVariables}>
       <body>
         <QueryProvider>
           <TooltipProvider>{children}</TooltipProvider>

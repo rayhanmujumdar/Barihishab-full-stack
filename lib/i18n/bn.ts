@@ -135,6 +135,16 @@ export const bn: Record<MessageKey, string> = {
   "forbidden.body": "এই পেজটি অন্য ভূমিকার জন্য। দেখার দরকার মনে হলে সুপার অ্যাডমিনকে বলুন।",
   "forbidden.back": "হোমে যান",
 
+  "status.home": "হোমে যান",
+  "notFound.kicker": "ত্রুটি ৪০৪",
+  "notFound.title": "পেজটি পাওয়া যায়নি",
+  "notFound.body": "এই পেজটি নেই বা সরানো হয়েছে। ঠিকানাটি দেখুন, অথবা হোম থেকে আবার শুরু করুন।",
+  "errorPage.kicker": "ত্রুটি ৫০০",
+  "errorPage.title": "কিছু একটা ভুল হয়েছে",
+  "errorPage.body": "পেজটি লোড হয়নি। আবার চেষ্টা করুন — বারবার হলে সুপার অ্যাডমিনকে জানান।",
+  "errorPage.retry": "আবার চেষ্টা করুন",
+  "errorPage.reference": "রেফারেন্স: {digest}",
+
   "users.kicker": "শুধু সুপার অ্যাডমিন",
   "users.title": "ব্যবহারকারী",
   "users.search": "নাম, ইউজারনেম, ইমেইল বা ফোন দিয়ে খুঁজুন",
