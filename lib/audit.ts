@@ -43,6 +43,13 @@ export const AUDIT_ACTIONS = [
   "ledger.voided",
   "ledger.adjustment_created",
   "loan.created",
+  // Distribution PRD §6 (financial)
+  "loan.updated",
+  "period.closed",
+  "period.reopened",
+  "period.reserve_overridden",
+  "period.reserve_reset",
+  "settings.reserve_updated",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

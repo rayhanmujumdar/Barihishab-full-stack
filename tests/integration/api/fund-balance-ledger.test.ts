@@ -26,10 +26,11 @@ describe("fund balances include owner payouts and loans (PRD §9.5 v_fund_balanc
     return { ...w, cash };
   }
 
-  it("subtracts payouts, nets reversals, ignores adjustments and subtracts active loans", async () => {
+  it("subtracts payouts, nets reversals, ignores adjustments and subtracts every disbursed loan whatever its status", async () => {
     const w = await setup();
     const body = await json(await funds.GET(apiRequest("/fund-accounts", { login: await loginAs(w.owner) }), params({})));
-    expect(body.data.items.find((f: { id: string }) => f.id === w.cash.id).balancePaisa).toBe(770000);
+    // 1370000 − 400000 payout − 200000 active loan − 50000 repaid loan (its cash still left the fund).
+    expect(body.data.items.find((f: { id: string }) => f.id === w.cash.id).balancePaisa).toBe(720000);
   });
 
   it("FUND_NEGATIVE on a new expense sees the payouts", async () => {
@@ -46,6 +47,6 @@ describe("fund balances include owner payouts and loans (PRD §9.5 v_fund_balanc
       params({}),
     );
     expect(res.status).toBe(201);
-    expect((await json(res)).data.warnings).toContainEqual({ code: "FUND_NEGATIVE", fundAccountId: w.cash.id, balancePaisa: -30000 });
+    expect((await json(res)).data.warnings).toContainEqual({ code: "FUND_NEGATIVE", fundAccountId: w.cash.id, balancePaisa: -80000 });
   });
 });

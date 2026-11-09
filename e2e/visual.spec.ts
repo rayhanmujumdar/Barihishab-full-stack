@@ -13,8 +13,10 @@ const PRIVATE = [
   ["home", "/"],
   ["users", "/admin/users"],
   ["me", "/me"],
-  ["entries", "/entries?type=EXPENSE"],
+  // The current month (it has entries; later months may exist once a month was closed).
+  ["entries", `/entries?type=EXPENSE&period=${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka", year: "numeric", month: "2-digit" }).format(new Date())}`],
   ["settings", "/settings"],
+  ["distribution", "/distribution"],
 ] as const;
 
 mkdirSync(".context/screens", { recursive: true });

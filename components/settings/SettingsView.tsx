@@ -17,6 +17,8 @@ import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import type { CategoryDto, FundAccountDto, UnitDto } from "@/lib/master-data/dto";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
+import type { ReserveSettings as ReserveRule } from "@/lib/distribution/reserve-service";
+import { ReserveSettings } from "./ReserveSettings";
 
 type Can = { units: boolean; funds: boolean; categories: boolean };
 type Kind = "INCOME" | "EXPENSE";
@@ -51,12 +53,15 @@ export function SettingsView({
   funds,
   categories,
   can,
+  reserve = null,
 }: {
   locale: Locale;
   units: UnitDto[];
   funds: FundAccountDto[];
   categories: CategoryDto[];
   can: Can;
+  /** Reserve rule + balance, for users with `settings.manage` (Distribution PRD F9). */
+  reserve?: { rule: ReserveRule; balancePaisa: number } | null;
 }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -106,6 +111,8 @@ export function SettingsView({
         <h1 className="page-title">{tr("settings.title")}</h1>
       </div>
       <ErrorStrip message={error} />
+
+      {reserve ? <ReserveSettings locale={locale} rule={reserve.rule} balancePaisa={reserve.balancePaisa} /> : null}
 
       {can.units ? (
         <Section id="units" title={tr("settings.units")} addLabel={tr("settings.add")} onAdd={() => setEditing({ type: "unit", item: null })} empty={!units.length} emptyText={tr("settings.empty")}>

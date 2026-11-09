@@ -21,7 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName, rolesOf } from "@/lib/users/dto";
 import { initials as initialsOf } from "@/lib/users/initials";
 import type { OwnerDetailDto, OwnerDto, OwnerListDto } from "./dto";
-import { loanOutstandingByOwner } from "./loan-service";
+import { activeLoans, loanOutstandingByOwner } from "./loan-service";
 import { loadShareSets, type ShareSetRow } from "./share-service";
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -122,7 +122,7 @@ export async function getOwnerDetail(propertyId: string, id: string, viewerId: s
       where: { propertyId, ownerId: id },
       select: { type: true, amountPaisa: true, entryDate: true, voidedAt: true, period: { select: { month: true } } },
     }),
-    loanOutstandingByOwner(prisma, propertyId, [id]),
+    activeLoans(prisma, propertyId, [id]),
   ]);
   const ctx = context(sets, viewerId);
   const rows = entries.map((e) => ({
@@ -134,7 +134,7 @@ export async function getOwnerDetail(propertyId: string, id: string, viewerId: s
   }));
   const balance = rows.reduce((sum, e) => sum + e.amountPaisa, 0);
   return {
-    ...toDto(row, ctx, balance, loans.get(id) ?? 0),
+    ...toDto(row, ctx, balance, loans.reduce((sum, l) => sum + l.outstandingPaisa, 0)),
     email: row.user?.email ?? null,
     phone: row.user?.phone ?? null,
     userName: row.user ? displayName(row.user) : null,
@@ -151,6 +151,7 @@ export async function getOwnerDetail(propertyId: string, id: string, viewerId: s
       savedBy: h.set.savedBy,
       savedAt: h.set.savedAt,
     })),
+    loans,
   };
 }
 

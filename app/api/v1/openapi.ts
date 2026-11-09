@@ -46,6 +46,13 @@ import "./payouts/schema";
 import "./advances/schema";
 import "./adjustments/schema";
 import "./ledger/[id]/void/schema";
+import "./loans/[id]/schema";
+import "./settings/reserve/schema";
+import "./distribution/schema";
+import "./periods/[month]/reserve/schema";
+import "./periods/[month]/close-preview/schema";
+import "./periods/[month]/close/schema";
+import "./periods/[month]/reopen/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 

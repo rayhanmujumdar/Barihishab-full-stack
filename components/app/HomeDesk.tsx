@@ -1,9 +1,10 @@
-import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import { ArrowRightIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { toBanglaDigits, translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
+import { monthLabel } from "@/lib/periods/month";
 import { can, type Permission } from "@/lib/permissions";
 
 export function HomeDesk({
@@ -12,6 +13,7 @@ export function HomeDesk({
   permissions,
   stats,
   ownerId = null,
+  closeReminder = null,
 }: {
   locale: Locale;
   name: string;
@@ -19,6 +21,8 @@ export function HomeDesk({
   stats: { pendingInvites: number; activeUsers: number } | null;
   /** The viewer's own owner record, for the "Statement →" shortcut (Owners PRD F17). */
   ownerId?: string | null;
+  /** An earlier month still open, for users who can close it (Distribution PRD F14). */
+  closeReminder?: { month: string; unpaid: { name: string; tenantName: string | null }[] } | null;
 }) {
   const tr = translator(locale);
   const n = (v: number) => (locale === "bn" ? toBanglaDigits(String(v)) : String(v));
@@ -36,6 +40,27 @@ export function HomeDesk({
           </Button>
         ) : null}
       </div>
+      {closeReminder ? (
+        <div className="reminder-strip" role="note">
+          <p className="m-0 flex items-start gap-2">
+            <ExclamationTriangleIcon className="bal-neg size-5 shrink-0" aria-hidden />
+            <span>
+              <strong>{tr("home.reminder.open", { month: monthLabel(locale, closeReminder.month) })}</strong>{" "}
+              {closeReminder.unpaid.length
+                ? tr(closeReminder.unpaid.length === 1 ? "home.reminder.unpaid" : "home.reminder.unpaidMany", {
+                    units: closeReminder.unpaid.map((u) => (u.tenantName ? `${u.name} (${u.tenantName})` : u.name)).join(", "),
+                  })
+                : null}
+            </span>
+          </p>
+          <Button asChild>
+            <Link href={localePath(locale, `/distribution?month=${closeReminder.month}`)}>
+              {tr("home.reminder.review")}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
       {can({ permissions }, "dashboard.admin") && stats ? (
         <section aria-labelledby="desk-title">
           <div className="section-head">

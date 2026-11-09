@@ -121,6 +121,37 @@ export const ERRORS = {
     en: "Opening balances are locked once a month is closed — use a Balance adjustment.",
     bn: "কোনো মাস বন্ধ হলে প্রারম্ভিক ব্যালেন্স আর বদলানো যায় না — ব্যালেন্স সমন্বয় ব্যবহার করুন।",
   },
+  // Distribution PRD §9
+  CLOSE_BLOCKED: {
+    status: 409,
+    en: "This month can't be closed yet — fix the failed checks first.",
+    bn: "এই মাস এখনও বন্ধ করা যাবে না — আগে ব্যর্থ যাচাইগুলো ঠিক করুন।",
+  },
+  PREVIOUS_MONTH_OPEN: {
+    status: 409,
+    en: "Close the previous month first — months close in order.",
+    bn: "আগে আগের মাসটি বন্ধ করুন — মাস ক্রমানুসারে বন্ধ হয়।",
+  },
+  PERIOD_ALREADY_CLOSED: {
+    status: 409,
+    en: "This month was just closed by someone else.",
+    bn: "এই মাসটি এইমাত্র অন্য কেউ বন্ধ করেছেন।",
+  },
+  PERIOD_CHANGED: {
+    status: 409,
+    en: "This month changed since you opened it. Reload and try again.",
+    bn: "আপনি খোলার পর এই মাসটি বদলেছে। রিলোড করে আবার চেষ্টা করুন।",
+  },
+  REOPEN_NOT_ALLOWED: {
+    status: 409,
+    en: "Only the latest closed month can be reopened. For older months, record an Adjustment in the open month.",
+    bn: "শুধু সর্বশেষ বন্ধ মাসটি আবার খোলা যায়। পুরনো মাসের জন্য খোলা মাসে একটি সমন্বয় লিখুন।",
+  },
+  LOAN_NOT_ACTIVE: {
+    status: 409,
+    en: "Only an active loan can be changed.",
+    bn: "শুধু চলমান ঋণ বদলানো যায়।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",

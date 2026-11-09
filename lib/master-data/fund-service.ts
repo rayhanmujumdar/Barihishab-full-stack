@@ -30,7 +30,9 @@ export async function fundMovements(db: Db, propertyId: string, fundIds?: string
     where: { propertyId, fundAccountId: fundIds ? { in: fundIds } : { not: null } },
     _sum: { amountPaisa: true },
   });
-  const loans = await db.loan.groupBy({ by: ["fundAccountId"], where: { propertyId, status: "ACTIVE", ...fundFilter }, _sum: { principalPaisa: true } });
+  // Every disbursed loan left the fund, whatever its status now; deductions
+  // on close move no cash (Distribution design D1).
+  const loans = await db.loan.groupBy({ by: ["fundAccountId"], where: { propertyId, ...fundFilter }, _sum: { principalPaisa: true } });
   const map = new Map<string, Movement>();
   const at = (id: string) => map.get(id) ?? map.set(id, { ...NO_MOVES }).get(id)!;
   for (const g of txns) at(g.fundAccountId)[g.kind === "INCOME" ? "income" : "expense"] += Number(g._sum.amountPaisa ?? 0);

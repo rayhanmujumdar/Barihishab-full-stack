@@ -86,6 +86,17 @@ describe("POST /api/v1/payouts (F11, PAY-01..04)", () => {
     expect(await prisma.auditLog.count({ where: { action: "loan.created", entityId: data.loan.id } })).toBe(1);
   });
 
+  it("saves a monthly instalment on a split loan and refuses one above the loan (Distribution F11)", async () => {
+    const w = await world();
+    const tooBig = await pay(w.adminLogin, body(w, { ownerId: w.owners.tanvir.id, amountPaisa: 1300000, splitExcessAs: "LOAN", loanInstallmentPaisa: 494416 }));
+    expect(tooBig.status).toBe(422);
+    expect((await json(tooBig)).error.details.fields.loanInstallmentPaisa).toBeTruthy();
+    expect(await prisma.loan.count({ where: { ownerId: w.owners.tanvir.id } })).toBe(1);
+    const res = await pay(w.adminLogin, body(w, { ownerId: w.owners.tanvir.id, amountPaisa: 1300000, splitExcessAs: "LOAN", loanInstallmentPaisa: 100000 }));
+    expect(res.status).toBe(201);
+    expect((await json(res)).data.loan).toMatchObject({ principalPaisa: 494415, installmentPaisa: 100000, outstandingPaisa: 494415 });
+  });
+
   it("records only the advance or loan when nothing is owed", async () => {
     const w = await world();
     const none = await pay(w.adminLogin, body(w, { ownerId: w.owners.nasrin.id, amountPaisa: 100000 }));

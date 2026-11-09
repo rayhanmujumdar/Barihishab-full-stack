@@ -50,6 +50,7 @@ async function Owner({ params, searchParams }: Props) {
     void: can(viewer, "ledger.void"),
     adjust: can(viewer, "ledger.adjust"),
     manage: can(viewer, "owner.manage"),
+    loan: can(viewer, "loan.manage"),
   };
   const [statement, { items: periods, latestOpen }, funds, users] = await Promise.all([
     ownerStatement(propertyId, { id: owner.id, displayName: owner.displayName, units: owner.units, sharePercent: owner.sharePercent }, range.from, range.to),

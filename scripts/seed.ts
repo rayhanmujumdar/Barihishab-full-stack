@@ -6,6 +6,7 @@ import { USERNAME_PATTERN } from "../lib/auth/better-auth";
 import { INVITE_TTL_MS, issueToken } from "../lib/auth/token-service";
 import { enqueueEmail } from "../lib/email/outbox";
 import { ensureDefaultCategories, ensureDemoData } from "../lib/master-data/defaults";
+import { ensureDemoReserve } from "../lib/distribution/reserve-service";
 import { ensureDemoOwners } from "../lib/owners/demo";
 import { prisma } from "../lib/prisma";
 
@@ -29,7 +30,10 @@ export async function runSeed(env: Record<string, string | undefined> = process.
 
       const property = (await tx.property.findFirst({ orderBy: { createdAt: "asc" } })) ?? (await tx.property.create({ data: { name: "BariHisab House" } }));
       await ensureDefaultCategories(tx, property.id);
-      if (env.SEED_DEMO === "true") await ensureDemoData(tx, property.id, new Date(`${new Date().toISOString().slice(0, 7)}-01T00:00:00Z`));
+      if (env.SEED_DEMO === "true") {
+        await ensureDemoData(tx, property.id, new Date(`${new Date().toISOString().slice(0, 7)}-01T00:00:00Z`));
+        await ensureDemoReserve(tx, property.id);
+      }
       const existing = await tx.userRole.findFirst({ where: { role: "SUPER_ADMIN" } });
       if (existing) {
         if (env.SEED_DEMO === "true") await ensureDemoOwners(tx, property.id, existing.userId);

@@ -31,7 +31,7 @@ import { isAfterTomorrow } from "@/lib/transactions/rules";
 import { cn } from "@/lib/utils";
 import { Choice } from "./Choice";
 import { balanceText, balanceTone } from "./format";
-import type { OwnerPageData } from "./types";
+import type { PayDrawerData } from "./types";
 
 type Method = "CASH" | "BANK" | "BKASH" | "NAGAD";
 type Warning = { code: "FUND_SHORT" | "HOUSE_FUND_SHORT" | "ADVANCE_OVER_LIMIT"; fundAccountId?: string; balancePaisa?: number };
@@ -40,7 +40,7 @@ type PayoutData = { entries: unknown[]; loan: { principalPaisa: number } | null;
 const METHODS: Method[] = ["CASH", "BANK", "BKASH", "NAGAD"];
 
 /** Pay an owner (F11) or record an advance (F12) — the shared entry drawer. */
-export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Locale; mode: "pay" | "advance"; data: OwnerPageData; onClose: () => void; onSaved: () => void }) {
+export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Locale; mode: "pay" | "advance"; data: PayDrawerData; onClose: () => void; onSaved: () => void }) {
   const tr = translator(locale);
   const { owner } = data;
   const owed = Math.max(owner.balancePaisa, 0);
@@ -57,6 +57,9 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [excess, setExcess] = useState<Excess | null>(null);
+  // Optional monthly instalment when the excess becomes a loan (Distribution F11).
+  const [instalment, setInstalment] = useState("");
+  const [instalmentError, setInstalmentError] = useState<string | null>(null);
   // One key per open drawer: a double tap or retry never pays twice (DUP-01).
   const [key] = useState(newIdempotencyKey);
   const createPayout = useApiMutation(["owners", "payout"], (body: Record<string, unknown>) => apiFetch<PayoutData>("/payouts", { method: "POST", body, headers: { "Idempotency-Key": key } }), { invalidate: [qk.owners.all] });
@@ -87,6 +90,12 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
   }
 
   async function send(splitExcessAs?: "ADVANCE" | "LOAN") {
+    let loanInstallmentPaisa: number | null = null;
+    if (splitExcessAs === "LOAN" && instalment.trim()) {
+      loanInstallmentPaisa = parseAmount(instalment);
+      if (loanInstallmentPaisa === null || (excess && loanInstallmentPaisa > excess.excessPaisa)) return setInstalmentError(tr("pay.err.amount"));
+    }
+    setInstalmentError(null);
     setPending(true);
     setError(null);
     const common = {
@@ -100,7 +109,7 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
     };
     const res =
       mode === "pay"
-        ? await createPayout.run({ ...common, note: note.trim() || null, ...(splitExcessAs ? { splitExcessAs } : {}) })
+        ? await createPayout.run({ ...common, note: note.trim() || null, ...(splitExcessAs ? { splitExcessAs } : {}), ...(loanInstallmentPaisa ? { loanInstallmentPaisa } : {}) })
         : await createAdvance.run({ ...common, reason: reason.trim() });
     setPending(false);
     if (!res.ok) {
@@ -310,6 +319,15 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
               <dd className="font-extrabold">{formatMoney(locale, excess.excessPaisa)}</dd>
             </dl>
           ) : null}
+          <TextField
+            id="pay-loan-instalment"
+            label={tr("loan.instalment")}
+            hint={tr("loan.instalmentHint")}
+            inputMode="decimal"
+            value={instalment}
+            error={instalmentError ?? undefined}
+            onChange={(e) => setInstalment(e.target.value)}
+          />
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
             <Button disabled={pending} onClick={() => send("ADVANCE")} className="justify-between">
               {tr("excess.advance")}

@@ -105,6 +105,23 @@ describe("PayDrawer — pay (F11)", () => {
     expect(toast).toHaveBeenCalledWith("Loan of ৳1,000 recorded for Tanvir Ahmed");
   });
 
+  it("sends a monthly instalment with a loan and refuses one above the loan (Distribution F11)", async () => {
+    setup("pay", { balancePaisa: 0, balanceLabel: "SETTLED", oldestDueMonth: null });
+    await userEvent.type(amount(), "1000");
+    api.mockResolvedValueOnce({ ok: false, status: 409, error: { code: "EXCEEDS_BALANCE", message: "x", details: { balancePaisa: 0, payoutPaisa: 0, excessPaisa: 100000 } } });
+    await save();
+    const instalment = await screen.findByLabelText(/^Monthly instalment/);
+    await userEvent.type(instalment, "2000");
+    await userEvent.click(screen.getByRole("button", { name: "Record excess as a loan" }));
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Enter a valid amount.")).toBeInTheDocument();
+    await userEvent.clear(instalment);
+    await userEvent.type(instalment, "250");
+    api.mockResolvedValueOnce({ ok: true, status: 201, data: { entries: [], loan: { principalPaisa: 100000 }, balancePaisa: 0, warnings: [] } });
+    await userEvent.click(screen.getByRole("button", { name: "Record excess as a loan" }));
+    expect(api.mock.calls[1][1]).toMatchObject({ body: { splitExcessAs: "LOAN", loanInstallmentPaisa: 25000 } });
+  });
+
   it("records a full payment with a toast", async () => {
     const { onSaved } = setup();
     api.mockResolvedValueOnce({ ok: true, status: 201, data: { entries: [{ type: "PAYOUT" }], loan: null, balancePaisa: 0, warnings: [] } });
