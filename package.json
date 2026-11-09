@@ -23,6 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm build && playwright test",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed:test-users": "tsx scripts/seed-test-users.ts",
     "email:worker": "tsx scripts/email-worker.ts",
     "storage:init": "tsx scripts/storage-init.ts"
   },
