@@ -24,6 +24,32 @@ const html = `<!doctype html>
     <div id="swagger-ui"></div>
     <script src="${CDN}/swagger-ui-bundle.js" integrity="${JS_SRI}" crossorigin="anonymous"></script>
     <script>
+      // Hands-free auth for "Try it out": run POST /auth/login once and every
+      // later request is authorized. The browser already sends the httpOnly
+      // bh_at / bh_rt cookies (same origin), and bh_csrf is JS-readable by
+      // design (double submit), so we echo it as X-CSRF-Token ourselves and
+      // keep the "Available authorizations" modal in sync with the session.
+      var SCHEMES = ["cookieAuth", "csrfHeader", "refreshCookie"];
+      var HTTP_ONLY = "(httpOnly cookie, sent by the browser)";
+
+      function readCookie(name) {
+        var hit = document.cookie.split(";").map(function (c) { return c.trim(); })
+          .find(function (c) { return c.indexOf(name + "=") === 0; });
+        return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null;
+      }
+
+      function syncAuth() {
+        if (!window.ui) return;
+        var csrf = readCookie("bh_csrf");
+        if (csrf) {
+          ui.preauthorizeApiKey("cookieAuth", HTTP_ONLY);
+          ui.preauthorizeApiKey("refreshCookie", HTTP_ONLY);
+          ui.preauthorizeApiKey("csrfHeader", csrf);
+        } else {
+          ui.authActions.logout(SCHEMES);
+        }
+      }
+
       window.ui = SwaggerUIBundle({
         url: "${API_PREFIX}/openapi.json",
         dom_id: "#swagger-ui",
@@ -31,6 +57,22 @@ const html = `<!doctype html>
         persistAuthorization: true,
         displayRequestDuration: true,
         tryItOutEnabled: true,
+        requestInterceptor: function (req) {
+          req.credentials = "same-origin";
+          // Placeholder values must never reach the wire; the browser owns cookies.
+          if (req.headers) delete req.headers.Cookie;
+          var csrf = readCookie("bh_csrf");
+          if (csrf && req.method && req.method.toUpperCase() !== "GET") {
+            req.headers["X-CSRF-Token"] = csrf;
+          }
+          return req;
+        },
+        responseInterceptor: function (res) {
+          // Login / refresh / logout rotate or clear cookies; mirror that.
+          setTimeout(syncAuth, 0);
+          return res;
+        },
+        onComplete: syncAuth,
       });
     </script>
   </body>
