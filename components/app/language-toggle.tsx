@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
 import type { Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 
@@ -15,6 +16,7 @@ import { localePath } from "@/lib/i18n/paths";
  */
 export function LanguageToggle({ locale, label, loggedIn = false }: { locale: Locale; label: string; loggedIn?: boolean }) {
   const router = useRouter();
+  const saveLocale = useApiMutation(["me", "locale"], (locale: Locale) => apiFetch("/me", { method: "PATCH", body: { locale } }));
   const [pending, start] = useTransition();
   const next: Locale = locale === "bn" ? "en" : "bn";
   return (
@@ -25,7 +27,7 @@ export function LanguageToggle({ locale, label, loggedIn = false }: { locale: Lo
       onClick={() =>
         start(async () => {
           document.cookie = `bh_locale=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
-          if (loggedIn) await apiFetch("/me", { method: "PATCH", body: { locale: next } });
+          if (loggedIn) await saveLocale.run(next);
           // Read the URL at click time (not usePathname) so the toggle can be
           // prerendered in the static shell of every page.
           router.push(`${localePath(next, window.location.pathname)}${window.location.search}`);

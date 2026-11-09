@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { EllipsisHorizontalIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,12 +14,23 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api/client";
+import { apiGet, qk, queryErrorMessage, useApiMutation, useServerSeed, type UserListFilter } from "@/lib/api/query";
+import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import type { PublicUser } from "@/lib/users/dto";
 import { initials } from "@/lib/users/initials";
 import { UserForm } from "./UserForm";
 
 export type UserPage = { items: PublicUser[]; nextCursor: string | null; activeSuperAdminCount: number };
+
+function usersPath(f: UserListFilter, cursor?: string | null) {
+  const sp = new URLSearchParams();
+  if (f.q) sp.set("q", f.q);
+  if (f.role) sp.set("role", f.role);
+  if (f.status) sp.set("status", f.status);
+  if (cursor) sp.set("cursor", cursor);
+  return `/users${sp.size ? `?${sp}` : ""}`;
+}
 
 type ConfirmKind = "deactivate" | "reactivate" | "logout" | "revokeInvite" | "resendInvite";
 /** `returnTo`: the row's actions button — the menu item that opened the dialog is gone by close time. */
@@ -48,10 +60,8 @@ function isLastActiveAdmin(u: PublicUser, activeSuperAdminCount: number) {
 
 /** User management (Auth PRD §4 A6). Every action is re-checked by the API. */
 export function UsersManager({ locale, viewerId, initial }: { locale: Locale; viewerId: string; initial: UserPage }) {
-  // Stable per locale: `reload` depends on it, and a new function each render
-  // would re-fetch the list after every render.
   const tr = useMemo(() => translator(locale), [locale]);
-  const [page, setPage] = useState<UserPage>(initial);
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
@@ -61,58 +71,53 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const firstLoad = useRef(true);
-  // Only the newest list request may write state (typing fast, then "Load more").
-  const requestSeq = useRef(0);
   const router = useRouter();
 
-  const query = useCallback(
-    (cursor?: string) => {
-      const sp = new URLSearchParams();
-      if (q.trim()) sp.set("q", q.trim());
-      if (role) sp.set("role", role);
-      if (status) sp.set("status", status);
-      if (cursor) sp.set("cursor", cursor);
-      return `/users${sp.size ? `?${sp}` : ""}`;
-    },
-    [q, role, status],
+  // One cached list per (debounced) filter set. TanStack keys replace the old
+  // request-sequence guard: a slow response for stale filters can't win.
+  const debounced = useDebouncedValue<UserListFilter>(useMemo(() => ({ q: q.trim(), role, status }), [q, role, status]));
+  const unfiltered = !debounced.q && !debounced.role && !debounced.status;
+  const listKey = qk.users.list(debounced);
+  const list = useInfiniteQuery({
+    queryKey: listKey,
+    queryFn: ({ pageParam }) => apiGet<UserPage>(usersPath(debounced, pageParam)),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    // The server render is page 1 of the unfiltered list.
+    initialData: unfiltered ? { pages: [initial], pageParams: [null] } : undefined,
+    placeholderData: keepPreviousData,
+  });
+  // A fresh server render (router.refresh) wins over the older cached unfiltered list.
+  useServerSeed(qk.users.list({ q: "", role: "", status: "" }), initial, (p) => ({ pages: [p], pageParams: [null] }));
+  const pages = list.data?.pages ?? [initial];
+  const page: UserPage = {
+    items: pages.flatMap((p) => p.items),
+    nextCursor: pages[pages.length - 1].nextCursor,
+    activeSuperAdminCount: pages[0].activeSuperAdminCount,
+  };
+  const shownError = error ?? queryErrorMessage(list.error, tr("common.network"));
+
+  const rowAction = useApiMutation(["users", "row-action"], (v: { id: string; path: string; body?: { reason: string } }) =>
+    apiFetch<{ user?: PublicUser } | null>(`/users/${v.id}/${v.path}`, { method: "POST", ...(v.body ? { body: v.body } : {}) }),
   );
+  const busy = rowAction.isPending;
 
-  const reload = useCallback(async () => {
-    const seq = ++requestSeq.current;
-    const res = await apiFetch<UserPage>(query());
-    if (seq !== requestSeq.current) return; // a newer request superseded this one
-    if (res.ok) setPage(res.data);
-    else setError(res.status === 0 ? tr("common.network") : res.error.message);
-  }, [query, tr]);
-
-  useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      return;
-    }
-    const t = setTimeout(reload, 250);
-    return () => clearTimeout(t);
-  }, [reload]);
-
-  async function loadMore() {
-    if (!page.nextCursor) return;
-    const seq = ++requestSeq.current;
-    const res = await apiFetch<UserPage>(query(page.nextCursor));
-    if (seq !== requestSeq.current) return; // filters changed meanwhile
-    if (res.ok) setPage((p) => ({ ...res.data, items: [...p.items, ...res.data.items] }));
-  }
-
+  /** Patch the cached list in place, then mark every user list stale for its next use. */
   function replaceUser(u: PublicUser) {
-    setPage((p) => {
-      const before = p.items.find((x) => x.id === u.id);
-      const items = before ? p.items.map((x) => (x.id === u.id ? u : x)) : [u, ...p.items];
+    qc.setQueryData<InfiniteData<UserPage, string | null>>(listKey, (data) => {
+      if (!data) return data;
+      const before = data.pages.flatMap((p) => p.items).find((x) => x.id === u.id);
       // The list may be filtered, so adjust the server's total by this one
       // user's change instead of recounting the visible rows.
-      const activeSuperAdminCount = p.activeSuperAdminCount - Number(isActiveAdmin(before)) + Number(isActiveAdmin(u));
-      return { ...p, items, activeSuperAdminCount };
+      const activeSuperAdminCount = data.pages[0].activeSuperAdminCount - Number(isActiveAdmin(before)) + Number(isActiveAdmin(u));
+      const pages = data.pages.map((p, i) => ({
+        ...p,
+        activeSuperAdminCount,
+        items: before ? p.items.map((x) => (x.id === u.id ? u : x)) : i === 0 ? [u, ...p.items] : p.items,
+      }));
+      return { ...data, pages };
     });
+    void qc.invalidateQueries({ queryKey: qk.users.all, refetchType: "none" });
     router.refresh(); // sidebar badge / names come from the server layout
   }
 
@@ -126,20 +131,15 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
     if (!confirm) return;
     const { kind, user } = confirm;
     const spec = CONFIRM[kind];
-    setBusy(true);
     setError(null);
-    const res = await apiFetch<{ user?: PublicUser } | null>(`/users/${user.id}/${spec.path}`, {
-      method: "POST",
-      ...(spec.needsReason ? { body: { reason: reason.trim() } } : {}),
-    });
-    setBusy(false);
+    const res = await rowAction.run({ id: user.id, path: spec.path, ...(spec.needsReason ? { body: { reason: reason.trim() } } : {}) });
     setConfirmOpen(false);
     if (!res.ok) {
       setError(res.status === 0 ? tr("common.network") : res.error.message);
       return;
     }
     if (res.data?.user) replaceUser(res.data.user);
-    else router.refresh();
+    else router.refresh(); // no row changed (e.g. sessions revoked)
     toast(tr(spec.toast, { name: user.name }));
   }
 
@@ -158,7 +158,7 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
         </Button>
       </div>
 
-      <ErrorStrip message={error} />
+      <ErrorStrip message={shownError} />
 
       <div className="toolbar" role="search">
         <TextField id="users-q" type="search" label={tr("users.search")} placeholder={tr("ph.search")} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -270,7 +270,7 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
           </TableBody>
         </Table>
         {page.nextCursor ? (
-          <Button variant="outline" className="mt-4" onClick={loadMore}>
+          <Button variant="outline" className="mt-4" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
             {tr("users.loadMore")}
           </Button>
         ) : null}

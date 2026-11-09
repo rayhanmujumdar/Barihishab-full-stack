@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { apiFetch, fieldErrors } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDateTime, translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 import { can, type Permission } from "@/lib/permissions";
@@ -36,6 +38,11 @@ export function MeScreen({
   navigate?: (path: string) => void;
 }) {
   const tr = translator(locale);
+  const qc = useQueryClient();
+  const updateMe = useApiMutation(["me", "update"], (body: Record<string, unknown>) => apiFetch("/me", { method: "PATCH", body }), { invalidate: [qk.users.all] });
+  const changePw = useApiMutation(["me", "password"], (body: { currentPassword: string; newPassword: string }) => apiFetch("/me/password", { method: "POST", body }));
+  const revokeSession = useApiMutation(["me", "revoke-session"], (id: string) => apiFetch(`/me/sessions/${id}`, { method: "DELETE" }));
+  const logoutEverywhere = useApiMutation(["auth", "logout-all"], () => apiFetch("/auth/logout-all", { method: "POST" }));
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const canIdentity = can({ permissions }, "profile.identity.self");
@@ -90,7 +97,7 @@ export function MeScreen({
       body.username = form.username;
       body.email = form.email;
     }
-    const res = await apiFetch("/me", { method: "PATCH", body });
+    const res = await updateMe.run(body);
     setSavingProfile(false);
     if (res.ok) {
       toast(tr("me.saved"));
@@ -108,7 +115,7 @@ export function MeScreen({
     e.preventDefault();
     setChanging(true);
     setPwErrors({});
-    const res = await apiFetch("/me/password", { method: "POST", body: { currentPassword: current, newPassword: next } });
+    const res = await changePw.run({ currentPassword: current, newPassword: next });
     setChanging(false);
     if (res.ok) {
       setCurrent("");
@@ -126,21 +133,25 @@ export function MeScreen({
 
   async function revoke(session: SessionItem) {
     setRevokeBusy(true);
-    const res = await apiFetch(`/me/sessions/${session.id}`, { method: "DELETE" });
+    const res = await revokeSession.run(session.id);
     setRevokeBusy(false);
     setRevokeOpen(false);
     if (!res.ok) {
       toast.error(res.status === 0 ? tr("common.network") : res.error.message || tr("common.error"));
       return;
     }
-    if (session.current) navigate(localePath(locale, "/login"));
+    if (session.current) {
+      qc.clear();
+      navigate(localePath(locale, "/login"));
+    }
     else setSessions((s) => s.filter((x) => x.id !== session.id));
   }
 
   async function logoutAll() {
     setLoggingOut(true);
-    const res = await apiFetch("/auth/logout-all", { method: "POST" });
+    const res = await logoutEverywhere.run();
     if (res.ok) {
+      qc.clear();
       navigate(localePath(locale, "/login"));
       return;
     }

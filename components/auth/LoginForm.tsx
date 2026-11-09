@@ -9,12 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/api/client";
+import { useApiMutation } from "@/lib/api/query";
+import { useQueryClient } from "@tanstack/react-query";
 import { translator, type Locale } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 import { hardNavigate } from "./navigate";
 
 export function LoginForm({ locale, next, navigate = hardNavigate }: { locale: Locale; next: string; navigate?: (path: string) => void }) {
   const tr = translator(locale);
+  const qc = useQueryClient();
+  const login = useApiMutation(["auth", "login"], (body: { identifier: string; password: string; remember: boolean }) => apiFetch("/auth/login", { method: "POST", body }));
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -25,7 +29,9 @@ export function LoginForm({ locale, next, navigate = hardNavigate }: { locale: L
     e.preventDefault();
     setPending(true);
     setError(null);
-    const res = await apiFetch("/auth/login", { method: "POST", body: { identifier, password, remember } });
+    const res = await login.run({ identifier, password, remember });
+    // A new session must never see a previous user's cached data.
+    if (res.ok) qc.clear();
     if (res.ok) {
       navigate(next);
       return;

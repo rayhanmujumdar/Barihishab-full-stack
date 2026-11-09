@@ -9,6 +9,7 @@ import { RequiredLegend, SelectField, TextField } from "@/components/forms/field
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney, parseAmount } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -21,11 +22,12 @@ export function VoidLedgerDialog({ locale, entry, month, onClose, onDone }: { lo
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const voidLedger = useApiMutation(["owners", "void-ledger"], (v: { id: string; reason: string }) => apiFetch(`/ledger/${v.id}/void`, { method: "POST", body: { reason: v.reason } }), { invalidate: [qk.owners.all] });
 
   async function confirm() {
     setBusy(true);
     setError(null);
-    const res = await apiFetch(`/ledger/${entry.id}/void`, { method: "POST", body: { reason: reason.trim() } });
+    const res = await voidLedger.run({ id: entry.id, reason: reason.trim() });
     setBusy(false);
     if (!res.ok) return setError(res.status === 0 ? tr("common.network") : res.error.message);
     toast(tr("lvoid.toast"));
@@ -84,6 +86,7 @@ export function AdjustmentDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [key] = useState(newIdempotencyKey);
+  const adjust = useApiMutation(["owners", "adjustment"], (body: Record<string, unknown>) => apiFetch("/adjustments", { method: "POST", body, headers: { "Idempotency-Key": key } }), { invalidate: [qk.owners.all] });
   const months = periodMonths.filter((m) => m <= month).sort().reverse();
 
   async function onSubmit(ev: FormEvent) {
@@ -97,11 +100,7 @@ export function AdjustmentDialog({
     if (Object.keys(e).length) return;
     setBusy(true);
     setError(null);
-    const res = await apiFetch("/adjustments", {
-      method: "POST",
-      body: { ownerId, amountPaisa: sign === "plus" ? paisa : -paisa!, referenceMonth: ref, reason: reason.trim() },
-      headers: { "Idempotency-Key": key },
-    });
+    const res = await adjust.run({ ownerId, amountPaisa: sign === "plus" ? paisa : -paisa!, referenceMonth: ref, reason: reason.trim() });
     setBusy(false);
     if (!res.ok) return setError(res.status === 0 ? tr("common.network") : res.error.message);
     toast(tr("adj.toast"));

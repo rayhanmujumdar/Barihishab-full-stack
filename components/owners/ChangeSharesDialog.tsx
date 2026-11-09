@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { apiFetch, fieldErrors } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { monthLabel } from "@/lib/periods/month";
 import { num, percent } from "./format";
@@ -34,6 +35,8 @@ export function ChangeSharesDialog({ locale, data, onClose, onSaved }: { locale:
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const saveShares = useApiMutation(["owners", "shares"], (v: { body: Record<string, unknown>; key: string }) =>
+    apiFetch<{ shareSet: { effectiveMonth: string } }>("/owners/shares", { method: "POST", body: v.body, headers: { "Idempotency-Key": v.key } }), { invalidate: [qk.owners.all] });
   // One key per distinct body: a retry of the same save replays, an edited save is a new request.
   const sent = useRef<{ body: string; key: string } | null>(null);
 
@@ -69,11 +72,7 @@ export function ChangeSharesDialog({ locale, data, onClose, onSaved }: { locale:
     const body = { effectiveMonth: month, reason: reason.trim(), items: rows.map((r, i) => ({ ownerId: r.ownerId, units: parsed[i] })) };
     const json = JSON.stringify(body);
     if (sent.current?.body !== json) sent.current = { body: json, key: newIdempotencyKey() };
-    const res = await apiFetch<{ shareSet: { effectiveMonth: string } }>("/owners/shares", {
-      method: "POST",
-      body,
-      headers: { "Idempotency-Key": sent.current.key },
-    });
+    const res = await saveShares.run({ body, key: sent.current.key });
     setBusy(false);
     setConfirming(false);
     if (!res.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DocumentIcon, LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api/client";
+import { apiGet, isFreshSignedUrl, qk, queryErrorMessage, signedAttachmentQuery, useApiMutation, type SignedUrl } from "@/lib/api/query";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -23,11 +25,6 @@ export type Detail = TxnDto & {
   attachments: { id: string; fileName: string; mime: string; sizeBytes: number }[];
   history: { action: string; at: string; actorName: string | null; before: unknown; after: unknown; reason: string | null }[];
 };
-
-type Signed = { url: string; mime: string; expiresAt: string };
-
-/** A signed URL with at least 30 s left is reused instead of re-signing. */
-const isFresh = (s: Signed | undefined): s is Signed => !!s && Date.parse(s.expiresAt) - Date.now() > 30_000;
 
 /** Entry detail drawer (PRD §6.3) with Void dialog (§6.4) and bills. */
 export function DetailDrawer({
@@ -46,39 +43,36 @@ export function DetailDrawer({
   onCorrect: (entry: TxnDto) => void;
 }) {
   const tr = translator(locale);
-  const [detail, setDetail] = useState<Detail | null>(null);
-  const [urls, setUrls] = useState<Record<string, Signed>>({});
+  const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [voidOpen, setVoidOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [pickerKey, setPickerKey] = useState(0);
   // The Void / Remove buttons may be gone after confirming; keep focus inside the drawer.
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  const load = useCallback(async (txnId: string) => {
-    const res = await apiFetch<Detail>(`/transactions/${txnId}`);
-    if (!res.ok) {
-      setError(res.status === 0 ? tr("common.network") : res.error.message);
-      return;
-    }
-    setDetail(res.data);
-    // Signed 5-minute URLs for thumbnails (ATT-02).
-    const signed = await Promise.all(
-      res.data.attachments.map(async (a) => [a.id, await apiFetch<Signed>(`/attachments/${a.id}`)] as const),
-    );
-    setUrls(Object.fromEntries(signed.filter(([, r]) => r.ok).map(([k, r]) => [k, (r as { data: Signed }).data])));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tr` is derived from locale only
-  }, [locale]);
+  const detailQuery = useQuery({
+    queryKey: qk.transactions.detail(id ?? ""),
+    queryFn: () => apiGet<Detail>(`/transactions/${id}`),
+    enabled: !!id,
+  });
+  const detail = detailQuery.data ?? null;
+  // Signed 5-minute URLs for thumbnails (ATT-02), one cached query per file.
+  const signed = useQueries({ queries: (detail?.attachments ?? []).map((a) => signedAttachmentQuery(a.id)) });
+  const urls: Record<string, SignedUrl> = {};
+  detail?.attachments.forEach((a, i) => {
+    const d = signed[i]?.data;
+    if (d) urls[a.id] = d;
+  });
+  const shownError = error ?? queryErrorMessage(detailQuery.error, tr("common.network"));
 
-  // The parent remounts this drawer per entry (key = id), so state starts fresh.
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      await load(id);
-    })();
-  }, [id, load]);
+  // Every write below invalidates all transaction queries (this detail and the lists).
+  const invalidate = [qk.transactions.all];
+  const voidEntry = useApiMutation(["transactions", "void"], (v: { id: string; reason: string }) => apiFetch(`/transactions/${v.id}/void`, { method: "POST", body: { reason: v.reason } }), { invalidate });
+  const attach = useApiMutation(["transactions", "attach-files"], (v: { id: string; ids: string[] }) => apiFetch(`/transactions/${v.id}/attachments`, { method: "POST", body: { attachmentIds: v.ids } }), { invalidate });
+  const detach = useApiMutation(["transactions", "remove-file"], (v: { id: string; attId: string }) => apiFetch(`/transactions/${v.id}/attachments/${v.attId}`, { method: "DELETE" }), { invalidate });
+  const busy = voidEntry.isPending || detach.isPending;
 
   const writable = !!detail && detail.periodStatus === "OPEN" && !detail.voidedAt;
   const canFix = writable && perms.update;
@@ -86,7 +80,7 @@ export function DetailDrawer({
 
   async function openFile(attId: string) {
     const cached = urls[attId];
-    if (isFresh(cached)) {
+    if (isFreshSignedUrl(cached)) {
       window.open(cached.url, "_blank", "noopener");
       return;
     }
@@ -95,20 +89,18 @@ export function DetailDrawer({
     // then point it at a freshly signed URL.
     const tab = window.open("", "_blank");
     if (tab) tab.opener = null;
-    const res = await apiFetch<Signed>(`/attachments/${attId}`);
-    if (!res.ok) {
+    try {
+      const fresh = await qc.fetchQuery(signedAttachmentQuery(attId));
+      if (tab) tab.location.href = fresh.url;
+    } catch (err) {
       tab?.close();
-      setError(res.status === 0 ? tr("common.network") : res.error.message);
-      return;
+      setError(queryErrorMessage(err, tr("common.network")));
     }
-    if (tab) tab.location.href = res.data.url;
   }
 
   async function doVoid() {
     if (!detail) return;
-    setBusy(true);
-    const res = await apiFetch(`/transactions/${detail.id}/void`, { method: "POST", body: { reason: reason.trim() } });
-    setBusy(false);
+    const res = await voidEntry.run({ id: detail.id, reason: reason.trim() });
     setVoidOpen(false);
     if (!res.ok) {
       setError(res.status === 0 ? tr("common.network") : res.error.message);
@@ -116,35 +108,30 @@ export function DetailDrawer({
     }
     toast(tr("entry.toast.voided"));
     setReason("");
-    await load(detail.id);
     onChanged();
   }
 
   async function addFiles(ids: string[], uploading: boolean) {
     if (!detail || uploading || !ids.length) return;
-    const res = await apiFetch(`/transactions/${detail.id}/attachments`, { method: "POST", body: { attachmentIds: ids } });
+    const res = await attach.run({ id: detail.id, ids });
     setPickerKey((k) => k + 1);
     if (!res.ok) {
       setError(res.status === 0 ? tr("common.network") : res.error.message);
       return;
     }
     toast(tr("entry.toast.files"));
-    await load(detail.id);
     onChanged();
   }
 
   async function removeFile() {
     if (!detail || !removeId) return;
-    setBusy(true);
-    const res = await apiFetch(`/transactions/${detail.id}/attachments/${removeId}`, { method: "DELETE" });
-    setBusy(false);
+    const res = await detach.run({ id: detail.id, attId: removeId });
     setRemoveId(null);
     if (!res.ok) {
       setError(res.status === 0 ? tr("common.network") : res.error.message);
       return;
     }
     toast(tr("entry.toast.fileRemoved"));
-    await load(detail.id);
     onChanged();
   }
 
@@ -178,7 +165,7 @@ export function DetailDrawer({
           </SheetClose>
         </SheetHeader>
         <div className="form-stack flex-1 overflow-y-auto p-5" lang={locale}>
-          <ErrorStrip message={error} />
+          <ErrorStrip message={shownError} />
           {detail ? (
             <>
               <p className={detail.voidedAt ? "m-0 text-[44px] leading-none font-extrabold tracking-[-0.04em] text-[var(--color-neutral-600)] line-through" : "m-0 text-[44px] leading-none font-extrabold tracking-[-0.04em]"}>

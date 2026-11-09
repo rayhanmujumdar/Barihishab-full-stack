@@ -7,6 +7,7 @@ import { RequiredLegend, SelectField, TextField } from "@/components/forms/field
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api/client";
+import { qk, useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { Choice } from "./Choice";
 import type { OwnerDto, UserLite } from "./types";
@@ -40,6 +41,8 @@ export function OwnerFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const saveOwner = useApiMutation(["owners", "save"], (v: { id?: string; body: Record<string, unknown> }) =>
+    apiFetch<{ owner: OwnerDto }>(v.id ? `/owners/${v.id}` : "/owners", { method: v.id ? "PATCH" : "POST", body: v.body }), { invalidate: [qk.owners.all] });
   const [added, setAdded] = useState<string | null>(null);
 
   const loginOptions = [
@@ -80,7 +83,7 @@ export function OwnerFormDialog({
     if (editing && !Object.keys(b).length) return onClose();
     setBusy(true);
     setError(null);
-    const res = await apiFetch<{ owner: OwnerDto }>(owner ? `/owners/${owner.id}` : "/owners", { method: owner ? "PATCH" : "POST", body: b });
+    const res = await saveOwner.run({ id: owner?.id, body: b });
     setBusy(false);
     if (!res.ok) {
       setError(res.status === 0 ? tr("common.network") : res.error.message);
