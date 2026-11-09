@@ -301,6 +301,24 @@ svg[data-slot="icon"] {
   flex-direction: column;
   gap: 16px;
 }
+/* Required-field marker (form-required-indicator). The "/ ''" alt text keeps
+   the star out of the accessible name; `required` / the date trigger's
+   "Required" description carries the semantics. Labels are flex rows, so the
+   gap is tightened to sit the star right after the text. */
+[data-slot="field-label"][data-required="true"],
+[data-slot="field-legend"][data-required="true"] {
+  column-gap: 2px;
+}
+[data-slot="field-label"][data-required="true"]::after,
+[data-slot="field-legend"][data-required="true"]::after {
+  content: "*";
+  content: "*" / "";
+  color: var(--color-text);
+  font-weight: 800;
+}
+[data-slot="field-legend"][data-required="true"]::after {
+  margin-inline-start: 2px;
+}
 @media (max-width: 859px) {
   .auth-brand .brand-tags {
     display: none;
@@ -372,7 +390,7 @@ svg[data-slot="icon"] {
   z-index: 30;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: minmax(0, 1fr);
   background: var(--color-bg);
   border-top: 2px solid var(--color-text);
 }
@@ -475,4 +493,215 @@ svg[data-slot="icon"] {
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--color-divider);
+}
+
+/* ─── Income & expenses (S3/S4) ─── */
+.skeleton {
+  background: var(--color-neutral-200);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+.month-picker {
+  display: inline-flex;
+  align-items: stretch;
+  border: 2px solid var(--color-text);
+  min-height: 44px;
+}
+.month-picker > a,
+.month-picker > span[aria-disabled] {
+  width: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--color-text);
+}
+.month-picker > span[aria-disabled] {
+  color: var(--color-neutral-400);
+}
+.month-picker > :first-child {
+  border-right: 2px solid var(--color-text);
+}
+.month-picker > :last-child {
+  border-left: 2px solid var(--color-text);
+}
+.month-picker-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  font-weight: 800;
+}
+.lock-banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--color-surface);
+  border-top: 2px solid var(--color-text);
+  padding: 12px 14px;
+  font-size: 14px;
+}
+.entry-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid var(--color-text);
+}
+.entry-tab {
+  text-align: left;
+  min-height: 64px;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--color-text);
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  font: inherit;
+  cursor: pointer;
+}
+.entry-tab + .entry-tab {
+  border-left: 1px solid var(--color-divider);
+}
+.entry-tab[aria-pressed="true"] {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.entry-tab-title {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+.entry-tab-meta {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+.entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--color-text);
+}
+.entry-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  min-height: 44px;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.entry-row:hover {
+  background: var(--color-neutral-200);
+}
+.entry-row[data-void="true"] {
+  color: var(--color-neutral-600);
+}
+.entry-row[data-void="true"] .entry-amount,
+.entry-row[data-void="true"] .entry-desc {
+  text-decoration: line-through;
+}
+.entry-date {
+  font-size: 13px;
+  color: var(--color-neutral-700);
+}
+.entry-amount {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  text-align: right;
+  white-space: nowrap;
+}
+.entry-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 2px solid var(--color-text);
+  padding: 12px 4px;
+  font-weight: 800;
+}
+.entry-total .entry-amount {
+  font-size: 22px;
+}
+.amount-input {
+  height: 56px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.drop-box {
+  border: 2px dashed var(--color-divider);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kv {
+  display: grid;
+  grid-template-columns: minmax(110px, 40%) 1fr;
+  border-top: 2px solid var(--color-text);
+  margin: 0;
+}
+.kv > dt,
+.kv > dd {
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.kv > dt {
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+.entries-fab {
+  display: none;
+}
+@media (max-width: 859.98px) {
+  .entries-actions {
+    display: none;
+  }
+  /* Room so the floating buttons never cover the last row / total. */
+  .page-stack:has(> .entries-fab) {
+    padding-bottom: 72px;
+  }
+  .entries-fab {
+    display: flex;
+    position: fixed;
+    right: 16px;
+    bottom: 76px;
+    z-index: 25;
+    gap: 8px;
+  }
 }

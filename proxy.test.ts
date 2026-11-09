@@ -11,6 +11,11 @@ function req(path: string, headers: Record<string, string> = {}) {
 }
 
 describe("proxy: /[lang] routing", () => {
+  it("redirects the money screens without a language too", async () => {
+    expect((await proxy(req("/entries?period=2026-10"))).headers.get("location")).toBe(`${BASE}/bn/entries?period=2026-10`);
+    expect((await proxy(req("/settings"))).headers.get("location")).toBe(`${BASE}/bn/settings`);
+  });
+
   it("redirects a path without a language to Bangla by default", async () => {
     const res = await proxy(req("/admin/users?q=ka"));
     expect(res.status).toBe(307);

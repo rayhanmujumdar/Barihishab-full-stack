@@ -33,6 +33,9 @@ export default defineConfig({
         "lib/permissions.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "lib/auth/tokens.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "lib/auth/**/*.ts": { statements: 90, lines: 90 },
+        // Accounting core (project rule): 100 %.
+        "lib/money.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "lib/accounting/**/*.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
     projects: [

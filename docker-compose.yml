@@ -20,5 +20,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3-compatible private bucket for bills/receipts (Cloudflare R2 in prod).
+  # RustFS speaks the S3 API; buckets + CORS are created by `pnpm storage:init`.
+  s3:
+    # Pinned (tag + digest) so every machine runs the same build; bump deliberately.
+    image: rustfs/rustfs:1.0.4@sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2
+    container_name: barihishab-s3
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-barihishab}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-change-me-minio}
+      RUSTFS_CONSOLE_ENABLE: "false"
+    ports:
+      - "127.0.0.1:${S3_PORT:-9000}:9000"
+    volumes:
+      - s3_data:/data
+
 volumes:
   postgres_data:
+  s3_data:

@@ -45,3 +45,33 @@ describe("seed (BOOT-01/02)", () => {
     expect((await counts()).users).toBe(0);
   });
 });
+
+describe("seed — Income & Expenses master data (EXP-02)", () => {
+  it("creates every default category exactly once across runs", async () => {
+    await runSeed(env);
+    await runSeed(env);
+    const rows = await prisma.category.findMany();
+    expect(rows).toHaveLength(20);
+    expect(new Set(rows.map((r) => r.code)).size).toBe(20);
+    expect(rows.filter((r) => r.isSystem).map((r) => r.code).sort()).toEqual(["ADJUSTMENT_EXP", "ADJUSTMENT_INC", "ARREAR", "OWNER_GRANT", "RENT"]);
+    expect(rows.every((r) => r.nameEn && r.nameBn)).toBe(true);
+  });
+
+  it("adds the PRD demo units and fund accounts only with SEED_DEMO=true", async () => {
+    await runSeed(env);
+    expect(await prisma.unit.count()).toBe(0);
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    await runSeed({ ...env, SEED_DEMO: "true" });
+    const units = await prisma.unit.findMany({ orderBy: { sortOrder: "asc" } });
+    expect(units.map((u) => [u.name, Number(u.rentPaisa)])).toEqual([
+      ["Flat 1A", 1800000],
+      ["Flat 1B", 1800000],
+      ["Flat 2A", 2000000],
+      ["Flat 2B", 2000000],
+      ["Flat 3A", 2200000],
+      ["Shop G1", 1200000],
+    ]);
+    expect((await prisma.fundAccount.findMany()).map((f) => f.type).sort()).toEqual(["BANK", "CASH", "WALLET"]);
+    expect(units.every((u) => u.defaultFundAccountId)).toBe(true);
+  });
+});

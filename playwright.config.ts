@@ -6,6 +6,18 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://localhost:${PORT}`;
 const testDatabaseUrl = testDatabaseUrlFrom();
 
+// Bills go to a separate test bucket on the local S3 store (docker-compose `s3`).
+export const E2E_STORAGE = {
+  S3_ENDPOINT: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",
+  S3_PUBLIC_ENDPOINT: process.env.S3_PUBLIC_ENDPOINT ?? "",
+  S3_REGION: process.env.S3_REGION ?? "auto",
+  S3_BUCKET: `${process.env.S3_BUCKET ?? "barihishab"}-test`,
+  S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "barihishab",
+  S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "change-me-minio",
+  S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE ?? "true",
+  S3_CORS_ORIGINS: baseURL,
+};
+
 export default defineConfig({
   testDir: "e2e",
   fullyParallel: false,
@@ -42,6 +54,7 @@ export default defineConfig({
       BETTER_AUTH_SECRET: "e2e-better-auth-secret-at-least-32-characters",
       RESEND_API_KEY: "",
       AUTH_FAILURE_DELAY_MS: "0",
+      ...E2E_STORAGE,
     },
   },
 });

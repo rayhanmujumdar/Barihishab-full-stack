@@ -12,7 +12,7 @@ import { localeFromPath, localePath, stripLocale } from "@/lib/i18n/paths";
 
 const PUBLIC_PAGES = ["/login", "/forgot", "/reset", "/invite"];
 // Top-level app routes; anything else without a locale is left to 404.
-const APP_ROUTES = ["", "admin", "me", "login", "forgot", "reset", "invite"];
+const APP_ROUTES = ["", "admin", "me", "entries", "settings", "login", "forgot", "reset", "invite"];
 
 function isPublic(page: string) {
   return PUBLIC_PAGES.some((p) => page === p || page.startsWith(`${p}/`));

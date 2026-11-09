@@ -18,6 +18,20 @@ describe("error catalogue", () => {
     expect(ERRORS.VALIDATION_FAILED.status).toBe(422);
   });
 
+  it("maps the Income & Expenses PRD §10.5 codes", () => {
+    expect(ERRORS.PERIOD_CLOSED.status).toBe(409);
+    expect(ERRORS.ALREADY_VOIDED.status).toBe(409);
+    expect(ERRORS.IDEMPOTENCY_CONFLICT.status).toBe(409);
+    expect(ERRORS.ENTRY_CHANGED.status).toBe(409);
+    expect(ERRORS.CATEGORY_LOCKED.status).toBe(409);
+    expect(ERRORS.FUND_NOT_EMPTY.status).toBe(409);
+    expect(ERRORS.NAME_TAKEN.status).toBe(409);
+    expect(ERRORS.FILE_TOO_LARGE.status).toBe(413);
+    expect(ERRORS.TOO_MANY_ATTACHMENTS.status).toBe(422);
+    expect(ERRORS.PERIOD_CLOSED.en).toBe("That month is closed. Record an Adjustment in the open month instead.");
+    expect(ERRORS.FILE_TOO_LARGE.en).toBe("Only JPG, PNG, WebP or PDF up to 5 MB.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

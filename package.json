@@ -9,7 +9,7 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "prepare": "husky",
-    "db:up": "docker compose up -d --wait",
+    "db:up": "docker compose up -d --wait && tsx scripts/storage-init.ts",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
@@ -23,10 +23,13 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm build && playwright test",
     "db:seed": "tsx scripts/seed.ts",
-    "email:worker": "tsx scripts/email-worker.ts"
+    "email:worker": "tsx scripts/email-worker.ts",
+    "storage:init": "tsx scripts/storage-init.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@aws-sdk/s3-request-presigner": "^3.1164.0",
     "@heroicons/react": "^2.2.0",
     "@node-rs/argon2": "^2.2.2",
     "@prisma/adapter-pg": "7.10.1",

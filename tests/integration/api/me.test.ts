@@ -19,7 +19,7 @@ describe("GET /api/v1/me", () => {
     const body = await json(res);
     expect(body.data.profile).toMatchObject({ id: owner.id, phone: "01712345678" });
     expect(body.data.roles).toEqual(["OWNER"]);
-    expect(body.data.permissions).toHaveLength(4);
+    expect(body.data.permissions).toHaveLength(6);
     expect(JSON.stringify(body)).not.toMatch(/argon2|tokenVersion|failedLoginCount/);
   });
 

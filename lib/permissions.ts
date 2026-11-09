@@ -24,6 +24,16 @@ export const ALL_PERMISSIONS = [
   "audit.view.financial",
   "dashboard.admin",
   "settings.manage",
+  // Income & Expenses PRD §4 (P1)
+  "transaction.view",
+  "transaction.create",
+  "transaction.update",
+  "transaction.void",
+  "transaction.adjust",
+  "attachment.view",
+  "category.manage",
+  "unit.manage",
+  "fund.manage",
 ] as const;
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
@@ -34,6 +44,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "profile.password.self",
     "session.manage.self",
     "audit.view.financial",
+    "transaction.view",
+    "attachment.view",
   ],
   ACCOUNTANT: [],
   VIEWER: [],
