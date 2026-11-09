@@ -133,6 +133,16 @@ export const en = {
   "forbidden.body": "This page is for a different role. If you think you should see it, ask your Super Admin.",
   "forbidden.back": "Go to Home",
 
+  "status.home": "Go to Home",
+  "notFound.kicker": "Error 404",
+  "notFound.title": "Page not found",
+  "notFound.body": "This page doesn't exist or has moved. Check the address, or start again from Home.",
+  "errorPage.kicker": "Error 500",
+  "errorPage.title": "Something went wrong",
+  "errorPage.body": "This page couldn't load. Try again — if it keeps happening, tell your Super Admin.",
+  "errorPage.retry": "Try again",
+  "errorPage.reference": "Reference: {digest}",
+
   "users.kicker": "Super Admin only",
   "users.title": "Users",
   "users.search": "Search name, username, email or phone",
