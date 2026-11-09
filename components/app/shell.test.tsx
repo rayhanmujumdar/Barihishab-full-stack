@@ -31,6 +31,18 @@ describe("ShellNav (RBAC-05)", () => {
     expect(links[0]).toHaveTextContent("2");
   });
 
+  it("shows Income & expenses to Owners but not Settings", () => {
+    render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
+    expect(screen.getAllByRole("link", { name: /Income & expenses|Entries/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /Settings/ })).toBeNull();
+  });
+
+  it("shows Income & expenses and Settings to Super Admins", () => {
+    render(<ShellNav locale="en" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={0} />);
+    expect(screen.getAllByRole("link", { name: /Income & expenses/ })[0]).toHaveAttribute("href", "/en/entries");
+    expect(screen.getAllByRole("link", { name: /Settings/ })[0]).toHaveAttribute("href", "/en/settings");
+  });
+
   it("marks the current page", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(screen.getAllByRole("link", { name: /Home/ })[0]).toHaveAttribute("aria-current", "page");

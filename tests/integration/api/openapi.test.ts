@@ -44,3 +44,48 @@ describe("GET /api/v1/openapi.json", () => {
     expect(doc.components.schemas).toHaveProperty("PublicUser");
   });
 });
+
+const MONEY: [string, string][] = [
+  ["get", "/periods"],
+  ["get", "/units"],
+  ["post", "/units"],
+  ["patch", "/units/{id}"],
+  ["get", "/fund-accounts"],
+  ["post", "/fund-accounts"],
+  ["patch", "/fund-accounts/{id}"],
+  ["get", "/categories"],
+  ["post", "/categories"],
+  ["patch", "/categories/{id}"],
+  ["get", "/transactions"],
+  ["post", "/transactions"],
+  ["get", "/transactions/summary"],
+  ["get", "/transactions/vendors"],
+  ["post", "/transactions/adjustments"],
+  ["post", "/transactions/generate-rent/preview"],
+  ["post", "/transactions/generate-rent"],
+  ["get", "/transactions/{id}"],
+  ["patch", "/transactions/{id}"],
+  ["post", "/transactions/{id}/void"],
+  ["post", "/transactions/{id}/attachments"],
+  ["delete", "/transactions/{id}/attachments/{attId}"],
+  ["post", "/attachments/presign"],
+  ["get", "/attachments/{id}"],
+];
+
+describe("GET /api/v1/openapi.json — Income & Expenses", () => {
+  it("documents all 24 periods, master-data, transactions and attachments operations", async () => {
+    const doc = await (await GET()).json();
+    expect(MONEY).toHaveLength(24);
+    for (const [method, path] of MONEY) {
+      expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+    }
+  });
+
+  it("declares the Idempotency-Key header on every money-creating POST", async () => {
+    const doc = await (await GET()).json();
+    for (const path of ["/transactions", "/transactions/adjustments", "/transactions/generate-rent"]) {
+      const names = (doc.paths[path].post.parameters ?? []).map((p: { name: string; in: string }) => `${p.in}:${p.name}`);
+      expect(names, path).toContain("header:idempotency-key");
+    }
+  });
+});

@@ -72,7 +72,14 @@ model Property {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  roles UserRole[]
+  roles           UserRole[]
+  periods         Period[]
+  units           Unit[]
+  fundAccounts    FundAccount[]
+  categories      Category[]
+  transactions    HouseTransaction[]
+  attachments     Attachment[]
+  idempotencyKeys IdempotencyKey[]
 
   @@map("properties")
 }
@@ -117,6 +124,13 @@ model User {
   authTokens  AuthToken[]   @relation("AuthTokenUser")
   issuedTokens AuthToken[]  @relation("AuthTokenCreatedBy")
   emails      EmailOutbox[]
+
+  closedPeriods      Period[]           @relation("PeriodClosedBy")
+  txnsCreated        HouseTransaction[] @relation("TxnCreatedBy")
+  txnsUpdated        HouseTransaction[] @relation("TxnUpdatedBy")
+  txnsVoided         HouseTransaction[] @relation("TxnVoidedBy")
+  attachmentsAdded   Attachment[]       @relation("AttachmentUploadedBy")
+  attachmentsRemoved Attachment[]       @relation("AttachmentRemovedBy")
 
   @@index([status])
   @@map("users")
@@ -289,4 +303,189 @@ model RateLimit {
   windowStart DateTime @map("window_start") @db.Timestamptz(6)
 
   @@map("rate_limits")
+}
+
+// ─── Income & Expenses (docs/income_expense_PRD.md §9) ───
+// The income_expenses migration also holds hand-written SQL Prisma can't
+// express: amount/from_reserve/void CHECKs, the closed-period trigger,
+// the no-delete triggers and partial indexes. Keep them if `migrate dev`
+// ever proposes dropping them.
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum FundType {
+  CASH
+  BANK
+  WALLET
+}
+
+enum TxnKind {
+  INCOME
+  EXPENSE
+}
+
+enum TxnSource {
+  MANUAL
+  GENERATED_RENT
+  ADJUSTMENT
+}
+
+// One accounting month. `month` is the 1st of the month.
+model Period {
+  id         String       @id @default(uuid()) @db.Uuid
+  propertyId String       @map("property_id") @db.Uuid
+  month      DateTime     @db.Date
+  status     PeriodStatus @default(OPEN)
+  closedAt   DateTime?    @map("closed_at") @db.Timestamptz(6)
+  closedById String?      @map("closed_by") @db.Uuid
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  closedBy     User?              @relation("PeriodClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  transactions HouseTransaction[] @relation("TxnPeriod")
+  referencedBy HouseTransaction[] @relation("TxnReferencePeriod")
+
+  @@unique([propertyId, month])
+  @@map("periods")
+}
+
+model Unit {
+  id                   String   @id @default(uuid()) @db.Uuid
+  propertyId           String   @map("property_id") @db.Uuid
+  name                 String
+  tenantName           String?  @map("tenant_name")
+  rentPaisa            BigInt   @default(0) @map("default_rent_paisa")
+  defaultFundAccountId String?  @map("default_fund_account_id") @db.Uuid
+  sortOrder            Int      @default(0) @map("sort_order")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property           Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  defaultFundAccount FundAccount?       @relation(fields: [defaultFundAccountId], references: [id], onDelete: Restrict)
+  transactions       HouseTransaction[]
+
+  @@unique([propertyId, name])
+  @@map("units")
+}
+
+model FundAccount {
+  id                  String   @id @default(uuid()) @db.Uuid
+  propertyId          String   @map("property_id") @db.Uuid
+  name                String
+  type                FundType
+  openingBalancePaisa BigInt   @default(0) @map("opening_balance_paisa")
+  openingDate         DateTime @map("opening_date") @db.Date
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  units        Unit[]
+  transactions HouseTransaction[]
+
+  @@map("fund_accounts")
+}
+
+model Category {
+  id         String   @id @default(uuid()) @db.Uuid
+  propertyId String   @map("property_id") @db.Uuid
+  kind       TxnKind
+  code       String
+  nameEn     String   @map("name_en")
+  nameBn     String   @map("name_bn")
+  isSystem   Boolean  @default(false) @map("is_system")
+  isActive   Boolean  @default(true) @map("is_active")
+  sortOrder  Int      @default(0) @map("sort_order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property     Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  transactions HouseTransaction[]
+
+  @@unique([propertyId, code])
+  @@map("categories")
+}
+
+// Income and expenses in one table. Amounts are always positive paisa;
+// `kind` gives the direction. Never deleted — voided with a reason.
+model HouseTransaction {
+  id                String    @id @default(uuid()) @db.Uuid
+  propertyId        String    @map("property_id") @db.Uuid
+  periodId          String    @map("period_id") @db.Uuid
+  kind              TxnKind
+  categoryId        String    @map("category_id") @db.Uuid
+  unitId            String?   @map("unit_id") @db.Uuid
+  amountPaisa       BigInt    @map("amount_paisa")
+  txnDate           DateTime  @map("txn_date") @db.Date
+  fundAccountId     String    @map("fund_account_id") @db.Uuid
+  vendor            String?
+  description       String?
+  fromReserve       Boolean   @default(false) @map("from_reserve")
+  referencePeriodId String?   @map("reference_period_id") @db.Uuid
+  source            TxnSource @default(MANUAL)
+  isCorrected       Boolean   @default(false) @map("is_corrected")
+  voidedAt          DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidedById        String?   @map("voided_by") @db.Uuid
+  voidReason        String?   @map("void_reason")
+  createdById       String    @map("created_by") @db.Uuid
+  updatedById       String?   @map("updated_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property        Property    @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  period          Period      @relation("TxnPeriod", fields: [periodId], references: [id], onDelete: Restrict)
+  referencePeriod Period?     @relation("TxnReferencePeriod", fields: [referencePeriodId], references: [id], onDelete: Restrict)
+  category        Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  unit            Unit?       @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  fundAccount     FundAccount @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  createdBy       User        @relation("TxnCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User?       @relation("TxnUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  voidedBy        User?       @relation("TxnVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  @@index([periodId, categoryId])
+  @@map("house_transactions")
+}
+
+// Bills & receipts in the private bucket. Created unlinked at presign time
+// (entity_id NULL) and linked to an entry later; removal is soft.
+model Attachment {
+  id           String    @id @default(uuid()) @db.Uuid
+  propertyId   String    @map("property_id") @db.Uuid
+  entityType   String    @default("house_transaction") @map("entity_type")
+  entityId     String?   @map("entity_id") @db.Uuid
+  storageKey   String    @unique @map("storage_key")
+  fileName     String    @map("file_name")
+  mime         String
+  sizeBytes    Int       @map("size_bytes")
+  uploadedById String    @map("uploaded_by") @db.Uuid
+  linkedAt     DateTime? @map("linked_at") @db.Timestamptz(6)
+  removedAt    DateTime? @map("removed_at") @db.Timestamptz(6)
+  removedById  String?   @map("removed_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  uploadedBy User     @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  removedBy  User?    @relation("AttachmentRemovedBy", fields: [removedById], references: [id], onDelete: Restrict)
+
+  @@map("attachments")
+}
+
+// Idempotency-Key replay store (DUP-01): same key + same body → same response.
+model IdempotencyKey {
+  propertyId  String   @map("property_id") @db.Uuid
+  key         String
+  requestHash String   @map("request_hash") @db.Char(64)
+  status      Int
+  body        Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@id([propertyId, key])
+  @@map("idempotency_keys")
 }

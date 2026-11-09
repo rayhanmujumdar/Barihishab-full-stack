@@ -23,6 +23,20 @@ import "./me/sessions/schema";
 import "./users/schema";
 import "./users/[id]/schema";
 import "./audit/schema";
+import "./periods/schema";
+import "./units/schema";
+import "./fund-accounts/schema";
+import "./categories/schema";
+import "./transactions/schema";
+import "./transactions/summary/schema";
+import "./transactions/vendors/schema";
+import "./transactions/adjustments/schema";
+import "./transactions/generate-rent/schema";
+import "./transactions/[id]/schema";
+import "./transactions/[id]/void/schema";
+import "./transactions/[id]/attachments/schema";
+import "./attachments/presign/schema";
+import "./attachments/[id]/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 

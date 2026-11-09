@@ -9,6 +9,8 @@ export const LIMITS = {
   authPerIp: { name: "ip:auth", max: 10, windowMs: 60_000 },
   loginPerIdentifier: { name: "id:login", max: 5, windowMs: 60_000 },
   resetEmailPerAccount: { name: "acct:reset-email", max: 3, windowMs: 60 * 60_000 },
+  /** Bill uploads: 5 files per entry, so 30 per 10 min is generous for people and caps bucket abuse. */
+  presignPerUser: { name: "user:presign", max: 30, windowMs: 10 * 60_000 },
 } as const satisfies Record<string, Limit>;
 
 /** Drops counters whose window ended over a day ago (keys are attacker-chosen, so they must not pile up). */

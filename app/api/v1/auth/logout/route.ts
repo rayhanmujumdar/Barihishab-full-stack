@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/api/errors";
 import { audit } from "@/lib/audit";
-import { appendClearedAuthCookies, COOKIE, readCookie } from "@/lib/auth/cookies";
+import { appendClearedAuthCookies, readRefreshCookie } from "@/lib/auth/cookies";
 import { checkCsrf } from "@/lib/auth/csrf";
 import { getAuth, withPublic } from "@/lib/auth/guard";
 import { requestMeta } from "@/lib/auth/request-meta";
@@ -20,7 +20,7 @@ export const POST = withPublic(async (req) => {
     userId = auth.userId;
   } else {
     // Access token expired: identify the session by its refresh token instead.
-    const raw = readCookie(req, COOKIE.refresh);
+    const raw = readRefreshCookie(req);
     const session = raw ? await prisma.authSession.findUnique({ where: { tokenHash: hashToken(raw) } }) : null;
     sessionId = session?.id ?? null;
     userId = session?.userId ?? null;

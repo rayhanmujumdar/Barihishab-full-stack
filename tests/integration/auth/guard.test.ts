@@ -25,6 +25,14 @@ describe("withAuth guard", () => {
     expect(res.status).toBe(401);
   });
 
+  it("ignores a shadow bh_at sent first (e.g. planted by the Swagger UI at /api/v1)", async () => {
+    const user = await createUser({ roles: ["OWNER"] });
+    const login = await loginAs(user);
+    const shadow = `bh_at=${encodeURIComponent("(httpOnly cookie, sent by the browser)")}; `;
+    const res = await readMe(apiRequest("/me", { cookie: shadow + login.cookie }), { params: Promise.resolve({}) });
+    expect(res.status).toBe(200);
+  });
+
   it("passes the auth context with permissions to the handler", async () => {
     const user = await createUser({ roles: ["OWNER"] });
     const login = await loginAs(user);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightStartOnRectangleIcon, HomeIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightStartOnRectangleIcon, BanknotesIcon, Cog6ToothIcon, HomeIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,7 +17,7 @@ import { useLogoutConfirm } from "./logout-confirm";
 
 type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
-type NavItem = { href: string; label: MessageKey; icon: HeroIcon; permission?: Permission; badge?: number };
+type NavItem = { href: string; label: MessageKey; short?: MessageKey; icon: HeroIcon; permission?: Permission; anyOf?: Permission[]; badge?: number };
 
 export type ShellViewer = { name: string; initials: string; roles: Role[]; permissions: Permission[] };
 
@@ -33,10 +33,12 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
   const items: NavItem[] = (
     [
       { href: "/", label: "nav.home", icon: HomeIcon },
+      { href: "/entries", label: "nav.entries", short: "nav.entriesShort", icon: BanknotesIcon, permission: "transaction.view" },
       { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: pendingInvites },
+      { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage"] },
       { href: "/me", label: "nav.profile", icon: UserIcon },
     ] satisfies NavItem[]
-  ).filter((i) => !i.permission || can(viewer, i.permission));
+  ).filter((i: NavItem) => (!i.permission || can(viewer, i.permission)) && (!i.anyOf || i.anyOf.some((p) => can(viewer, p))));
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const badge = (n?: number) => (n ? (locale === "bn" ? toBanglaDigits(String(n)) : String(n)) : null);
@@ -92,20 +94,20 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
         {items.map((i) => {
           const Icon = i.icon;
           return (
-            <Button key={i.href} asChild variant="ghost" className="h-auto min-h-[60px] flex-col gap-0.5 text-[11px] font-bold">
-              <Link href={localePath(locale, i.href)} aria-current={isActive(i.href) ? "page" : undefined}>
+            <Button key={i.href} asChild variant="ghost" className="h-auto min-h-[60px] min-w-0 flex-col gap-0.5 px-1 text-[11px] font-bold">
+              <Link href={localePath(locale, i.href)} aria-current={isActive(i.href) ? "page" : undefined} aria-label={i.short ? tr(i.label) : undefined}>
                 <Icon className="size-[22px]" />
-                <span>
-                  {tr(i.label)}
+                <span className="max-w-full truncate">
+                  {tr(i.short ?? i.label)}
                   {badge(i.badge) ? ` · ${badge(i.badge)}` : ""}
                 </span>
               </Link>
             </Button>
           );
         })}
-        <Button variant="ghost" className="h-auto min-h-[60px] flex-col gap-0.5 text-[11px] font-bold text-destructive" onClick={askLogout} disabled={leaving}>
+        <Button variant="ghost" className="h-auto min-h-[60px] min-w-0 flex-col gap-0.5 px-1 text-[11px] font-bold text-destructive" onClick={askLogout} disabled={leaving}>
           <ArrowRightStartOnRectangleIcon className="size-[22px]" />
-          <span>{tr("nav.logout")}</span>
+          <span className="max-w-full truncate">{tr("nav.logout")}</span>
         </Button>
       </nav>
       {logoutDialog}

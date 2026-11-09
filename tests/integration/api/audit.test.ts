@@ -77,7 +77,9 @@ describe("audit trail", () => {
 
     const rows = await prisma.auditLog.findMany({ where: { id: { gt: lastIdBefore } } });
     const seen = new Set(rows.map((r) => r.action));
-    for (const action of AUDIT_ACTIONS) expect(seen.has(action), action).toBe(true);
+    const authActions = AUDIT_ACTIONS.filter((a) => a.startsWith("auth.") || a.startsWith("user."));
+    expect(authActions).toHaveLength(16);
+    for (const action of authActions) expect(seen.has(action), action).toBe(true);
     for (const r of rows.filter((r) => r.entityId === karimId)) {
       expect(r.ip, r.action).toBe("203.0.113.7");
       expect(r.userAgent, r.action).toBe("vitest-agent");

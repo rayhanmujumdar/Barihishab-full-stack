@@ -2,15 +2,23 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// Bills live in a private S3-compatible bucket: browsers PUT uploads and load
+// signed thumbnails straight from it (Income & Expenses PRD ATT-01/02).
+// headers() is resolved at build time, so S3_PUBLIC_ENDPOINT / S3_ENDPOINT
+// must be set for `next build` — changing them later needs a rebuild.
+const storageEndpoint = process.env.S3_PUBLIC_ENDPOINT || process.env.S3_ENDPOINT;
+const storageOrigin = storageEndpoint ? ` ${new URL(storageEndpoint).origin}` : "";
+if (!storageEndpoint && !isDev) console.warn("next.config: S3_ENDPOINT is not set — bill uploads will be blocked by the CSP.");
+
 // Auth PRD §8 Transport. Swagger UI (/api/v1/docs) loads pinned CDN assets
 // with SRI, so it is excluded from this CSP (dev-only unless API_DOCS_ENABLED).
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob:${storageOrigin}`,
   "font-src 'self' data:",
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self'${storageOrigin}${isDev ? " ws: wss:" : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -5,7 +5,7 @@ import { apiError } from "@/lib/api/errors";
 import { logError } from "@/lib/log";
 import { can, permissionsFor, type Permission, type Role } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { COOKIE, readCookie } from "./cookies";
+import { readAccessCookie } from "./cookies";
 import { checkCsrf, checkOrigin } from "./csrf";
 import { findActiveSession, touchSession } from "./session-service";
 import { verifyAccessToken } from "./tokens";
@@ -22,7 +22,7 @@ export type AuthContext = {
 export async function getAuth(req: Request): Promise<AuthContext | null> {
   const header = req.headers.get("authorization");
   const bearer = header?.startsWith("Bearer ") ? header.slice(7) : null;
-  const claims = await verifyAccessToken(bearer ?? readCookie(req, COOKIE.access));
+  const claims = await verifyAccessToken(bearer ?? readAccessCookie(req));
   if (!claims) return null;
   return {
     userId: claims.sub,

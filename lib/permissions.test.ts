@@ -6,16 +6,35 @@ const OWNER_KEYS = [
   "profile.password.self",
   "session.manage.self",
   "audit.view.financial",
+  "transaction.view",
+  "attachment.view",
 ];
 
+const MONEY_WRITE_KEYS = [
+  "transaction.create",
+  "transaction.update",
+  "transaction.void",
+  "transaction.adjust",
+  "category.manage",
+  "unit.manage",
+  "fund.manage",
+] as const;
+
 describe("ROLE_PERMISSIONS", () => {
-  it("gives SUPER_ADMIN all 14 v1 permission keys", () => {
-    expect(ROLE_PERMISSIONS.SUPER_ADMIN).toHaveLength(14);
+  it("gives SUPER_ADMIN all 23 v1 permission keys", () => {
+    expect(ROLE_PERMISSIONS.SUPER_ADMIN).toHaveLength(23);
     expect(new Set(ROLE_PERMISSIONS.SUPER_ADMIN)).toEqual(new Set(ALL_PERMISSIONS));
   });
 
-  it("gives OWNER exactly the four self-service keys", () => {
+  it("gives OWNER exactly the six self-service and read-only money keys", () => {
     expect([...ROLE_PERMISSIONS.OWNER].sort()).toEqual([...OWNER_KEYS].sort());
+  });
+
+  it("keeps every money write key away from OWNER", () => {
+    for (const key of MONEY_WRITE_KEYS) {
+      expect(can({ roles: ["OWNER"] }, key), key).toBe(false);
+      expect(can({ roles: ["SUPER_ADMIN"] }, key), key).toBe(true);
+    }
   });
 
   it("gives P3 roles no permissions yet", () => {
@@ -27,7 +46,7 @@ describe("ROLE_PERMISSIONS", () => {
 describe("permissionsFor", () => {
   it("returns the union across roles without duplicates", () => {
     const perms = permissionsFor(["OWNER", "SUPER_ADMIN"]);
-    expect(perms).toHaveLength(14);
+    expect(perms).toHaveLength(23);
     expect(new Set(perms).size).toBe(perms.length);
   });
 

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { apiError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
-import { appendClearedAuthCookies, COOKIE, readCookie } from "@/lib/auth/cookies";
+import { appendClearedAuthCookies, COOKIE, readCookie, readRefreshCookie } from "@/lib/auth/cookies";
 import { withPublic } from "@/lib/auth/guard";
 import { withAuthCookies } from "@/lib/auth/issue";
 import { refreshTokens } from "@/lib/auth/refresh-service";
@@ -11,7 +11,7 @@ import { isLocale } from "@/lib/i18n/locales";
 import { localeFromPath, localePath, stripLocale } from "@/lib/i18n/paths";
 
 export const POST = withPublic(async (req) => {
-  const result = await refreshTokens(readCookie(req, COOKIE.refresh), requestMeta(req));
+  const result = await refreshTokens(readRefreshCookie(req), requestMeta(req));
   if (!result.ok) {
     const res = apiError("UNAUTHENTICATED");
     appendClearedAuthCookies(res.headers);
@@ -30,7 +30,7 @@ export const GET = withPublic(async (req) => {
   // redirect arrives as "same-origin", a typed URL as "none".
   const site = req.headers.get("sec-fetch-site");
   const crossSite = site !== null && site !== "same-origin" && site !== "none";
-  const result = crossSite ? ({ ok: false } as const) : await refreshTokens(readCookie(req, COOKIE.refresh), requestMeta(req));
+  const result = crossSite ? ({ ok: false } as const) : await refreshTokens(readRefreshCookie(req), requestMeta(req));
   const headers = new Headers({ "Cache-Control": "no-store" });
   if (!result.ok) {
     if (!crossSite) appendClearedAuthCookies(headers);

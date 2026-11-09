@@ -23,3 +23,15 @@ export function latestEmailToken(email: string, template: "INVITE" | "RESET"): P
     return rows[0].token as string;
   });
 }
+
+/** Creates (or updates) a period of the single property with the given status. */
+export function setPeriodStatus(month: string, status: "OPEN" | "CLOSED"): Promise<void> {
+  return withClient(async (c) => {
+    await c.query(
+      `INSERT INTO periods (id, property_id, month, status, updated_at)
+       SELECT gen_random_uuid(), id, $1::date, $2::"PeriodStatus", now() FROM properties ORDER BY created_at LIMIT 1
+       ON CONFLICT (property_id, month) DO UPDATE SET status = EXCLUDED.status, updated_at = now()`,
+      [`${month}-01`, status],
+    );
+  });
+}

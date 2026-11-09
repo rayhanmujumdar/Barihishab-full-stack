@@ -12,8 +12,8 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-async function send<T>(path: string, method: string, body: unknown): Promise<ApiResult<T>> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+async function send<T>(path: string, method: string, body: unknown, extra?: Record<string, string>): Promise<ApiResult<T>> {
+  const headers: Record<string, string> = { Accept: "application/json", ...extra };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") {
     const csrf = readCookie("bh_csrf");
@@ -53,12 +53,15 @@ function refreshOnce(): Promise<boolean> {
   return refreshing;
 }
 
-export async function apiFetch<T = unknown>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
+export async function apiFetch<T = unknown>(
+  path: string,
+  opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
+): Promise<ApiResult<T>> {
   const method = opts.method ?? "GET";
-  const first = await send<T>(path, method, opts.body);
+  const first = await send<T>(path, method, opts.body, opts.headers);
   if (first.ok || first.status !== 401 || first.error.code !== "UNAUTHENTICATED" || path.startsWith("/auth/refresh")) return first;
   if (!(await refreshOnce())) return first;
-  return send<T>(path, method, opts.body);
+  return send<T>(path, method, opts.body, opts.headers);
 }
 
 /** Field errors from a 422/409 response, keyed by field name. */

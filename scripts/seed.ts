@@ -5,6 +5,7 @@ import { audit } from "../lib/audit";
 import { USERNAME_PATTERN } from "../lib/auth/better-auth";
 import { INVITE_TTL_MS, issueToken } from "../lib/auth/token-service";
 import { enqueueEmail } from "../lib/email/outbox";
+import { ensureDefaultCategories, ensureDemoData } from "../lib/master-data/defaults";
 import { prisma } from "../lib/prisma";
 
 export type SeedResult = { created: boolean; inviteUrl?: string };
@@ -25,9 +26,9 @@ export async function runSeed(env: Record<string, string | undefined> = process.
       // Serialise concurrent seeds.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(4242001)`;
 
-      if (!(await tx.property.findFirst())) {
-        await tx.property.create({ data: { name: "BariHisab House" } });
-      }
+      const property = (await tx.property.findFirst({ orderBy: { createdAt: "asc" } })) ?? (await tx.property.create({ data: { name: "BariHisab House" } }));
+      await ensureDefaultCategories(tx, property.id);
+      if (env.SEED_DEMO === "true") await ensureDemoData(tx, property.id, new Date(`${new Date().toISOString().slice(0, 7)}-01T00:00:00Z`));
       const existing = await tx.userRole.findFirst({ where: { role: "SUPER_ADMIN" } });
       if (existing) return { created: false };
 
@@ -72,7 +73,7 @@ async function main() {
       console.log("  One-time invite link (valid 72 h) — open it to set the password:");
       console.log(`  ${result.inviteUrl}`);
     } else {
-      console.log("✔ A Super Admin already exists — nothing to do.");
+      console.log("✔ A Super Admin already exists — default categories checked (and demo units/funds if SEED_DEMO=true).");
     }
   } catch (err) {
     console.error(`✖ Seed failed: ${err instanceof Error ? err.message : String(err)}`);

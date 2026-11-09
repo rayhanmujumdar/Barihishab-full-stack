@@ -53,6 +53,48 @@ export const ERRORS = {
     bn: "কিছু ঘর ঠিক করতে হবে।",
   },
   NOT_FOUND: { status: 404, en: "Not found.", bn: "পাওয়া যায়নি।" },
+  // Income & Expenses PRD §10.5
+  PERIOD_CLOSED: {
+    status: 409,
+    en: "That month is closed. Record an Adjustment in the open month instead.",
+    bn: "এই মাসটি বন্ধ। চলতি খোলা মাসে একটি সমন্বয় (Adjustment) লিখুন।",
+  },
+  ALREADY_VOIDED: {
+    status: 409,
+    en: "This entry is void. Record a new entry instead.",
+    bn: "এই এন্ট্রিটি বাতিল করা হয়েছে। নতুন এন্ট্রি লিখুন।",
+  },
+  ENTRY_CHANGED: {
+    status: 409,
+    en: "Someone else changed this entry. Reload it and try again.",
+    bn: "অন্য কেউ এই এন্ট্রিটি বদলেছেন। রিলোড করে আবার চেষ্টা করুন।",
+  },
+  IDEMPOTENCY_CONFLICT: {
+    status: 409,
+    en: "This request was already sent with different details. Reload and try again.",
+    bn: "এই অনুরোধটি অন্য তথ্য দিয়ে আগেই পাঠানো হয়েছে। রিলোড করে আবার চেষ্টা করুন।",
+  },
+  CATEGORY_LOCKED: {
+    status: 409,
+    en: "System categories can't be renamed or turned off.",
+    bn: "সিস্টেম খাতের নাম বদলানো বা বন্ধ করা যায় না।",
+  },
+  FUND_NOT_EMPTY: {
+    status: 409,
+    en: "Only an account with a zero balance can be deactivated.",
+    bn: "শুধু শূন্য ব্যালেন্সের অ্যাকাউন্ট বন্ধ করা যায়।",
+  },
+  NAME_TAKEN: { status: 409, en: "That name is already used.", bn: "এই নামটি আগেই ব্যবহৃত হচ্ছে।" },
+  FILE_TOO_LARGE: {
+    status: 413,
+    en: "Only JPG, PNG, WebP or PDF up to 5 MB.",
+    bn: "শুধু JPG, PNG, WebP বা PDF, সর্বোচ্চ ৫ MB।",
+  },
+  TOO_MANY_ATTACHMENTS: {
+    status: 422,
+    en: "An entry can have at most 5 files.",
+    bn: "একটি এন্ট্রিতে সর্বোচ্চ ৫টি ফাইল রাখা যায়।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",

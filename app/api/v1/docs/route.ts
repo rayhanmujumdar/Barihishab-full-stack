@@ -30,7 +30,19 @@ const html = `<!doctype html>
       // design (double submit), so we echo it as X-CSRF-Token ourselves and
       // keep the "Available authorizations" modal in sync with the session.
       var SCHEMES = ["cookieAuth", "csrfHeader", "refreshCookie"];
-      var HTTP_ONLY = "(httpOnly cookie, sent by the browser)";
+
+      // Swagger UI writes \`in: cookie\` API keys to document.cookie (default
+      // path /api/v1). Such a copy of bh_at / bh_rt would be sent before the
+      // real httpOnly cookie on every /api/v1 call and log the user out of the
+      // app, so never authorize those schemes here and wipe any leftovers.
+      function clearShadowCookies() {
+        ["bh_at", "bh_rt", "bh_csrf"].forEach(function (name) {
+          ["/api/v1", "/api/v1/", "/api"].forEach(function (path) {
+            document.cookie = name + "=; Path=" + path + "; Max-Age=0; SameSite=Lax";
+          });
+        });
+      }
+      clearShadowCookies();
 
       function readCookie(name) {
         var hit = document.cookie.split(";").map(function (c) { return c.trim(); })
@@ -41,26 +53,24 @@ const html = `<!doctype html>
       function syncAuth() {
         if (!window.ui) return;
         var csrf = readCookie("bh_csrf");
-        if (csrf) {
-          ui.preauthorizeApiKey("cookieAuth", HTTP_ONLY);
-          ui.preauthorizeApiKey("refreshCookie", HTTP_ONLY);
-          ui.preauthorizeApiKey("csrfHeader", csrf);
-        } else {
-          ui.authActions.logout(SCHEMES);
-        }
+        // Only the CSRF header; the browser sends the httpOnly cookies itself.
+        ui.authActions.logout(["cookieAuth", "refreshCookie"]);
+        if (csrf) ui.preauthorizeApiKey("csrfHeader", csrf);
+        else ui.authActions.logout(SCHEMES);
       }
 
       window.ui = SwaggerUIBundle({
         url: "${API_PREFIX}/openapi.json",
         dom_id: "#swagger-ui",
         deepLinking: true,
-        persistAuthorization: true,
+        persistAuthorization: false,
         displayRequestDuration: true,
         tryItOutEnabled: true,
         requestInterceptor: function (req) {
           req.credentials = "same-origin";
           // Placeholder values must never reach the wire; the browser owns cookies.
           if (req.headers) delete req.headers.Cookie;
+          clearShadowCookies();
           var csrf = readCookie("bh_csrf");
           if (csrf && req.method && req.method.toUpperCase() !== "GET") {
             req.headers["X-CSRF-Token"] = csrf;
@@ -69,6 +79,7 @@ const html = `<!doctype html>
         },
         responseInterceptor: function (res) {
           // Login / refresh / logout rotate or clear cookies; mirror that.
+          clearShadowCookies();
           setTimeout(syncAuth, 0);
           return res;
         },

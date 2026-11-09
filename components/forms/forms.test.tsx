@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ErrorStrip } from "./error-strip";
-import { DateField, PasswordField, SelectField, TextField, parseIsoDate, toIsoDate } from "./fields";
+import { DateField, PasswordField, RequiredLegend, SelectField, TextField, parseIsoDate, requiredProps, toIsoDate } from "./fields";
 
 describe("TextField (shadcn Field + Input)", () => {
   it("has a real label and links hint + error via aria-describedby", () => {
@@ -108,5 +108,85 @@ describe("DateField (shadcn Popover + Calendar)", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Clear date" }));
     expect(onChange).toHaveBeenLastCalledWith("");
     expect(screen.getByRole("button", { name: /Birthday/ })).toHaveTextContent("Pick a date");
+  });
+});
+
+describe("required marker (form-required-indicator)", () => {
+  const label = (id: string) => document.querySelector(`label[for="${id}"]`)!;
+
+  it("TextField marks the label, forwards required and keeps the accessible name", () => {
+    render(<TextField id="email" label="Email" required />);
+    const input = screen.getByRole("textbox", { name: "Email" });
+    expect(input).toBeRequired();
+    expect(label("email")).toHaveAttribute("data-required", "true");
+    expect(label("email").textContent).toBe("Email");
+  });
+
+  it("TextField without required has no marker", () => {
+    render(<TextField id="tenant" label="Tenant" />);
+    expect(screen.getByRole("textbox", { name: "Tenant" })).not.toBeRequired();
+    expect(label("tenant")).not.toHaveAttribute("data-required");
+  });
+
+  it("PasswordField marks the label and forwards required", () => {
+    render(<PasswordField id="pw" label="Password" showLabel="Show" hideLabel="Hide" required />);
+    expect(screen.getByLabelText("Password")).toBeRequired();
+    expect(label("pw")).toHaveAttribute("data-required", "true");
+  });
+
+  it("SelectField marks the label and forwards required", () => {
+    render(<SelectField id="role" label="Role" required options={[{ value: "OWNER", label: "Owner" }]} />);
+    expect(screen.getByRole("combobox", { name: "Role" })).toBeRequired();
+    expect(label("role")).toHaveAttribute("data-required", "true");
+  });
+
+  function DateHarness({ required, hint, error }: { required?: boolean; hint?: string; error?: string }) {
+    return (
+      <DateField
+        id="d"
+        label="Date"
+        placeholder="Pick"
+        clearLabel="Clear"
+        locale="en"
+        value=""
+        onChange={() => {}}
+        required={required}
+        requiredText="Required"
+        hint={hint}
+        error={error}
+      />
+    );
+  }
+
+  it("required DateField is described as Required and its label is marked", () => {
+    render(<DateHarness required hint="Hint" error="Bad" />);
+    const trigger = screen.getByRole("button", { name: /Date/ });
+    const ids = trigger.getAttribute("aria-describedby")!.split(" ");
+    expect(ids).toEqual(["d-required", "d-hint", "d-error"]);
+    expect(document.getElementById("d-required")).toHaveTextContent("Required");
+    expect(trigger).toHaveAccessibleName("Date Pick");
+    expect(document.getElementById("d-label")).toHaveAttribute("data-required", "true");
+  });
+
+  it("optional DateField has no Required description or marker", () => {
+    render(<DateHarness />);
+    const trigger = screen.getByRole("button", { name: /Date/ });
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+    expect(document.getElementById("d-required")).toBeNull();
+    expect(document.getElementById("d-label")).not.toHaveAttribute("data-required");
+  });
+
+  it("RequiredLegend renders '* text' hidden from assistive tech", () => {
+    const { container } = render(<RequiredLegend text="Required" />);
+    const p = container.querySelector("p")!;
+    expect(p).toHaveTextContent("* Required");
+    expect(p).toHaveAttribute("aria-hidden", "true");
+    expect(p.className).toContain("text-xs");
+  });
+
+  it("requiredProps returns the data attribute only when required", () => {
+    expect(requiredProps(true)).toEqual({ "data-required": "true" });
+    expect(requiredProps(false)).toEqual({});
+    expect(requiredProps(undefined)).toEqual({});
   });
 });

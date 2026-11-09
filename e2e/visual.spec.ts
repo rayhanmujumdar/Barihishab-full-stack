@@ -13,6 +13,8 @@ const PRIVATE = [
   ["home", "/"],
   ["users", "/admin/users"],
   ["me", "/me"],
+  ["entries", "/entries?type=EXPENSE"],
+  ["settings", "/settings"],
 ] as const;
 
 mkdirSync(".context/screens", { recursive: true });
@@ -44,6 +46,24 @@ for (const locale of ["bn", "en"] as const) {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, `${name} horizontal overflow`).toBeLessThanOrEqual(0);
       await page.screenshot({ path: `.context/screens/${info.project.name}-${locale}-${name}.png`, fullPage: true });
+
+      // The fixed bottom nav must fit too (it isn't part of the page scroll width).
+      const nav = await page.locator(".bottom-nav").evaluate((el) => (getComputedStyle(el).display === "none" ? 0 : el.scrollWidth - el.clientWidth));
+      expect(nav, `${name} bottom nav overflow`).toBeLessThanOrEqual(0);
+
+      if (name === "entries") {
+        // < 860px the header actions move to the yellow + FAB (PRD §6.1 Mobile).
+        const fab = page.getByRole("button", { name: locale === "bn" ? "ব্যয় যোগ করুন" : "Add expense" }).locator("visible=true");
+        await expect(fab).toHaveCount(1);
+        if (info.project.name === "mobile-360") {
+          await expect(page.locator(".entries-fab")).toBeVisible();
+          // Scrolled to the end, the floating buttons must not cover the total.
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          const total = (await page.locator(".entry-total").boundingBox())!;
+          const fab = (await page.locator(".entries-fab").boundingBox())!;
+          expect(fab.y, "FAB clears the list total").toBeGreaterThanOrEqual(total.y + total.height);
+        }
+      }
 
       if (name === "home") {
         // Logout confirmation: sidebar on desktop, bottom nav at 360px — whichever is visible.

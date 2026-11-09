@@ -18,9 +18,28 @@ import type { Locale } from "@/lib/i18n";
 
 type Common = { id: string; label: ReactNode; hint?: ReactNode; error?: string | null; className?: string };
 
-function describedBy(id: string, hint?: ReactNode, error?: string | null) {
-  const ids = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean);
+function describedBy(id: string, hint?: ReactNode, error?: string | null, required = false) {
+  const ids = [required ? `${id}-required` : null, hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean);
   return ids.length ? ids.join(" ") : undefined;
+}
+
+/**
+ * Required marker contract (form-required-indicator): a label with
+ * `data-required="true"` gets a CSS `::after` "*" whose alt text is empty, so
+ * the star is visible but never part of the accessible name. Spread onto a
+ * shadcn `FieldLabel` / `FieldLegend` for fields not built from these helpers.
+ */
+export function requiredProps(required: boolean | undefined): { "data-required"?: "true" } {
+  return required ? { "data-required": "true" } : {};
+}
+
+/** "* Required" note for forms that mix required and optional fields. Hidden from AT: each field already announces "required". */
+export function RequiredLegend({ text }: { text: string }) {
+  return (
+    <p aria-hidden="true" className="m-0 text-xs text-muted-foreground">
+      * {text}
+    </p>
+  );
 }
 
 const labelClass = "text-xs font-semibold text-muted-foreground";
@@ -45,7 +64,7 @@ function Messages({ id, hint, error }: { id: string; hint?: ReactNode; error?: s
 export function TextField({ id, label, hint, error, className, ...input }: Common & Omit<ComponentProps<"input">, "id">) {
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(input.required)}>
         {label}
       </FieldLabel>
       <Input id={id} name={input.name ?? id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, hint, error)} {...input} />
@@ -67,7 +86,7 @@ export function PasswordField({
   const [visible, setVisible] = useState(false);
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(input.required)}>
         {label}
       </FieldLabel>
       <div className="relative">
@@ -108,7 +127,7 @@ export function SelectField({
 }: Common & Omit<ComponentProps<"select">, "id" | "size"> & { options: { value: string; label: string }[] }) {
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(select.required)}>
         {label}
       </FieldLabel>
       <NativeSelect id={id} name={select.name ?? id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, hint, error)} {...select}>
@@ -153,22 +172,45 @@ type DateFieldProps = Common & {
   disableFuture?: boolean;
   /** Earliest year in the year dropdown. */
   fromYear?: number;
+  /** Must have a value: marks the label and describes the trigger with `requiredText` (a button can't take `required`/`aria-required`). */
+  required?: boolean;
+  /** Localized "Required" announced via aria-describedby when `required`. */
+  requiredText?: string;
 };
 
 /**
  * Date picker built from shadcn Popover + Calendar (replaces the native
  * <input type="date"> so the picker matches the design system and speaks bn).
  */
-export function DateField({ id, label, hint, error, className, value, onChange, placeholder, locale, disabled, ...picker }: DateFieldProps) {
+export function DateField({
+  id,
+  label,
+  hint,
+  error,
+  className,
+  value,
+  onChange,
+  placeholder,
+  locale,
+  disabled,
+  required = false,
+  requiredText,
+  ...picker
+}: DateFieldProps) {
   const [open, setOpen] = useState(false);
   const selected = parseIsoDate(value);
   const display = selected ? formatLongDate(locale, selected) : null;
 
   return (
     <Field className={className}>
-      <FieldLabel id={`${id}-label`} htmlFor={id} className={labelClass}>
+      <FieldLabel id={`${id}-label`} htmlFor={id} className={labelClass} {...requiredProps(required)}>
         {label}
       </FieldLabel>
+      {required ? (
+        <span id={`${id}-required`} className="sr-only">
+          {requiredText}
+        </span>
+      ) : null}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -179,7 +221,7 @@ export function DateField({ id, label, hint, error, className, value, onChange, 
             // Name = label + current value/placeholder ("Birthday, 15 May 2000").
             aria-labelledby={`${id}-label ${id}-value`}
             aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy(id, hint, error)}
+            aria-describedby={describedBy(id, hint, error, required)}
             className={cn(
               "h-11 w-full justify-between border-input bg-card px-3 text-[15px] font-normal hover:bg-card focus-visible:border-foreground aria-invalid:border-destructive md:text-sm",
               !display && "text-muted-foreground"

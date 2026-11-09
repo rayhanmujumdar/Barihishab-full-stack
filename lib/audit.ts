@@ -19,6 +19,20 @@ export const AUDIT_ACTIONS = [
   "user.deactivated",
   "user.reactivated",
   "user.sessions.revoked",
+  // Income & Expenses PRD §12.1 (all financial: owners may see them)
+  "transaction.created",
+  "transaction.updated",
+  "transaction.voided",
+  "transaction.rent_generated",
+  "transaction.adjustment_created",
+  "attachment.added",
+  "attachment.removed",
+  "unit.created",
+  "unit.updated",
+  "fund_account.created",
+  "fund_account.updated",
+  "category.created",
+  "category.updated",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
