@@ -141,21 +141,8 @@ describe("required marker (form-required-indicator)", () => {
   });
 
   function DateHarness({ required, hint, error }: { required?: boolean; hint?: string; error?: string }) {
-    return (
-      <DateField
-        id="d"
-        label="Date"
-        placeholder="Pick"
-        clearLabel="Clear"
-        locale="en"
-        value=""
-        onChange={() => {}}
-        required={required}
-        requiredText="Required"
-        hint={hint}
-        error={error}
-      />
-    );
+    const common = { id: "d", label: "Date", placeholder: "Pick", clearLabel: "Clear", locale: "en" as const, value: "", onChange: () => {}, hint, error };
+    return required ? <DateField {...common} required requiredText="Required" /> : <DateField {...common} />;
   }
 
   it("required DateField is described as Required and its label is marked", () => {
@@ -174,6 +161,29 @@ describe("required marker (form-required-indicator)", () => {
     expect(trigger).not.toHaveAttribute("aria-describedby");
     expect(document.getElementById("d-required")).toBeNull();
     expect(document.getElementById("d-label")).not.toHaveAttribute("data-required");
+  });
+
+  it("read-only or disabled fields never show the marker, even with required", () => {
+    render(
+      <>
+        <TextField id="ro" label="Read only" required readOnly />
+        <PasswordField id="dis" label="Disabled" showLabel="Show" hideLabel="Hide" required disabled />
+        <SelectField id="sel" label="Locked" required disabled options={[{ value: "a", label: "A" }]} />
+      </>
+    );
+    for (const id of ["ro", "dis", "sel"]) expect(label(id), id).not.toHaveAttribute("data-required");
+  });
+
+  it("disabled DateField shows no marker and no Required description", () => {
+    render(<DateField id="dd" label="Date" placeholder="Pick" clearLabel="Clear" locale="en" value="" onChange={() => {}} required requiredText="Required" disabled />);
+    expect(document.getElementById("dd-label")).not.toHaveAttribute("data-required");
+    expect(document.getElementById("dd-required")).toBeNull();
+  });
+
+  it("DateField type demands requiredText whenever required is set", () => {
+    // @ts-expect-error requiredText is mandatory with required
+    const el = <DateField id="t" label="T" placeholder="P" clearLabel="C" locale="en" value="" onChange={() => {}} required />;
+    expect(el).toBeTruthy();
   });
 
   it("RequiredLegend renders '* text' hidden from assistive tech", () => {

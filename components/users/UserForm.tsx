@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRightIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { ErrorStrip } from "@/components/forms/error-strip";
-import { DateField, SelectField, TextField } from "@/components/forms/fields";
+import { DateField, RequiredLegend, SelectField, TextField } from "@/components/forms/fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -181,9 +181,10 @@ export function UserForm({
               <AlertDescription>{tr("users.drawer.inviteNote")}</AlertDescription>
             </Alert>
           ) : null}
+          <RequiredLegend text={tr("common.required")} />
           <div className="grid-2">
-            <TextField id="u-username" label={`${tr("users.field.username")} *`} placeholder={tr("ph.username")} value={form.username} onChange={(e) => set("username", e.target.value.toLowerCase())} error={errors.username} autoCapitalize="none" required />
-            <TextField id="u-email" type="email" label={`${tr("users.field.email")} *`} placeholder={tr("ph.email")} value={form.email} onChange={(e) => set("email", e.target.value)} error={errors.email} required />
+            <TextField id="u-username" label={tr("users.field.username")} placeholder={tr("ph.username")} value={form.username} onChange={(e) => set("username", e.target.value.toLowerCase())} error={errors.username} autoCapitalize="none" required />
+            <TextField id="u-email" type="email" label={tr("users.field.email")} placeholder={tr("ph.email")} value={form.email} onChange={(e) => set("email", e.target.value)} error={errors.email} required />
             <TextField id="u-first" label={tr("users.field.firstName")} placeholder={tr("ph.firstName")} value={form.firstName} onChange={(e) => set("firstName", e.target.value)} error={errors.firstName} />
             <TextField id="u-last" label={tr("users.field.lastName")} placeholder={tr("ph.lastName")} value={form.lastName} onChange={(e) => set("lastName", e.target.value)} error={errors.lastName} />
             <TextField id="u-surname" label={tr("users.field.surname")} placeholder={tr("ph.surname")} value={form.surname} onChange={(e) => set("surname", e.target.value)} error={errors.surname} />
@@ -212,10 +213,11 @@ export function UserForm({
           <div className="grid-2">
             <SelectField
               id="u-role"
-              label={`${tr("users.field.role")} *`}
+              label={tr("users.field.role")}
               value={form.role}
               onChange={(e) => set("role", e.target.value as FormState["role"])}
               disabled={roleLocked}
+              required={!roleLocked}
               title={roleLocked ? tr("users.lastAdmin") : undefined}
               hint={roleLocked ? tr("users.lastAdmin") : undefined}
               error={errors.role}

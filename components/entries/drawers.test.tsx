@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
+import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import { DetailDrawer, type Detail } from "./DetailDrawer";
 import { EntryDrawer } from "./EntryDrawer";
 import { entriesData, ids, ownerPerms, txn } from "./fixtures";
@@ -285,10 +286,87 @@ describe("GenerateRentDialog (INC-04)", () => {
     expect(toast.warning).toHaveBeenCalledWith("Already paid, skipped: Flat 1B");
   });
 
+  it("keeps Save disabled while the required date is cleared", async () => {
+    preview([row("u1", "Flat 1A", 1800000)]);
+    render(<GenerateRentDialog locale="en" data={entriesData()} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("rent-total");
+    const save = screen.getByRole("button", { name: "Save rent entries" });
+    expect(save).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: /^Date/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Clear date" }));
+    expect(save).toBeDisabled();
+    await userEvent.click(save);
+    expect(sent("POST").filter(([path]) => path === "/transactions/generate-rent")).toHaveLength(0);
+  });
+
   it("says when every unit already has rent", async () => {
     preview([]);
     render(<GenerateRentDialog locale="en" data={entriesData()} onClose={vi.fn()} onSaved={vi.fn()} />);
     expect(await screen.findByText("Every active unit already has rent recorded this month.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+  });
+});
+
+describe("required markers (form-required-indicator)", () => {
+  const marked = (id: string) => document.querySelector(`label[for="${id}"]`)?.getAttribute("data-required") === "true";
+  const dialog = () => screen.getByRole("dialog");
+  const BASE = ["e-period", "e-category", "e-amount", "e-date", "e-fund"];
+
+  it("new income with Rent marks the base fields and Unit, shows the legend", () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ kind: "INCOME" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    for (const id of [...BASE, "e-unit"]) expect(marked(id), id).toBe(true);
+    expect(marked("e-description")).toBe(false);
+    expect(screen.getByLabelText("Amount (৳)")).toBeRequired();
+    expect(screen.getByRole("button", { name: /^Date/ }).getAttribute("aria-describedby")).toMatch(/^e-date-required/);
+    expect(within(dialog()).getByText("* Required")).toBeInTheDocument();
+    expectRequiredMarkersMatch(dialog());
+  });
+
+  it("non-rent income unmarks Unit; Arrear marks Reference month", async () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ kind: "INCOME" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await userEvent.selectOptions(screen.getByLabelText("Category"), ids.otherInc);
+    expect(marked("e-unit")).toBe(false);
+    expect(screen.getByLabelText("Unit")).not.toBeRequired();
+    expectRequiredMarkersMatch(dialog());
+    await userEvent.selectOptions(screen.getByLabelText("Category"), ids.arrear);
+    expect(marked("e-unit") && marked("e-reference")).toBe(true);
+    expectRequiredMarkersMatch(dialog());
+  });
+
+  it("expense marks the base five only", () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ kind: "EXPENSE" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    for (const id of BASE) expect(marked(id), id).toBe(true);
+    for (const id of ["e-vendor", "e-description", "e-reserve"]) expect(marked(id), id).toBe(false);
+    expectRequiredMarkersMatch(dialog());
+  });
+
+  it("correct mode marks the correction reason", () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ entry: txn() }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(marked("e-reason")).toBe(true);
+    expectRequiredMarkersMatch(dialog());
+  });
+
+  it("empty required amount still uses the inline error (form stays noValidate)", async () => {
+    render(<EntryDrawer locale="en" data={entriesData()} mode={{ kind: "EXPENSE" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(dialog().querySelector("form")!.noValidate).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: /Save expense/ }));
+    expect(screen.getByText("Enter an amount greater than zero.")).toBeInTheDocument();
+  });
+
+  it("void reason is marked", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: detail() });
+    render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Void" }));
+    const alert = await screen.findByRole("alertdialog", { name: "Void this entry?" });
+    expect(marked("void-reason")).toBe(true);
+    expectRequiredMarkersMatch(alert);
+  });
+
+  it("generate-rent date is marked; row inputs are not form fields", async () => {
+    api.mockImplementation(async () => ({ ok: true, status: 200, data: { period: "2026-10", rows: [{ unitId: "u1", unit: "Flat 1A", tenant: null, amountPaisa: 1800000, fundAccountId: ids.bank, selected: true }] } }));
+    render(<GenerateRentDialog locale="en" data={entriesData()} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByTestId("rent-total");
+    expect(document.getElementById("rent-date-label")).toHaveAttribute("data-required", "true");
+    expect(document.getElementById("rent-date-required")).toHaveTextContent("Required");
   });
 });

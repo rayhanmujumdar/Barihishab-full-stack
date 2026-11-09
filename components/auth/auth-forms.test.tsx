@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
+import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 import { ForgotForm } from "./ForgotForm";
 import { InviteState } from "./InviteState";
@@ -197,5 +198,41 @@ describe("InviteState (A4 edge states)", () => {
     await userEvent.click(screen.getByRole("button", { name: /Log out and continue/ }));
     await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
     expect(api).not.toHaveBeenCalled();
+  });
+});
+
+describe("required markers (form-required-indicator)", () => {
+  const marked = (id: string) => document.querySelector(`label[for="${id}"]`)?.getAttribute("data-required") === "true";
+  const noLegend = () => expect(screen.queryByText(/^\* /)).toBeNull();
+
+  it("Login marks identifier and password, no legend, names unchanged", () => {
+    const { container } = render(<LoginForm locale="en" next="/" navigate={vi.fn()} />);
+    expect(marked("identifier") && marked("password")).toBe(true);
+    expect(screen.getByRole("textbox", { name: "Username or email" })).toBeRequired();
+    noLegend();
+    expectRequiredMarkersMatch(container);
+  });
+
+  it("Forgot marks the email", () => {
+    const { container } = render(<ForgotForm locale="en" />);
+    expect(marked("email")).toBe(true);
+    noLegend();
+    expectRequiredMarkersMatch(container);
+  });
+
+  it("Reset marks both password fields", () => {
+    const { container } = render(<ResetForm locale="en" token="t" navigate={vi.fn()} />);
+    expect(container.querySelectorAll('label[data-required="true"]')).toHaveLength(2);
+    noLegend();
+    expectRequiredMarkersMatch(container);
+  });
+
+  it("Accept invite marks both passwords, not the read-only username", () => {
+    const info = { firstName: "Karim", username: "karim", invitedBy: "Rayhan", expiresAt: new Date(Date.now() + 3600_000).toISOString(), locale: "bn" as const };
+    const { container } = render(<AcceptInviteForm locale="en" token="t" info={info} navigate={vi.fn()} />);
+    expect(marked("invite-username")).toBe(false);
+    expect(marked("invite-new") && marked("invite-repeat")).toBe(true);
+    noLegend();
+    expectRequiredMarkersMatch(container);
   });
 });

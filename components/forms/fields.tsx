@@ -33,6 +33,11 @@ export function requiredProps(required: boolean | undefined): { "data-required"?
   return required ? { "data-required": "true" } : {};
 }
 
+/** Browsers skip constraint validation on read-only and disabled controls, so those never count as required. */
+function isEnforced(c: { required?: boolean; readOnly?: boolean; disabled?: boolean }): boolean {
+  return Boolean(c.required && !c.readOnly && !c.disabled);
+}
+
 /** "* Required" note for forms that mix required and optional fields. Hidden from AT: each field already announces "required". */
 export function RequiredLegend({ text }: { text: string }) {
   return (
@@ -64,7 +69,7 @@ function Messages({ id, hint, error }: { id: string; hint?: ReactNode; error?: s
 export function TextField({ id, label, hint, error, className, ...input }: Common & Omit<ComponentProps<"input">, "id">) {
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(input.required)}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(isEnforced(input))}>
         {label}
       </FieldLabel>
       <Input id={id} name={input.name ?? id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, hint, error)} {...input} />
@@ -86,7 +91,7 @@ export function PasswordField({
   const [visible, setVisible] = useState(false);
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(input.required)}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(isEnforced(input))}>
         {label}
       </FieldLabel>
       <div className="relative">
@@ -127,7 +132,7 @@ export function SelectField({
 }: Common & Omit<ComponentProps<"select">, "id" | "size"> & { options: { value: string; label: string }[] }) {
   return (
     <Field className={className}>
-      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(select.required)}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(isEnforced(select))}>
         {label}
       </FieldLabel>
       <NativeSelect id={id} name={select.name ?? id} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, hint, error)} {...select}>
@@ -172,11 +177,15 @@ type DateFieldProps = Common & {
   disableFuture?: boolean;
   /** Earliest year in the year dropdown. */
   fromYear?: number;
-  /** Must have a value: marks the label and describes the trigger with `requiredText` (a button can't take `required`/`aria-required`). */
-  required?: boolean;
-  /** Localized "Required" announced via aria-describedby when `required`. */
-  requiredText?: string;
-};
+} & (
+  | {
+      /** Must have a value: marks the label and describes the trigger with `requiredText` (a button can't take `required`/`aria-required`). */
+      required: true;
+      /** Localized "Required" announced via aria-describedby. */
+      requiredText: string;
+    }
+  | { required?: false; requiredText?: never }
+);
 
 /**
  * Date picker built from shadcn Popover + Calendar (replaces the native
@@ -198,15 +207,16 @@ export function DateField({
   ...picker
 }: DateFieldProps) {
   const [open, setOpen] = useState(false);
+  const enforced = isEnforced({ required, disabled });
   const selected = parseIsoDate(value);
   const display = selected ? formatLongDate(locale, selected) : null;
 
   return (
     <Field className={className}>
-      <FieldLabel id={`${id}-label`} htmlFor={id} className={labelClass} {...requiredProps(required)}>
+      <FieldLabel id={`${id}-label`} htmlFor={id} className={labelClass} {...requiredProps(enforced)}>
         {label}
       </FieldLabel>
-      {required ? (
+      {enforced ? (
         <span id={`${id}-required`} className="sr-only">
           {requiredText}
         </span>
@@ -221,7 +231,7 @@ export function DateField({
             // Name = label + current value/placeholder ("Birthday, 15 May 2000").
             aria-labelledby={`${id}-label ${id}-value`}
             aria-invalid={error ? true : undefined}
-            aria-describedby={describedBy(id, hint, error, required)}
+            aria-describedby={describedBy(id, hint, error, enforced)}
             className={cn(
               "h-11 w-full justify-between border-input bg-card px-3 text-[15px] font-normal hover:bg-card focus-visible:border-foreground aria-invalid:border-destructive md:text-sm",
               !display && "text-muted-foreground"

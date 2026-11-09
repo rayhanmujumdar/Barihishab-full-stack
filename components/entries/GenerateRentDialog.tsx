@@ -54,7 +54,7 @@ export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale:
 
   const ticked = (rows ?? []).filter((r) => r.checked);
   const total = ticked.reduce((s, r) => s + (parseAmount(r.amount) ?? 0), 0);
-  const invalid = ticked.some((r) => !parseAmount(r.amount) || !r.fundAccountId);
+  const invalid = !txnDate || ticked.some((r) => !parseAmount(r.amount) || !r.fundAccountId);
   const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs!.map((r, n) => (n === i ? { ...r, ...patch } : r)));
 
   async function save() {
@@ -88,7 +88,7 @@ export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale:
         {rows === null ? <p className="muted">{tr("common.loading")}</p> : null}
         {rows?.length ? (
           <>
-            <DateField id="rent-date" label={tr("rent.date")} placeholder={tr("entry.ph.date")} clearLabel={tr("common.clear")} locale={locale} disableFuture fromYear={2020} value={txnDate} onChange={setTxnDate} />
+            <DateField id="rent-date" label={tr("rent.date")} placeholder={tr("entry.ph.date")} clearLabel={tr("common.clear")} locale={locale} disableFuture fromYear={2020} value={txnDate} onChange={setTxnDate} required requiredText={tr("common.required")} />
             <ul className="m-0 list-none border-t-2 border-foreground p-0" aria-label={tr("rent.title", { month: monthLabel(locale, period) })}>
               {rows.map((r, i) => (
                 <li key={r.unitId} className="list-row flex-wrap">

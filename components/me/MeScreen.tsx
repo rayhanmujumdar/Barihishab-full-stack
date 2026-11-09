@@ -8,7 +8,7 @@ import { hardNavigate } from "@/components/auth/navigate";
 import { ArrowRightIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { ErrorStrip } from "@/components/forms/error-strip";
-import { DateField, PasswordField, TextField } from "@/components/forms/fields";
+import { DateField, PasswordField, RequiredLegend, TextField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -164,9 +164,10 @@ export function MeScreen({
         </div>
         <form className="form-stack max-w-[760px]" onSubmit={saveProfile} noValidate>
           <ErrorStrip message={profileError} />
+          {canIdentity ? <RequiredLegend text={tr("common.required")} /> : null}
           <div className="grid-2">
-            <TextField id="me-username" label={tr("users.field.username")} placeholder={tr("ph.username")} value={form.username} readOnly={!canIdentity} hint={locked} onChange={(e) => set("username", e.target.value.toLowerCase())} error={profileErrors.username} />
-            <TextField id="me-email" type="email" label={tr("users.field.email")} placeholder={tr("ph.email")} value={form.email} readOnly={!canIdentity} hint={locked} onChange={(e) => set("email", e.target.value)} error={profileErrors.email} />
+            <TextField id="me-username" label={tr("users.field.username")} placeholder={tr("ph.username")} value={form.username} readOnly={!canIdentity} required={canIdentity} hint={locked} onChange={(e) => set("username", e.target.value.toLowerCase())} error={profileErrors.username} />
+            <TextField id="me-email" type="email" label={tr("users.field.email")} placeholder={tr("ph.email")} value={form.email} readOnly={!canIdentity} required={canIdentity} hint={locked} onChange={(e) => set("email", e.target.value)} error={profileErrors.email} />
             <TextField id="me-first" label={tr("users.field.firstName")} placeholder={tr("ph.firstName")} value={form.firstName} onChange={(e) => set("firstName", e.target.value)} error={profileErrors.firstName} />
             <TextField id="me-last" label={tr("users.field.lastName")} placeholder={tr("ph.lastName")} value={form.lastName} onChange={(e) => set("lastName", e.target.value)} error={profileErrors.lastName} />
             <TextField id="me-surname" label={tr("users.field.surname")} placeholder={tr("ph.surname")} value={form.surname} onChange={(e) => set("surname", e.target.value)} error={profileErrors.surname} />
@@ -202,6 +203,7 @@ export function MeScreen({
             label={tr("me.current")}
             placeholder={tr("ph.currentPassword")}
             autoComplete="current-password"
+            required
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
             error={pwErrors.current}

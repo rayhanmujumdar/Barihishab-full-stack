@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { categoryName } from "@/components/entries/format";
 import { ErrorStrip } from "@/components/forms/error-strip";
-import { DateField, SelectField, TextField } from "@/components/forms/fields";
+import { DateField, RequiredLegend, SelectField, TextField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -322,6 +322,7 @@ function EditSheet({
           <ErrorStrip message={error} />
           {editing.type === "unit" ? (
             <>
+              <RequiredLegend text={tr("common.required")} />
               <TextField id="m-name" label={tr("unit.name")} placeholder={tr("unit.ph.name")} maxLength={60} value={f.name} onChange={(e) => set("name", e.target.value)} error={errors.name} required />
               <TextField id="m-tenant" label={tr("unit.tenant")} placeholder={tr("unit.ph.tenant")} maxLength={100} value={f.tenantName} onChange={(e) => set("tenantName", e.target.value)} />
               <TextField id="m-rent" label={tr("unit.rent")} inputMode="decimal" value={f.rent} onChange={(e) => set("rent", e.target.value)} error={errors.rentPaisa} />
@@ -335,17 +336,19 @@ function EditSheet({
             </>
           ) : editing.type === "fund" ? (
             <>
+              <RequiredLegend text={tr("common.required")} />
               <TextField id="m-name" label={tr("fund.name")} placeholder={tr("fund.ph.name")} maxLength={60} value={f.name} onChange={(e) => set("name", e.target.value)} error={errors.name} required />
               <SelectField
                 id="m-type"
                 label={tr("fund.type")}
+                required
                 value={f.type}
                 onChange={(e) => set("type", e.target.value)}
                 options={(["CASH", "BANK", "WALLET"] as const).map((t) => ({ value: t, label: tr(`fund.type.${t}`) }))}
               />
               <div className="grid-2">
                 <TextField id="m-opening" label={tr("fund.opening")} inputMode="decimal" value={f.opening} onChange={(e) => set("opening", e.target.value)} error={errors.openingBalancePaisa} />
-                <DateField id="m-opening-date" label={tr("fund.openingDate")} placeholder={tr("entry.ph.date")} clearLabel={tr("common.clear")} locale={locale} fromYear={2000} value={f.openingDate} onChange={(v) => set("openingDate", v)} error={errors.openingDate} />
+                <DateField id="m-opening-date" label={tr("fund.openingDate")} placeholder={tr("entry.ph.date")} clearLabel={tr("common.clear")} locale={locale} fromYear={2000} required requiredText={tr("common.required")} value={f.openingDate} onChange={(v) => set("openingDate", v)} error={errors.openingDate} />
               </div>
             </>
           ) : (
