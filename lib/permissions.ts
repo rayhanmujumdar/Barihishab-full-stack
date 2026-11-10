@@ -52,6 +52,13 @@ export const ALL_PERMISSIONS = [
   "loan.view",
   "loan.create",
   "loan.repay",
+  // Requests PRD §5
+  "request.create",
+  "request.view",
+  "request.view.all",
+  "request.decide",
+  "request.disburse",
+  "request.record",
 ] as const;
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
@@ -67,6 +74,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "owner.view",
     "distribution.view",
     "loan.view",
+    "request.create",
+    "request.view",
   ],
   ACCOUNTANT: [],
   VIEWER: [],

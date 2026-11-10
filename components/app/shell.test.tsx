@@ -32,6 +32,18 @@ describe("ShellNav (RBAC-05)", () => {
     expect(links[0]).toHaveTextContent("2");
   });
 
+  it("shows Requests with its badge to everyone who may view requests (Requests F1, F14)", () => {
+    render(<ShellNav locale="bn" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={0} requestBadge={12} />);
+    const links = screen.getAllByRole("link", { name: /অনুরোধ/ });
+    expect(links[0]).toHaveAttribute("href", "/bn/requests");
+    expect(links[0]).toHaveTextContent("১২");
+  });
+
+  it("hides the Requests badge at zero", () => {
+    render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} requestBadge={0} />);
+    expect(screen.getAllByRole("link", { name: /Requests/ })[0]).toHaveTextContent(/^Requests$/);
+  });
+
   it("shows Income & expenses to Owners but not Settings", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(screen.getAllByRole("link", { name: /Income & expenses|Entries/ }).length).toBeGreaterThan(0);
@@ -216,5 +228,62 @@ describe("ShellNav profile photo (add-profile-photo)", () => {
     const broken = render(<ShellNav locale="en" viewer={{ ...viewer(["OWNER"]), avatarUrl: "/api/v1/attachments/broken/file" }} pendingInvites={0} />);
     await waitFor(() => expect(screen.getByText("KU")).toBeInTheDocument());
     expect(broken.container.querySelector("img")).toBeNull();
+  });
+});
+
+describe("HomeDesk requests tie-ins (Requests F13, F14)", () => {
+  it("shows the Super Admin the pending tile, reminders and the review queue", () => {
+    render(
+      <HomeDesk
+        locale="en"
+        name="Rayhan"
+        permissions={permissionsFor(["SUPER_ADMIN"])}
+        stats={{ pendingInvites: 0, activeUsers: 3 }}
+        requests={{ pending: 2, reminders: [{ id: "r1", number: "R-2026-014", ownerName: "Nasrin Ahmed", kind: "PENDING_3_DAYS", neededBy: "2026-10-30" }] }}
+      />,
+    );
+    expect(screen.getByText("Pending requests").closest(".stat")).toHaveTextContent("2");
+    expect(screen.getByText("R-2026-014 from Nasrin Ahmed has waited more than 3 days for a decision.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review queue" })).toHaveAttribute("href", "/en/requests");
+  });
+
+  it("shows an owner their open request", () => {
+    render(
+      <HomeDesk
+        locale="en"
+        name="Tanvir"
+        permissions={permissionsFor(["OWNER"])}
+        stats={null}
+        latestRequest={{
+          id: "r2",
+          number: "R-2026-015",
+          ownerId: "o",
+          ownerName: "Tanvir Ahmed",
+          type: "ADVANCE",
+          status: "APPROVED",
+          amountRequestedPaisa: 800000,
+          amountApprovedPaisa: 600000,
+          reason: "Car service",
+          neededBy: "2026-10-25",
+          repaymentPlan: null,
+          askedOn: "2026-10-18",
+          isSelf: false,
+          recordedBy: null,
+          decidedBy: "Rayhan Ahmed",
+          decidedAt: null,
+          decisionNote: null,
+          disbursedAt: null,
+          overdue: false,
+          mine: true,
+          unseen: false,
+          limited: false,
+          attachmentCount: 0,
+          linkedEntry: null,
+        }}
+      />,
+    );
+    expect(screen.getByText("Approved · awaiting cash")).toBeInTheDocument();
+    expect(screen.getByText("R-2026-015 · ৳6,000 · Advance")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open request" })).toHaveAttribute("href", "/en/requests?request=r2");
   });
 });

@@ -9,6 +9,7 @@ import { AttachmentGallery } from "@/components/attachments/AttachmentGallery";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { TextField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
+import { RequestTag } from "@/components/requests/RequestTag";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api/client";
@@ -67,9 +68,10 @@ export function DetailDrawer({
   const detach = useApiMutation(["transactions", "remove-file"], (v: { id: string; attId: string }) => apiFetch(`/transactions/${v.id}/attachments/${v.attId}`, { method: "DELETE" }), { invalidate });
   const busy = voidEntry.isPending || detach.isPending;
 
-  // A loan write-off expense changes only with its loan (Advances & Loans F10).
+  // A loan write-off expense changes only with its loan (Advances & Loans F10);
+  // a request grant is fixed by voiding it, never by editing (Requests Rule 14).
   const writable = !!detail && detail.periodStatus === "OPEN" && !detail.voidedAt && detail.source !== "LOAN_WRITE_OFF";
-  const canFix = writable && perms.update;
+  const canFix = writable && perms.update && detail.source !== "REQUEST_GRANT";
   const canVoid = writable && perms.void;
 
   async function doVoid() {
@@ -166,6 +168,7 @@ export function DetailDrawer({
                     </div>
                   ))}
               </dl>
+              {detail.request ? <RequestTag locale={locale} request={detail.request} /> : null}
 
               <section className="flex flex-col gap-3">
                 <div className="section-head">

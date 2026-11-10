@@ -175,6 +175,8 @@ type DateFieldProps = Common & {
   disabled?: boolean;
   /** Block dates after today in Asia/Dhaka (same rule as the server, e.g. birthdays). */
   disableFuture?: boolean;
+  /** Block dates before today in Asia/Dhaka (e.g. a request's needed-by date). */
+  disablePast?: boolean;
   /** Earliest year in the year dropdown. */
   fromYear?: number;
 } & (
@@ -270,8 +272,9 @@ function DatePickerPanel({
   onPick,
   clearLabel,
   disableFuture = false,
+  disablePast = false,
   fromYear = 1900,
-}: Pick<DateFieldProps, "locale" | "clearLabel" | "disableFuture" | "fromYear"> & {
+}: Pick<DateFieldProps, "locale" | "clearLabel" | "disableFuture" | "disablePast" | "fromYear"> & {
   selected: Date | undefined;
   onPick: (value: string) => void;
 }) {
@@ -287,9 +290,9 @@ function DatePickerPanel({
         today={today}
         selected={selected}
         defaultMonth={selected ?? today}
-        startMonth={new Date(fromYear, 0)}
+        startMonth={disablePast ? today : new Date(fromYear, 0)}
         endMonth={disableFuture ? today : new Date(today.getFullYear() + 10, 11)}
-        disabled={disableFuture ? { after: today } : undefined}
+        disabled={disableFuture ? { after: today } : disablePast ? { before: today } : undefined}
         onSelect={(d) => onPick(d ? toIsoDate(d) : "")}
         autoFocus
       />

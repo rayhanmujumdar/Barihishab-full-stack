@@ -3,6 +3,7 @@
 import { PrinterIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { RequestTag } from "@/components/requests/RequestTag";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
@@ -58,7 +59,15 @@ export function LoanDetailSheet({
             <dt>{tr("al.detail.reason")}</dt>
             <dd>{loan.reason}</dd>
             <dt>{tr("al.detail.source")}</dt>
-            <dd>{tr(`al.source.${loan.origin}` as MessageKey)}</dd>
+            <dd>
+              {tr(`al.source.${loan.origin}` as MessageKey)}
+              {loan.request ? (
+                <>
+                  {" "}
+                  <RequestTag locale={locale} request={loan.request} />
+                </>
+              ) : null}
+            </dd>
             <dt>{tr("al.detail.disbursed")}</dt>
             <dd>{shortDate(locale, loan.disbursedOn)}</dd>
             <dt>{tr("al.detail.fund")}</dt>

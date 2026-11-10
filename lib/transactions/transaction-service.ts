@@ -102,6 +102,41 @@ async function warningsFor(tx: Tx, propertyId: string, t: TxnDto, periodId: stri
   });
 }
 
+export const GRANT_LOCKED = "This expense comes from a request and can't be changed here.";
+
+/**
+ * Requests F7: books a disbursed special grant as an `OWNER_GRANT` expense in
+ * the caller's transaction (open period already locked), with the owner as
+ * beneficiary and the request linked; audited as `transaction.created`.
+ */
+export async function createGrantExpenseInTx(
+  tx: Tx,
+  data: { propertyId: string; periodId: string; amountPaisa: number; txnDate: string; fundAccountId: string; description: string; beneficiaryOwnerId: string; requestId: string },
+  actor: Actor,
+): Promise<TxnDto> {
+  const category = await tx.category.findUniqueOrThrow({ where: { propertyId_code: { propertyId: data.propertyId, code: "OWNER_GRANT" } }, select: { id: true } });
+  const row = await tx.houseTransaction.create({
+    data: {
+      propertyId: data.propertyId,
+      periodId: data.periodId,
+      kind: "EXPENSE",
+      categoryId: category.id,
+      amountPaisa: BigInt(data.amountPaisa),
+      txnDate: new Date(`${data.txnDate}T00:00:00Z`),
+      fundAccountId: data.fundAccountId,
+      description: data.description,
+      source: "REQUEST_GRANT",
+      beneficiaryOwnerId: data.beneficiaryOwnerId,
+      requestId: data.requestId,
+      createdById: actor.id,
+    },
+    include: TXN_INCLUDE,
+  });
+  const transaction = toTxnDto(row);
+  await audit(tx, { actorId: actor.id, action: "transaction.created", entityType: "house_transaction", entityId: row.id, after: transaction, ip: actor.ip, userAgent: actor.userAgent });
+  return transaction;
+}
+
 const rentDescription = (unit: { name: string; tenantName: string | null }) => (unit.tenantName ? `${unit.name} · ${unit.tenantName}` : unit.name);
 
 // ─── Create (INC-01/02, EXP-01) and Adjustment (LCK-02) ───
@@ -190,6 +225,8 @@ export async function correctTransaction(propertyId: string, id: string, input: 
   const current = await prisma.houseTransaction.findFirst({ where: { id, propertyId }, include: TXN_INCLUDE });
   if (!current) return failWith("NOT_FOUND");
   if (current.source === "LOAN_WRITE_OFF") return failWith("NOT_EDITABLE");
+  // Requests Rule 14: a paid-out grant is fixed by voiding it, never by editing.
+  if (current.source === "REQUEST_GRANT") return { ...failWith("NOT_EDITABLE"), message: GRANT_LOCKED };
   if (current.voidedAt) return failWith("ALREADY_VOIDED");
   if (current.period.status !== "OPEN") return failWith("PERIOD_CLOSED");
 

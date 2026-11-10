@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightStartOnRectangleIcon, BanknotesIcon, CreditCardIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightStartOnRectangleIcon, BanknotesIcon, CreditCardIcon, Cog6ToothIcon, HomeIcon, InboxArrowDownIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,7 +22,8 @@ type NavItem = { href: string; label: MessageKey; short?: MessageKey; icon: Hero
 /** `avatarUrl`: same-origin profile photo, initials shown when absent (add-profile-photo). */
 export type ShellViewer = { name: string; initials: string; avatarUrl?: string | null; roles: Role[]; permissions: Permission[] };
 
-export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; viewer: ShellViewer; pendingInvites: number }) {
+/** `requestBadge`: pending requests (Super Admin) or own unseen decisions (Requests PRD F1, F14). */
+export function ShellNav({ locale, viewer, pendingInvites, requestBadge = 0 }: { locale: Locale; viewer: ShellViewer; pendingInvites: number; requestBadge?: number }) {
   const tr = translator(locale);
   const pathname = stripLocale(usePathname() ?? "/");
   // AUTH-05 + safety rule: logout always asks first (sidebar and bottom nav share one dialog).
@@ -38,6 +39,7 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
       { href: "/distribution", label: "nav.distribution", icon: ScaleIcon, permission: "distribution.view" },
       { href: "/owners", label: "nav.owners", icon: UserGroupIcon, permission: "owner.view" },
       { href: "/advances", label: "nav.advances", short: "nav.advancesShort", icon: CreditCardIcon, permission: "loan.view" },
+      { href: "/requests", label: "nav.requests", icon: InboxArrowDownIcon, permission: "request.view", badge: requestBadge },
       { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: pendingInvites },
       { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
       { href: "/me", label: "nav.profile", icon: UserIcon },

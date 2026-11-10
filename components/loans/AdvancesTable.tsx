@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { balanceTone, ownerHref, signedMoney } from "@/components/owners/format";
-import { translator, type Locale, type MessageKey } from "@/lib/i18n";
+import { translator, toBanglaDigits, type Locale, type MessageKey } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,10 @@ export function AdvancesTable({ locale, rows, multiplierPct }: { locale: Locale;
                     {shortDate(locale, a.date)} · {a.ownerName} · {formatMoney(locale, a.amountPaisa)}
                   </span>
                   <span className="muted">
-                    {a.reason ?? ""} · {tr(a.origin === "PAYOUT_SPLIT" ? "al.adv.source.PAYOUT_SPLIT" : "al.adv.source.DIRECT")}
+                    {a.reason ?? ""} ·{" "}
+                    {a.request
+                      ? tr("req.fromRequest", { number: locale === "bn" ? toBanglaDigits(a.request.number) : a.request.number })
+                      : tr(a.origin === "PAYOUT_SPLIT" ? "al.adv.source.PAYOUT_SPLIT" : "al.adv.source.DIRECT")}
                   </span>
                 </span>
                 <span className="flex flex-wrap items-center gap-2">

@@ -17,6 +17,7 @@ const PRIVATE = [
   ["entries", `/entries?type=EXPENSE&period=${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka", year: "numeric", month: "2-digit" }).format(new Date())}`],
   ["settings", "/settings"],
   ["distribution", "/distribution"],
+  ["requests", "/requests"],
 ] as const;
 
 mkdirSync(".context/screens", { recursive: true });

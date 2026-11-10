@@ -5,11 +5,29 @@ import type { EmailTemplate, Locale, Prisma } from "@/lib/generated/prisma/clien
 export type InvitePayload = { token: string; firstName: string; invitedBy: string; expiresAt: string };
 export type ResetPayload = { token: string; firstName: string; expiresAt: string };
 export type PasswordChangedPayload = { firstName: string; changedAt: string };
+export type RequestEvent = "SUBMITTED" | "RECORDED" | "EDITED" | "CANCELLED" | "APPROVED" | "SELF_APPROVED" | "REJECTED" | "WITHDRAWN" | "DISBURSED" | "REMINDER";
+/** Requests PRD §10: never carries a fund account, reference number or method. */
+export type RequestUpdatePayload = {
+  event: RequestEvent;
+  requestId: string;
+  number: string;
+  ownerName: string;
+  type: "ADVANCE" | "LOAN" | "GRANT";
+  amountRequestedPaisa: number;
+  amountApprovedPaisa: number | null;
+  /** ≤ 80 characters; the only reason other owners see. */
+  shortReason: string;
+  /** Decision note or reason — only for the requester and Super Admins. */
+  note: string | null;
+  actorName: string;
+  reminderKind: "PENDING_3_DAYS" | "APPROVED_PAST_DUE" | null;
+};
 
 export type OutboxPayload = {
   INVITE: InvitePayload;
   RESET: ResetPayload;
   PASSWORD_CHANGED: PasswordChangedPayload;
+  REQUEST_UPDATE: RequestUpdatePayload;
 };
 
 type Db = Pick<Prisma.TransactionClient, "emailOutbox">;

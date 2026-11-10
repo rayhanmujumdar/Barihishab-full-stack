@@ -42,3 +42,11 @@ export function resetRateLimits(): Promise<void> {
     await c.query(`DELETE FROM rate_limits`);
   });
 }
+
+/** Months (YYYY-MM) currently OPEN, so a test can close them all and restore exactly those. */
+export function openMonths(): Promise<string[]> {
+  return withClient(async (c) => {
+    const { rows } = await c.query(`SELECT to_char(month, 'YYYY-MM') AS m FROM periods WHERE status = 'OPEN' ORDER BY month`);
+    return rows.map((r) => r.m as string);
+  });
+}

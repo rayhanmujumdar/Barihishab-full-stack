@@ -34,6 +34,7 @@ export const l2 = (over: Partial<LoanCardDto> = {}): LoanCardDto => ({
   origin: "DIRECT",
   isSelf: false,
   flagged: false,
+  request: null,
   repaidPaisa: 1500000,
   repaidCashPaisa: 0,
   repaidDeductionPaisa: 1500000,
@@ -116,6 +117,7 @@ export const advanceRow = (over: Partial<AdvanceRowDto> = {}): AdvanceRowDto => 
   recoveredMonth: "2026-10",
   voidReason: null,
   ownerBalancePaisa: 2882760,
+  request: null,
   ...over,
 });
 

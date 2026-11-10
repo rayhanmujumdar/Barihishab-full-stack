@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { RequestTag } from "@/components/requests/RequestTag";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AttachmentGallery } from "@/components/attachments/AttachmentGallery";
@@ -166,6 +167,7 @@ function RowDetail({ locale, row, onClose, onOriginal }: { locale: Locale; row: 
               ) : null}
             </p>
             {row.note ? <p className="m-0">{row.note}</p> : null}
+            {row.request ? <RequestTag locale={locale} request={row.request} /> : null}
             <dl className="kv">
               {items.map(([k, v]) => (
                 <div key={k} className="contents">

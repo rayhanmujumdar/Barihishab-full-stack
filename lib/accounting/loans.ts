@@ -4,7 +4,7 @@
 import type { LedgerType } from "./owners";
 
 export type LoanStatus = "ACTIVE" | "REPAID" | "WRITTEN_OFF" | "CANCELLED";
-export type EntryOrigin = "DIRECT" | "CLOSE" | "PAYOUT_SPLIT";
+export type EntryOrigin = "DIRECT" | "CLOSE" | "PAYOUT_SPLIT" | "REQUEST";
 export type LoanMovementType = "CASH_REPAYMENT" | "REVERSAL" | "CANCELLATION" | "WRITE_OFF";
 
 type Signed = { amountPaisa: number; voided: boolean };

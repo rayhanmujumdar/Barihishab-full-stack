@@ -184,3 +184,22 @@ describe("loan write-off expenses are locked (Advances & Loans F10)", () => {
     expect((await prisma.houseTransaction.findUniqueOrThrow({ where: { id: off.id } })).voidedAt).toBeNull();
   });
 });
+
+describe("request grant expenses (Requests PRD Rule 14)", () => {
+  it("refuses correct with NOT_EDITABLE but allows a void with a reason", async () => {
+    const w = await setup();
+    const { createMoneyRequest, createOwner } = await import("../../helpers/factory");
+    const owner = await createOwner(w.property.id, { displayName: "Sabrina Ahmed" });
+    const req = await createMoneyRequest({ propertyId: w.property.id, ownerId: owner.id, createdById: w.admin.id, type: "GRANT", status: "DISBURSED" });
+    const grant = await createTxn({ propertyId: w.property.id, periodId: w.oct.id, categoryId: w.categories.OWNER_GRANT.id, fundAccountId: w.cash.id, createdById: w.admin.id, amountPaisa: 600000 });
+    await prisma.houseTransaction.update({ where: { id: grant.id }, data: { source: "REQUEST_GRANT", requestId: req.id, beneficiaryOwnerId: owner.id } });
+    const p = await patch(w, { amountPaisa: 1, reason: "Fixing it" }, w.adminLogin, grant.id);
+    expect(p.status).toBe(409);
+    expect((await json(p)).error).toMatchObject({ code: "NOT_EDITABLE", message: "This expense comes from a request and can't be changed here." });
+    const v = await doVoid(w, "Paid twice by mistake", w.adminLogin, grant.id);
+    expect(v.status).toBe(200);
+    const row = await prisma.houseTransaction.findUniqueOrThrow({ where: { id: grant.id } });
+    expect(row.voidedAt).not.toBeNull();
+    expect(row.amountPaisa).toBe(BigInt(600000));
+  });
+});

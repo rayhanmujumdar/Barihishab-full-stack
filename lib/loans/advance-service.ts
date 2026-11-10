@@ -4,6 +4,7 @@ import { advanceStatuses, type AdvanceStatus, type EntryOrigin } from "@/lib/acc
 import { advanceLimit } from "@/lib/accounting/owners";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { prisma } from "@/lib/prisma";
+import { REQUEST_REF_SELECT, requestRef, type RequestRef } from "@/lib/requests/ref";
 import { activeLoans } from "./loan-service";
 import { loadAdvanceLimit } from "./settings-service";
 
@@ -22,6 +23,8 @@ export type AdvanceRowDto = {
   recoveredMonth: string | null;
   voidReason: string | null;
   ownerBalancePaisa: number;
+  /** The money request this advance pays out (Requests PRD F7). */
+  request: RequestRef;
 };
 
 export type AdvanceListDto = {
@@ -58,7 +61,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 async function ledgerInOrder(propertyId: string) {
   const rows = await prisma.ownerLedgerEntry.findMany({
     where: { propertyId },
-    select: { id: true, ownerId: true, type: true, amountPaisa: true, entryDate: true, createdAt: true, note: true, origin: true, isSelf: true, flagged: true, voidedAt: true, voidReason: true, period: { select: { month: true } } },
+    select: { id: true, ownerId: true, type: true, amountPaisa: true, entryDate: true, createdAt: true, note: true, origin: true, isSelf: true, flagged: true, voidedAt: true, voidReason: true, period: { select: { month: true } }, request: REQUEST_REF_SELECT },
   });
   const rank = (e: (typeof rows)[number]) => (e.amountPaisa > BigInt(0) ? 0 : e.type === "ADVANCE" ? 2 : 1);
   return rows.sort(
@@ -116,6 +119,7 @@ export async function listAdvances(propertyId: string, filters: { ownerId?: stri
         recoveredMonth: st.recoveredMonth,
         voidReason: e.voidReason,
         ownerBalancePaisa: balances.get(e.ownerId) ?? 0,
+        request: requestRef(e.request),
       };
     });
   return {

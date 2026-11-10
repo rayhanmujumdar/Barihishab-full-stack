@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdvancesLoansView } from "./AdvancesLoansView";
-import { advanceRow, detail, nasrin, ownerPerms, pageData, standing } from "./fixtures";
+import { advanceRow, detail, l2, nasrin, ownerPerms, pageData, standing } from "./fixtures";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/en/advances" }));
@@ -163,5 +163,20 @@ describe("বাংলা", () => {
     expect(screen.getByRole("heading", { level: 1, name: "অগ্রিম ও ঋণ" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "সারসংক্ষেপ" })).toHaveTextContent("৳৩৫,০০০");
     expect(screen.getByRole("article", { name: "L২ · Tanvir Ahmed" })).toHaveTextContent("চলমান");
+  });
+});
+
+describe("From request tags (Requests PRD §2.1)", () => {
+  const ref = { id: "00000000-0000-4000-8000-000000000a20", number: "R-2026-020" };
+
+  it("links a request loan to its request", () => {
+    render(<AdvancesLoansView locale="en" data={pageData({ loans: [l2({ origin: "REQUEST", request: ref })] })} />);
+    expect(screen.getByRole("link", { name: "From request R-2026-020" })).toHaveAttribute("href", `/en/requests?request=${ref.id}`);
+    expect(screen.getByText(/From request$/)).toBeInTheDocument();
+  });
+
+  it("names the request on a request advance", () => {
+    render(<AdvancesLoansView locale="bn" data={pageData({ tab: "advances", advances: [advanceRow({ origin: "REQUEST", request: ref })] })} />);
+    expect(screen.getByText(/অনুরোধ R-২০২৬-০২০ থেকে/)).toBeInTheDocument();
   });
 });

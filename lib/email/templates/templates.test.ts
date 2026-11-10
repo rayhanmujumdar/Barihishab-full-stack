@@ -55,3 +55,57 @@ describe("auth email templates", () => {
     expect(m.html).toContain("A&amp;B");
   });
 });
+
+describe("request email template (Requests PRD §10)", () => {
+  const base = {
+    requestId: "11111111-1111-4111-8111-111111111111",
+    number: "R-2026-015",
+    ownerName: "Tanvir Ahmed",
+    type: "ADVANCE" as const,
+    amountRequestedPaisa: 800000,
+    amountApprovedPaisa: 600000,
+    shortReason: "Car service before the trip home",
+    note: null,
+    actorName: "Rayhan Ahmed",
+    reminderKind: null,
+  };
+
+  it("renders every event in both languages with a link to the request", () => {
+    const events = ["SUBMITTED", "RECORDED", "EDITED", "CANCELLED", "APPROVED", "SELF_APPROVED", "REJECTED", "WITHDRAWN", "DISBURSED", "REMINDER"] as const;
+    for (const event of events) {
+      for (const locale of ["en", "bn"] as const) {
+        const m = renderEmail("REQUEST_UPDATE", locale, { ...base, event, reminderKind: event === "REMINDER" ? "PENDING_3_DAYS" : null }, APP);
+        expect(m.subject, `${event} ${locale}`).toContain(locale === "bn" ? "R-২০২৬-০১৫" : "R-2026-015");
+        expect(m.text).toContain(`${APP}/${locale}/requests?request=${base.requestId}`);
+      }
+    }
+  });
+
+  it("tells every owner about a disbursal without payment details", () => {
+    const m = renderEmail("REQUEST_UPDATE", "en", { ...base, event: "DISBURSED" }, APP);
+    expect(m.subject).toBe("R-2026-015 paid out · ৳6,000 to Tanvir Ahmed");
+    expect(m.text).toContain("Car service before the trip home");
+    expect(m.text).toContain("Approved by Rayhan Ahmed");
+    expect(m.text).not.toMatch(/bKash|TrxID|DBBL|reference/i);
+  });
+
+  it("shows the approved amount and note in Bangla digits", () => {
+    const m = renderEmail("REQUEST_UPDATE", "bn", { ...base, event: "APPROVED", note: "ব্যাংকে টাকা কম" }, APP);
+    expect(m.text).toContain("৳৬,০০০");
+    expect(m.text).toContain("ব্যাংকে টাকা কম");
+  });
+
+  it("omits the note line when there is none", () => {
+    const m = renderEmail("REQUEST_UPDATE", "en", { ...base, event: "REJECTED", note: null }, APP);
+    expect(m.text).not.toContain("Admin:");
+    const withNote = renderEmail("REQUEST_UPDATE", "en", { ...base, event: "REJECTED", note: "Existing loan L2" }, APP);
+    expect(withNote.text).toContain("Admin: Existing loan L2");
+  });
+
+  it("names the reminder reason", () => {
+    const pending = renderEmail("REQUEST_UPDATE", "en", { ...base, event: "REMINDER", reminderKind: "PENDING_3_DAYS" }, APP);
+    expect(pending.text).toMatch(/waiting for a decision for more than 3 days/);
+    const due = renderEmail("REQUEST_UPDATE", "en", { ...base, event: "REMINDER", reminderKind: "APPROVED_PAST_DUE" }, APP);
+    expect(due.text).toMatch(/approved but not paid/);
+  });
+});

@@ -55,11 +55,16 @@ describe("POST /api/v1/attachments/presign (ATT-01)", () => {
     expect(row.storageKey).not.toContain("bill");
   });
 
-  it("refuses big files, other types and owners", async () => {
+  it("refuses big files, other types and users without an upload permission", async () => {
     const w = await setup();
     expect((await upload(w.adminLogin, "png", { size: 6_000_000 })).res.status).toBe(413);
     expect((await upload(w.adminLogin, "png", { mime: "application/x-msdownload" })).res.status).toBe(422);
-    expect((await upload(w.ownerLogin)).res.status).toBe(403);
+    expect((await upload(await loginAs(await createUser({ roles: ["VIEWER"] })))).res.status).toBe(403);
+  });
+
+  it("lets owners upload request files (Requests PRD F15)", async () => {
+    const w = await setup();
+    expect((await upload(w.ownerLogin)).res.status).toBe(201);
   });
 });
 
