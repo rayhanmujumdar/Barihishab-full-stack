@@ -37,7 +37,7 @@ An owner's advance limit SHALL be ⌊multiplierPct × average ÷ 100⌋ where av
 - **THEN** every owner's limit is `null`
 
 ### Requirement: Advance recovery status
-Each non-voided ADVANCE SHALL have a status computed on read from the owner's ledger in posting order (voided entries and REVERSALs skipped): advances add to an owner's debt queue only the part that takes the balance below 0, other debits that take it below 0 are queued too, and credits clear the queue oldest first. An advance whose queued part is 0 or has been cleared is **RECOVERED** in the month of the entry that cleared it (its own month when it never took the balance below 0); otherwise it is **OUTSTANDING**. A voided advance is **VOID** with its reason. (§7.6, F11, G6)
+Each non-voided ADVANCE SHALL have a status computed on read from the owner's ledger in posting month, then recording order (not the entry date; rows recorded together are taken credits first, other debits next, advances last), with voided entries and REVERSALs skipped: advances add to an owner's debt queue only the part that takes the balance below 0, other debits that take it below 0 are queued too, and credits clear the queue oldest first. An advance whose queued part is 0 or has been cleared is **RECOVERED** in the month of the entry that cleared it (its own month when it never took the balance below 0); otherwise it is **OUTSTANDING**. A voided advance is **VOID** with its reason. (§7.6, F11, G6)
 
 #### Scenario: Recovered on close
 - **WHEN** Nasrin (balance 0) gets a 500000 advance on 2026-10-12 and October's close posts her 3382760 entitlement
@@ -46,6 +46,10 @@ Each non-voided ADVANCE SHALL have a status computed on read from the owner's le
 #### Scenario: Oldest first
 - **WHEN** an owner at balance 0 takes advances of 300000 in August and 200000 in September, and September's close credits 400000
 - **THEN** the August advance is RECOVERED in "2026-09" and the September advance stays OUTSTANDING
+
+#### Scenario: Back-dated advance after a full payout
+- **WHEN** an owner owed 805585 is paid 805585 on the 15th and an advance of 500000 dated the 12th is recorded afterwards
+- **THEN** the advance is OUTSTANDING and the owner's balance is −500000
 
 #### Scenario: Voided advance
 - **WHEN** an advance is voided with reason "Duplicate"
