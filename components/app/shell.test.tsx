@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hardNavigate } from "@/components/auth/navigate";
 import { apiFetch } from "@/lib/api/client";
 import { permissionsFor } from "@/lib/permissions";
-import { HomeDesk } from "./HomeDesk";
 import { stubImageLoading } from "@/tests/helpers/image";
-import { ShellNav } from "./ShellNav";
+import { bottomNav } from "./nav";
+import { ShellNav, TopbarAction } from "./ShellNav";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/api/client", () => ({ apiFetch: vi.fn() }));
@@ -147,10 +147,12 @@ describe("ShellNav logout confirmation (AUTH-05)", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
-  it("bottom-nav Log out opens the same confirmation", async () => {
+  it("mobile More-sheet Log out opens the same confirmation", async () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     const bottom = screen.getAllByRole("navigation").find((n) => n.classList.contains("bottom-nav"))!;
-    await userEvent.click(within(bottom).getByRole("button", { name: /Log out/ }));
+    await userEvent.click(within(bottom).getByRole("button", { name: "More" }));
+    const sheet = await screen.findByRole("dialog", { name: "All sections" });
+    await userEvent.click(within(sheet).getByRole("button", { name: /Log out/ }));
     expect(await screen.findByRole("alertdialog", { name: "Log out?" })).toBeInTheDocument();
     expect(api).not.toHaveBeenCalled();
   });
@@ -161,54 +163,6 @@ describe("ShellNav logout confirmation (AUTH-05)", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "লগ আউট করবেন?" });
     expect(within(dialog).getByRole("button", { name: "বাতিল" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "লগ আউট" })).toBeInTheDocument();
-  });
-});
-
-describe("HomeDesk (A5)", () => {
-  it("shows the Bookkeeper's desk with pending invites to Super Admins", () => {
-    render(<HomeDesk locale="en" name="Rayhan" permissions={permissionsFor(["SUPER_ADMIN"])} stats={{ pendingInvites: 2, activeUsers: 5 }} />);
-    expect(screen.getByRole("heading", { name: "Bookkeeper's desk" })).toBeInTheDocument();
-    expect(screen.getByText("Invites waiting").closest(".stat")).toHaveTextContent("2");
-  });
-
-  it("never renders the admin block for Owners", () => {
-    render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} />);
-    expect(screen.queryByText("Bookkeeper's desk")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Welcome, Karim" })).toBeInTheDocument();
-  });
-});
-
-describe("HomeDesk statement shortcut (F17)", () => {
-  it("links to the viewer's own owner detail when linked", () => {
-    render(<HomeDesk locale="en" name="Nasrin" permissions={permissionsFor(["OWNER"])} stats={null} ownerId="o-1" />);
-    expect(screen.getByRole("link", { name: /Statement/ })).toHaveAttribute("href", "/en/owners/o-1");
-  });
-
-  it("shows no shortcut when the viewer is not an owner", () => {
-    render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} ownerId={null} />);
-    expect(screen.queryByRole("link", { name: /Statement/ })).toBeNull();
-  });
-});
-
-describe("HomeDesk close reminder (Distribution F14)", () => {
-  it("shows the open month, unpaid units and a link to its distribution", () => {
-    render(
-      <HomeDesk
-        locale="en"
-        name="Rayhan"
-        permissions={permissionsFor(["SUPER_ADMIN"])}
-        stats={{ pendingInvites: 0, activeUsers: 2 }}
-        closeReminder={{ month: "2026-10", unpaid: [{ name: "Flat 3A", tenantName: "Nusrat Jahan" }] }}
-      />,
-    );
-    const strip = screen.getByRole("note");
-    expect(strip).toHaveTextContent("October 2026 is open. Flat 3A (Nusrat Jahan) has not paid rent yet.");
-    expect(screen.getByRole("link", { name: /Review distribution/ })).toHaveAttribute("href", "/en/distribution?month=2026-10");
-  });
-
-  it("is absent without a reminder", () => {
-    render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} />);
-    expect(screen.queryByRole("link", { name: /Review distribution/ })).toBeNull();
   });
 });
 
@@ -231,59 +185,70 @@ describe("ShellNav profile photo (add-profile-photo)", () => {
   });
 });
 
-describe("HomeDesk requests tie-ins (Requests F13, F14)", () => {
-  it("shows the Super Admin the pending tile, reminders and the review queue", () => {
-    render(
-      <HomeDesk
-        locale="en"
-        name="Rayhan"
-        permissions={permissionsFor(["SUPER_ADMIN"])}
-        stats={{ pendingInvites: 0, activeUsers: 3 }}
-        requests={{ pending: 2, reminders: [{ id: "r1", number: "R-2026-014", ownerName: "Nasrin Ahmed", kind: "PENDING_3_DAYS", neededBy: "2026-10-30" }] }}
-      />,
-    );
-    expect(screen.getByText("Pending requests").closest(".stat")).toHaveTextContent("2");
-    expect(screen.getByText("R-2026-014 from Nasrin Ahmed has waited more than 3 days for a decision.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review queue" })).toHaveAttribute("href", "/en/requests");
+
+describe("App shell (Home PRD §4)", () => {
+  const bottom = () => screen.getAllByRole("navigation").find((n) => n.classList.contains("bottom-nav"))!;
+  const labels = () => Array.from(bottom().children).map((el) => el.getAttribute("aria-label") ?? el.textContent);
+
+  it("shows the house under the logo", () => {
+    render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} houseName="Ahmed Villa" />);
+    expect(within(screen.getByRole("complementary")).getByText("Ahmed Villa")).toBeInTheDocument();
   });
 
-  it("shows an owner their open request", () => {
-    render(
-      <HomeDesk
-        locale="en"
-        name="Tanvir"
-        permissions={permissionsFor(["OWNER"])}
-        stats={null}
-        latestRequest={{
-          id: "r2",
-          number: "R-2026-015",
-          ownerId: "o",
-          ownerName: "Tanvir Ahmed",
-          type: "ADVANCE",
-          status: "APPROVED",
-          amountRequestedPaisa: 800000,
-          amountApprovedPaisa: 600000,
-          reason: "Car service",
-          neededBy: "2026-10-25",
-          repaymentPlan: null,
-          askedOn: "2026-10-18",
-          isSelf: false,
-          recordedBy: null,
-          decidedBy: "Rayhan Ahmed",
-          decidedAt: null,
-          decisionNote: null,
-          disbursedAt: null,
-          overdue: false,
-          mine: true,
-          unseen: false,
-          limited: false,
-          attachmentCount: 0,
-          linkedEntry: null,
-        }}
-      />,
-    );
-    expect(screen.getByText("Approved · awaiting cash")).toBeInTheDocument();
-    expect(screen.getByText("R-2026-015 · ৳6,000 · Advance")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open request" })).toHaveAttribute("href", "/en/requests?request=r2");
+  it("gives the Super Admin Home · Entries · + · Distribution · More", () => {
+    render(<ShellNav locale="en" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={0} />);
+    expect(labels()).toEqual(["Home", "Income & expenses", "Add expense", "Distribution", "More"]);
+    expect(within(bottom()).getByRole("link", { name: "Add expense" })).toHaveAttribute("href", "/en/entries?new=EXPENSE");
+  });
+
+  it("gives an Owner Home · Accounts · Requests · Income & expenses · More", () => {
+    render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
+    expect(labels()).toEqual(["Home", "Accounts", "Requests", "Income & expenses", "More"]);
+    expect(within(bottom()).getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/en/owners");
+  });
+
+  it("puts the rest, with badges, in the More sheet and closes it on navigation", async () => {
+    render(<ShellNav locale="en" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={3} requestBadge={2} />);
+    await userEvent.click(within(bottom()).getByRole("button", { name: "More" }));
+    const sheet = await screen.findByRole("dialog", { name: "All sections" });
+    const links = within(sheet).getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/en/owners", "/en/advances", "/en/requests", "/en/admin/users", "/en/settings", "/en/me"]);
+    expect(within(sheet).getByRole("link", { name: /Users/ })).toHaveTextContent("3");
+    expect(within(sheet).getByRole("link", { name: /Requests/ })).toHaveTextContent("2");
+    await userEvent.click(within(sheet).getByRole("link", { name: /Settings/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "All sections" })).toBeNull());
+  });
+
+  it("marks More as active (without claiming it is a page) when the current page lives in the sheet", () => {
+    render(<ShellNav locale="en" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={0} />);
+    const more = within(bottom()).getByRole("button", { name: "More" });
+    expect(more).not.toHaveAttribute("aria-current");
+  });
+
+  it("splits permitted items into bottom slots and More (pure)", () => {
+    const owner = bottomNav({ permissions: permissionsFor(["OWNER"]) });
+    expect(owner.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/owners", "/requests", "/entries"]);
+    expect(owner.more.map((m) => m.href)).toEqual(["/distribution", "/advances", "/me"]);
+    const admin = bottomNav({ permissions: permissionsFor(["SUPER_ADMIN"]) });
+    expect(admin.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/entries", "PLUS", "/distribution"]);
+  });
+
+  it("drops the [+] cell when no month is open and fills the slot with the next section", () => {
+    const admin = bottomNav({ permissions: permissionsFor(["SUPER_ADMIN"]) }, { monthOpen: false });
+    expect(admin.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/entries", "/distribution", "/owners"]);
+    expect(admin.more.map((m) => m.href)).not.toContain("/owners");
+    render(<ShellNav locale="en" viewer={viewer(["SUPER_ADMIN"])} pendingInvites={0} monthOpen={false} />);
+    expect(within(bottom()).queryByRole("link", { name: "Add expense" })).toBeNull();
+  });
+
+  it("offers + New entry to bookkeepers and + Request money to owners", () => {
+    const { unmount } = render(<TopbarAction locale="en" action="entry" />);
+    expect(screen.getByRole("link", { name: "New entry" })).toHaveAttribute("href", "/en/entries?new=EXPENSE");
+    unmount();
+    const r = render(<TopbarAction locale="en" action="request" />);
+    expect(screen.getByRole("link", { name: "Request money" })).toHaveAttribute("href", "/en/requests?new=1");
+    r.unmount();
+    const { container } = render(<TopbarAction locale="en" action={null} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

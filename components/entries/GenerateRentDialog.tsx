@@ -16,14 +16,14 @@ import { todayIsoInDhaka } from "@/lib/clock";
 import { translator, type Locale } from "@/lib/i18n";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
-import type { EntriesData } from "./types";
+import type { EntryFormData } from "./types";
 import { newIdempotencyKey } from "./upload";
 
 type DraftRow = { unitId: string; unit: string; tenant: string | null; amountPaisa: number; fundAccountId: string | null };
 type Row = { unitId: string; unit: string; tenant: string | null; checked: boolean; amount: string; fundAccountId: string };
 
 /** Generate rent dialog (INC-04, PRD §6.5): preview → edit → save in one transaction. */
-export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale: Locale; data: EntriesData; onClose: () => void; onSaved: () => void }) {
+export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale: Locale; data: EntryFormData; onClose: () => void; onSaved: () => void }) {
   const tr = translator(locale);
   const period = data.status === "OPEN" ? data.month : (data.latestOpen ?? data.month);
   // Rows the user has edited; until then they come straight from the preview.

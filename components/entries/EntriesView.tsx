@@ -22,12 +22,32 @@ type TxnPage = { items: TxnDto[]; nextCursor: string | null };
 
 type Drawer = { mode: "create"; kind: Kind; key: number } | { mode: "correct"; entry: TxnDto; key: number } | null;
 
+/** `?new=INCOME|EXPENSE` / `?entry=<id>` deep links (Home PRD §4 + New entry, F8). */
+export type EntriesAutoOpen = { create?: Kind | null; entry?: string | null };
+
 /** S3 — Income & expenses list (Income & Expenses PRD §6.1). Filters live in the URL. */
-export function EntriesView({ locale, data }: { locale: Locale; data: EntriesData }) {
+export function EntriesView({ locale, data, autoOpen }: { locale: Locale; data: EntriesData; autoOpen?: EntriesAutoOpen }) {
   const tr = translator(locale);
   const router = useRouter();
-  const [drawer, setDrawer] = useState<Drawer>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const create = autoOpen?.create && data.perms.create && data.status === "OPEN" ? autoOpen.create : null;
+  const entry = autoOpen?.entry ?? null;
+  const [drawer, setDrawer] = useState<Drawer>(() => (create ? { mode: "create", kind: create, key: 0 } : null));
+  const [detailId, setDetailId] = useState<string | null>(entry);
+  // Closing what a deep link opened drops its parameter, so Back/refresh don't reopen it.
+  const [deepLinked, setDeepLinked] = useState(Boolean(create || entry));
+  // A deep link can also arrive while this view is mounted (+ New entry on Entries): open it then too.
+  const [link, setLink] = useState({ create, entry });
+  if (link.create !== create || link.entry !== entry) {
+    setLink({ create, entry });
+    if (create) setDrawer({ mode: "create", kind: create, key: 0 });
+    if (entry) setDetailId(entry);
+    if (create || entry) setDeepLinked(true);
+  }
+  const dropDeepLink = () => {
+    if (!deepLinked) return;
+    setDeepLinked(false);
+    router.replace(entriesHref(locale, { period: data.month, type: data.type, category: data.category }), { scroll: false });
+  };
   const [rentOpen, setRentOpen] = useState(false);
 
   const month = monthLabel(locale, data.month);
@@ -214,9 +234,13 @@ export function EntriesView({ locale, data }: { locale: Locale; data: EntriesDat
           locale={locale}
           data={data}
           mode={drawer.mode === "create" ? { kind: drawer.kind } : { entry: drawer.entry }}
-          onClose={() => setDrawer(null)}
+          onClose={() => {
+            setDrawer(null);
+            dropDeepLink();
+          }}
           onSaved={() => {
             setDrawer(null);
+            dropDeepLink();
             refresh();
           }}
         />
@@ -227,7 +251,10 @@ export function EntriesView({ locale, data }: { locale: Locale; data: EntriesDat
         locale={locale}
         id={detailId}
         perms={data.perms}
-        onClose={() => setDetailId(null)}
+        onClose={() => {
+          setDetailId(null);
+          dropDeepLink();
+        }}
         onChanged={refresh}
         onCorrect={(entry) => {
           setDetailId(null);

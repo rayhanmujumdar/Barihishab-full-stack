@@ -84,5 +84,5 @@ async function Requests({ searchParams }: { searchParams: Search }) {
     openMonth: open ? open.month.toISOString().slice(0, 7) : null,
     detail,
   };
-  return <RequestsView locale={locale} data={data} />;
+  return <RequestsView locale={locale} data={data} autoNew={one(sp.new) === "1"} />;
 }

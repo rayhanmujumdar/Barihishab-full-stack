@@ -232,3 +232,15 @@ describe("GET /api/v1/openapi.json — profile photo (add-profile-photo)", () =>
     expect(doc.components.schemas.AvatarPresignBody.properties.mime.enum).toEqual(["image/jpeg", "image/png", "image/webp"]);
   });
 });
+
+describe("GET /api/v1/openapi.json — Home (Home PRD, main PRD §9 GET /dashboard)", () => {
+  it("documents the role-aware dashboard under the Home tag", async () => {
+    const doc = await (await GET()).json();
+    const op = doc.paths["/dashboard"]?.get;
+    expect(op?.tags).toEqual(["Home"]);
+    expect(Object.keys(op.responses)).toEqual(expect.arrayContaining(["200", "401"]));
+    for (const name of ["Dashboard", "HomeMe", "HomeDesk", "HomeReconciliation", "HomeReminder", "HomeActivity", "HomeNotice", "HomeMyRequest"]) {
+      expect(doc.components.schemas, name).toHaveProperty(name);
+    }
+  });
+});

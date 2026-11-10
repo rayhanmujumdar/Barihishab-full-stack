@@ -7,7 +7,7 @@ The Requests screen and its dialogs, plus the navigation, Home and "From request
 ## Requirements
 
 ### Requirement: Navigation and badge
-The app shell SHALL show a **Requests** item (`/[lang]/requests`) in the sidebar and bottom nav for users with `request.view`. Its badge SHALL show the count of PENDING requests for users with `request.view.all`, and for other users the count of their own requests with an unseen decision; no badge when 0. Counts use Bangla digits in বাংলা. (F1, F14)
+The app shell SHALL show a **Requests** item (`/[lang]/requests`) in the sidebar and in the mobile navigation (bottom bar or More sheet) for users with `request.view`. Its badge SHALL show the count of PENDING requests for users with `request.view.all`, and for other users the count of their own requests with an unseen decision; no badge when 0. Counts use Bangla digits in বাংলা. Opening `/[lang]/requests?new=1` SHALL open the request form for a user who may create one. (F1, F14; Home PRD §4)
 
 #### Scenario: Super Admin badge
 - **WHEN** two requests are PENDING and the Super Admin opens any page
@@ -16,6 +16,10 @@ The app shell SHALL show a **Requests** item (`/[lang]/requests`) in the sidebar
 #### Scenario: Owner badge clears
 - **WHEN** an owner's request was approved and they open Requests
 - **THEN** the screen marks the decision seen (`POST /requests/seen`) and the badge disappears
+
+#### Scenario: Deep link opens form
+- **WHEN** an Owner opens `/en/requests?new=1`
+- **THEN** the Request money dialog is open
 
 ### Requirement: Requests page layout
 `/[lang]/requests` SHALL show the kicker "Advance · loan · special grant", title "Requests" and **+ Request money**, then one tab bar (`?tab=` in the URL, active tab yellow) with one section per tab. With `request.view.all` the tabs SHALL be **Needs your decision** (default; count of pending; overdue first; empty: "No requests waiting. Owners' new requests land here and you get an email."), **Approved · awaiting cash** (count; empty: "Nothing approved is waiting for cash.") and **History** (owner, type, status and year filters kept in the URL and a **Show older** button when more exist). Without it the tabs SHALL be **My requests** (default; count of unseen decisions; empty: "No requests yet." + **Request money**) and **Paid out to owners** (empty: "Nothing has been paid out through requests yet."). A ⋯ menu SHALL offer **Record request for…** with `request.record`. (F1, F11, F12, §9)
@@ -87,11 +91,15 @@ Tapping a card SHALL open a sheet (`?request={id}` in the URL) with all visible 
 - **THEN** the sheet is open with that request's timeline
 
 ### Requirement: Home tie-ins
-Home SHALL show, for `request.view.all`, a **Pending requests** tile with a yellow count and a **Review queue** link, and a reminder note listing requests pending over 3 days or approved past needed-by; for other users, the status of their latest open (PENDING or APPROVED) request, if any. (F13, F14)
+Home SHALL show, for `request.view.all`, a **Pending requests** desk tile with the PENDING count in a yellow box (plain when 0), "{n} waiting over 3 days" when any, and a link to the "Needs your decision" tab; and an **Approved, not paid** reminder strip for approved requests past their needed-by date with a **Disburse** button opening that request. For owner-linked users Home SHALL show the My request strip for their newest PENDING or APPROVED request, or once for an unseen REJECTED / DISBURSED decision. (F13, F14; Home PRD F4, F5, F6)
 
 #### Scenario: Pending tile
 - **WHEN** one request is PENDING
-- **THEN** the Super Admin's Home shows Pending requests "1" with a Review queue link to `/requests`
+- **THEN** the Super Admin's Home shows Pending requests "1" in a yellow box linking to `/requests`
+
+#### Scenario: Approved past needed-by
+- **WHEN** Nasrin's approved ৳10,000 advance was needed by yesterday
+- **THEN** the Super Admin's Home shows "Nasrin Ahmed's ৳10,000 advance was due on {date}." with **Disburse**
 
 ### Requirement: From request tags
 Entries created by disbursal SHALL show "From request R-…" linking to the request: on the Advances tab rows and the owner statement (ADVANCE), on loan cards and the loan detail sheet (LOAN), and in the Entries list and detail drawer (grant EXPENSE). The Entries detail SHALL NOT offer Correct for a grant expense but SHALL offer Void. (§2.1 Other places, Rule 14)

@@ -62,11 +62,11 @@ Every auth and account screen MUST render all strings in `bn` (default) and `en`
 - **THEN** a "Log out to continue" prompt is shown instead of the form
 
 ### Requirement: Role-aware home shell (A5)
-`/` SHALL render the app shell (sidebar on desktop, bottom nav on mobile) for any logged-in user. Super Admins MUST additionally see a "Bookkeeper's desk" area including the pending-invites count; Owners MUST NOT see any admin block or admin navigation item.
+`/` SHALL render the app shell (sidebar on desktop, bottom nav and More sheet on mobile) for any logged-in user. Users with `dashboard.admin` MUST additionally see the "Bookkeeper's desk" with the House fund, Reconciliation, Pending requests, Open complaints and Invites waiting tiles (Home PRD F5); the Invites waiting tile counts INVITED users. Owners MUST NOT see the desk, any admin block, reminder strip, quick action or admin navigation item.
 
 #### Scenario: Super Admin home
 - **WHEN** a Super Admin opens `/` with 2 INVITED users
-- **THEN** the pending-invites block shows 2
+- **THEN** the Invites waiting tile shows 2
 
 #### Scenario: Owner home
 - **WHEN** an Owner opens `/`

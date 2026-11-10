@@ -278,7 +278,7 @@ export type ClosePreviewDto = {
 type UnitRef = { name: string; tenantName: string | null };
 
 /** Active units with rent but no income entry in the period (F5 warning, F14 reminder). */
-async function unpaidUnitsIn(propertyId: string, periodId: string): Promise<UnitRef[]> {
+export async function unpaidUnitsIn(propertyId: string, periodId: string): Promise<UnitRef[]> {
   const [units, paid] = await Promise.all([
     prisma.unit.findMany({ where: { propertyId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.houseTransaction.findMany({ where: { periodId, kind: "INCOME", voidedAt: null, unitId: { not: null } }, select: { unitId: true } }),

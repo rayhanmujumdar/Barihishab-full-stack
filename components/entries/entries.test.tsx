@@ -5,11 +5,49 @@ import { EntriesView } from "./EntriesView";
 import { entriesData, ownerPerms } from "./fixtures";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }), usePathname: () => "/en/entries" }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace, refresh: vi.fn() }), usePathname: () => "/en/entries" }));
 vi.mock("@/lib/api/client", () => ({ apiFetch: vi.fn(async () => ({ ok: true, status: 200, data: { period: "2026-10", rows: [] } })), fieldErrors: () => ({}) }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), warning: vi.fn() }) }));
 
-beforeEach(() => push.mockReset());
+beforeEach(() => {
+  push.mockReset();
+  replace.mockReset();
+});
+
+describe("EntriesView deep links (Home PRD §4 + New entry, F8 activity rows)", () => {
+  it("opens the new-expense drawer for ?new=EXPENSE and drops the param on close", async () => {
+    render(<EntriesView locale="en" data={entriesData()} autoOpen={{ create: "EXPENSE" }} />);
+    expect(screen.getByRole("dialog", { name: "New expense" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(replace).toHaveBeenCalledWith("/en/entries?period=2026-10&type=EXPENSE&category=ALL", { scroll: false });
+  });
+
+  it("does not open the drawer for someone who cannot add entries", () => {
+    render(<EntriesView locale="en" data={entriesData({ perms: ownerPerms })} autoOpen={{ create: "EXPENSE" }} />);
+    expect(screen.queryByRole("dialog", { name: "New expense" })).toBeNull();
+  });
+
+  it("opens the drawer when ?new= arrives while Entries is already open (top-bar + New entry / bottom-nav +)", async () => {
+    const data = entriesData();
+    const { rerender } = render(<EntriesView locale="en" data={data} autoOpen={{ create: null }} />);
+    expect(screen.queryByRole("dialog", { name: "New expense" })).toBeNull();
+    rerender(<EntriesView locale="en" data={data} autoOpen={{ create: "EXPENSE" }} />);
+    expect(screen.getByRole("dialog", { name: "New expense" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(replace).toHaveBeenCalledTimes(1);
+    // The param is gone (router.replace); a second click brings it back and reopens.
+    rerender(<EntriesView locale="en" data={data} autoOpen={{ create: null }} />);
+    rerender(<EntriesView locale="en" data={data} autoOpen={{ create: "EXPENSE" }} />);
+    expect(screen.getByRole("dialog", { name: "New expense" })).toBeInTheDocument();
+  });
+
+  it("opens an entry's detail for ?entry=<id>", () => {
+    const data = entriesData();
+    render(<EntriesView locale="en" data={data} autoOpen={{ entry: data.items[1].id }} />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
 
 describe("EntriesView (LST-01..05)", () => {
   it("shows both tabs with counts and totals; the active one is pressed", () => {

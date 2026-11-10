@@ -46,7 +46,11 @@ async function Entries({ searchParams }: { searchParams: Search }) {
 
   const asked = one(sp.period);
   const month = asked && isMonthKey(asked) && periods.some((p) => p.month === asked) ? asked : (latestOpen ?? periods[0]?.month ?? asked ?? "");
-  const type: Kind = one(sp.type) === "INCOME" ? "INCOME" : one(sp.type) === "EXPENSE" ? "EXPENSE" : "INCOME";
+  const kindOf = (v: string | undefined): Kind | null => (v === "INCOME" || v === "EXPENSE" ? v : null);
+  // `?new=` (top-bar + New entry / Home) opens a new entry on its own tab.
+  const create = kindOf(one(sp.new));
+  const type: Kind = kindOf(one(sp.type)) ?? create ?? "INCOME";
+  const entry = one(sp.entry);
   const [summary, categories, units, funds] = await Promise.all([
     periodSummary(propertyId, month),
     listCategories(propertyId),
@@ -80,5 +84,5 @@ async function Entries({ searchParams }: { searchParams: Search }) {
       superAdmin: viewer.roles.includes("SUPER_ADMIN"),
     },
   };
-  return <EntriesView locale={locale} data={data} />;
+  return <EntriesView locale={locale} data={data} autoOpen={{ create, entry: entry && /^[0-9a-f-]{36}$/i.test(entry) ? entry : null }} />;
 }

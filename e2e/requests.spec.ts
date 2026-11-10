@@ -99,7 +99,7 @@ test("the Super Admin sees it on Home and in the queue with context, and approve
   await expect(admin.getByText("Pending requests")).toBeVisible();
   await expect(admin.getByRole("link", { name: /Requests/ }).first()).toContainText("1");
   await admin.getByRole("link", { name: "Review queue" }).click();
-  await expect(admin).toHaveURL(/\/en\/requests$/);
+  await expect(admin).toHaveURL(/\/en\/requests\?tab=decide$/);
   const decide = section(admin, "Needs your decision");
   const c = card(decide, /৳10,000 · Advance/);
   await expect(c).toContainText("Nasrin Ahmed");
