@@ -8,6 +8,7 @@ import { translator, type Locale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { BoardRow, DistributionDto } from "./types";
+import { OwnerAvatar } from "@/components/owners/OwnerAvatar";
 
 type Props = { locale: Locale; data: DistributionDto; canPay: boolean; onPay: (row: BoardRow) => void };
 
@@ -72,9 +73,7 @@ export function OwnerBoard({ locale, data, canPay, onPay }: Props) {
               <tr key={r.ownerId} data-viewer={r.isViewer ? "true" : undefined}>
                 <th scope="row" className="text-left">
                   <Link href={statementHref(r.ownerId)} className="inline-flex items-center gap-2 font-bold text-foreground">
-                    <span className="owner-avatar" style={{ width: 28, height: 28, fontSize: 11 }} aria-hidden>
-                      {r.initials}
-                    </span>
+                    <OwnerAvatar initials={r.initials} avatarUrl={r.avatarUrl} style={{ width: 28, height: 28, fontSize: 11 }} />
                     {r.displayName}
                   </Link>
                   {r.isViewer ? (
@@ -130,9 +129,7 @@ export function OwnerBoard({ locale, data, canPay, onPay }: Props) {
           <li key={r.ownerId} className="dist-card" data-viewer={r.isViewer ? "true" : undefined}>
             <div className="flex items-start justify-between gap-3">
               <Link href={statementHref(r.ownerId)} className="flex min-w-0 items-center gap-2 font-bold text-foreground">
-                <span className="owner-avatar" aria-hidden>
-                  {r.initials}
-                </span>
+                <OwnerAvatar initials={r.initials} avatarUrl={r.avatarUrl} />
                 <span className="min-w-0">
                   <span className="block truncate">{r.displayName}</span>
                   <span className="muted block font-normal">{share(r)}</span>

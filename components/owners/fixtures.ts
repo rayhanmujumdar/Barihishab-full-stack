@@ -9,6 +9,7 @@ export function owner(extra: Partial<OwnerDto> = {}): OwnerDto {
     userId: "u-nasrin",
     displayName: "Nasrin Ahmed",
     initials: "NA",
+    avatarUrl: null,
     sortOrder: 1,
     note: null,
     responsibility: "Elder · signs bank cheques",

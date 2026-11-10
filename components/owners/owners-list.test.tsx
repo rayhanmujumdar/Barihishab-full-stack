@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { OwnersView } from "./OwnersView";
 import { owner, ownerPermsOnly, ownersData } from "./fixtures";
+import { waitFor } from "@testing-library/react";
+import { stubImageLoading } from "@/tests/helpers/image";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/en/owners" }));
 vi.mock("@/lib/api/client", () => ({ apiFetch: vi.fn(), fieldErrors: () => ({}) }));
@@ -83,5 +85,19 @@ describe("OwnersView (F1)", () => {
     expect(first).toHaveTextContent("৪০%");
     expect(first).toHaveTextContent("অগ্রিম বাকি");
     expect(first).toHaveTextContent("৳৫,০০০");
+  });
+});
+
+describe("OwnersView photos", () => {
+  it("shows the linked user's photo on the card, initials for the rest", async () => {
+    stubImageLoading();
+    const data = ownersData();
+    data.list.owners = data.list.owners.map((o) => (o.id === "o-rayhan" ? { ...o, avatarUrl: "/api/v1/attachments/ray/file" } : o));
+    render(<OwnersView locale="en" data={data} />);
+    const card = screen.getByRole("link", { name: /Rayhan Ahmed/ });
+    await waitFor(() => expect(card.querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/ray/file"));
+    expect(within(card).queryByText("RA")).toBeNull();
+    expect(within(screen.getByRole("link", { name: /Nasrin Ahmed/ })).getByText("NA")).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

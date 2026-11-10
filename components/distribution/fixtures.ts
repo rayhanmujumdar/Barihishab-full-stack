@@ -2,6 +2,7 @@
 import type { BoardRow, ClosePreviewDto, DistPerms, DistributionDto } from "./types";
 
 const row = (over: Partial<BoardRow> & Pick<BoardRow, "ownerId" | "displayName" | "initials">): BoardRow => ({
+  avatarUrl: null,
   isViewer: false,
   units: 10,
   sharePercent: 10,

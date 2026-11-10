@@ -57,6 +57,7 @@ export const DistributionSchema = z
         ownerId: z.uuid(),
         displayName: z.string(),
         initials: z.string(),
+        avatarUrl: z.string().nullable().meta({ description: "Linked login's profile photo (GET /attachments/{id}/file), or null to show initials" }),
         isViewer: z.boolean(),
         units: z.number().int(),
         sharePercent: z.number().nullable(),

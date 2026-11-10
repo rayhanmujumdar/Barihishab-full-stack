@@ -73,14 +73,15 @@ export async function previousDeficit(db: Db, periods: readonly PeriodRow[], ind
   return { deficitPaisa: deficit, month: periods[index - 1].key };
 }
 
-export type OwnerLite = { id: string; userId: string | null; displayName: string; initials: string };
+export type OwnerLite = { id: string; userId: string | null; displayName: string; initials: string; avatarAttachmentId: string | null };
 
 export async function loadOwners(db: Db, propertyId: string): Promise<OwnerLite[]> {
-  return db.owner.findMany({
+  const rows = await db.owner.findMany({
     where: { propertyId },
-    select: { id: true, userId: true, displayName: true, initials: true },
+    select: { id: true, userId: true, displayName: true, initials: true, user: { select: { avatarAttachmentId: true } } },
     orderBy: [{ sortOrder: "asc" }, { displayName: "asc" }],
   });
+  return rows.map(({ user, ...o }) => ({ ...o, avatarAttachmentId: user?.avatarAttachmentId ?? null }));
 }
 
 export type MonthFigures = {
