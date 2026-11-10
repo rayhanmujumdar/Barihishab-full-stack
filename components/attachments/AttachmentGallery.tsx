@@ -10,6 +10,7 @@ import { refreshSession } from "@/lib/api/client";
 import { attachmentFileUrl } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import type { ViewerSlide } from "./Viewer";
+import Image from "next/image";
 
 const Viewer = lazy(() => import("./Viewer"));
 
@@ -122,8 +123,8 @@ export function AttachmentGallery({ locale, items, variant, tileExtra }: Props) 
                       {tr("viewer.loadFailed")}
                     </span>
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element -- private file from the same-origin proxy, not a static asset
-                    <img src={src(a.id)} alt="" className="size-full object-cover" onLoad={() => onLoad(a.id)} onError={() => onError(a.id)} />
+                    // Private file from the same-origin proxy: the optimizer can't send the user's cookies, so serve it as-is.
+                    <Image src={src(a.id)} alt="" width={96} height={96} unoptimized className="size-full object-cover" onLoad={() => onLoad(a.id)} onError={() => onError(a.id)} />
                   )}
                 </button>
               ) : (

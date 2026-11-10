@@ -225,7 +225,10 @@ describe("DetailDrawer + Void dialog (DET-01, VOD-01)", () => {
       api.mockResolvedValue({ ok: true, status: 200, data: detail({ attachments: [photo, pdf] }) });
       render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
       const thumb = await screen.findByRole("button", { name: "Open receipt.jpg" });
-      expect(thumb.querySelector("img")).toHaveAttribute("src", `/api/v1/attachments/${photo.id}/file`);
+      // next/image makes the attribute absolute after mount; it must stay same-origin.
+      const thumbSrc = new URL(thumb.querySelector("img")!.getAttribute("src")!, window.location.href);
+      expect(thumbSrc.origin).toBe(window.location.origin);
+      expect(thumbSrc.pathname).toBe(`/api/v1/attachments/${photo.id}/file`);
       await userEvent.click(thumb);
       const viewer = await screen.findByRole("dialog", { name: "Bills & receipts viewer" });
       expect(within(viewer).getByRole("img", { name: "receipt.jpg" })).toHaveAttribute("src", `/api/v1/attachments/${photo.id}/file`);

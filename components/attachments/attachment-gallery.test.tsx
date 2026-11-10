@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -22,6 +22,16 @@ beforeEach(() => {
 });
 afterEach(() => openSpy.mockRestore());
 
+/**
+ * next/image re-assigns `img.src` after mount (to catch pre-hydration errors),
+ * which makes the attribute absolute. What matters: same origin + the proxy path.
+ */
+const sameOriginPath = (url: string | null) => {
+  const u = new URL(url ?? "", window.location.href);
+  expect(u.origin).toBe(window.location.origin);
+  return u.pathname + u.search;
+};
+
 const lightbox = () => screen.findByRole("dialog", { name: /viewer|দেখুন/i });
 const slideImg = async (name: string) => within(await lightbox()).findByRole("img", { name });
 
@@ -30,7 +40,7 @@ describe("AttachmentGallery — thumbnails", () => {
     render(<AttachmentGallery locale="en" items={files} variant="thumbnails" />);
     const thumbs = screen.getAllByRole("button", { name: /^Open / });
     expect(thumbs).toHaveLength(3); // images only; the PDF is a link
-    for (const img of document.querySelectorAll("img")) expect(img.getAttribute("src")).toMatch(/^\/api\/v1\/attachments\/a\d\/file$/);
+    for (const img of document.querySelectorAll("img")) expect(sameOriginPath(img.getAttribute("src"))).toMatch(/^\/api\/v1\/attachments\/a\d\/file$/);
   });
 
   it("opens the lightbox at the tapped image, images only, without a new tab", async () => {
@@ -42,7 +52,7 @@ describe("AttachmentGallery — thumbnails", () => {
     expect(within(await lightbox()).queryByRole("img", { name: "bill.pdf" })).toBeNull();
     expect(openSpy).not.toHaveBeenCalled();
     const urls = [...document.querySelectorAll("[src], [href]")].map((el) => el.getAttribute("src") ?? el.getAttribute("href"));
-    for (const url of urls) expect(url).toMatch(/^\/api\/v1\/attachments\/[\w-]+\/file(\?|$)/);
+    for (const url of urls) expect(sameOriginPath(url)).toMatch(/^\/api\/v1\/attachments\/[\w-]+\/file(\?|$)/);
   });
 
   it("shows no arrows for a single photo", async () => {
@@ -165,6 +175,7 @@ describe("AttachmentGallery — retries stay put and recover from later expiries
     fireEvent.error(img());
     await waitFor(() => expect(img().getAttribute("src")).toBe("/api/v1/attachments/a1/file?r=1"));
     fireEvent.load(img()); // the retry worked
+    await act(async () => {}); // next/image calls onLoad after img.decode()
     fireEvent.error(img()); // …and much later the token expires again
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(img().getAttribute("src")).toBe("/api/v1/attachments/a1/file?r=2"));

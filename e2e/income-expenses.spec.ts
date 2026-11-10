@@ -108,7 +108,9 @@ test("an expense with a bill photo is saved once even on a double click, and its
   await expect(bill).toBeVisible();
   // The thumbnail streams from the private bucket through the same-origin proxy — never a storage URL.
   const origin = new URL(admin.url()).origin;
-  await expect(bill.locator("img")).toHaveAttribute("src", /^\/api\/v1\/attachments\/[\w-]+\/file$/);
+  // next/image may rewrite the attribute to the absolute same-origin URL after mount.
+  const escaped = origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(bill.locator("img")).toHaveAttribute("src", new RegExp(`^(${escaped})?/api/v1/attachments/[\\w-]+/file$`));
   await expect.poll(() => bill.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
   expect(await bill.locator("img").evaluate((img: HTMLImageElement) => new URL(img.currentSrc).origin)).toBe(origin);
 
