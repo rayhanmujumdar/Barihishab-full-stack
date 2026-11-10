@@ -28,4 +28,7 @@ export type EntriesData = {
   perms: EntriesPerms;
 };
 
+/** What the entry drawer and Generate-rent dialog need — Home opens them too (Home PRD F1). */
+export type EntryFormData = Pick<EntriesData, "month" | "status" | "latestOpen" | "periods" | "categories" | "units" | "funds">;
+
 export type { CategoryDto, FundAccountDto, PeriodDto, TxnDto, UnitDto };

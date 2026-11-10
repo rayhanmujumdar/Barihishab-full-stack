@@ -7,7 +7,7 @@ Protects household members from accidental, irreversible clicks. Every action th
 ## Requirements
 
 ### Requirement: Destructive actions require confirmation
-Any UI control whose action ends a session, invalidates a token or link, removes or reduces a user's access, or deletes, voids or reverses data SHALL open a confirmation modal on activation and MUST NOT send any request to the server until the user explicitly confirms. Cancelling, pressing Escape, or closing the modal MUST send no request and leave state unchanged. This SHALL apply to at least: app-shell Log out (sidebar and mobile bottom nav), invite-screen "Log out to continue", `/me` per-session Log out, `/me` Log out all devices, admin Revoke invite, admin Resend invite, admin Deactivate, admin Reactivate, admin Log out everywhere, and saving a role change for an existing user (the server revokes that user's sessions on any role change). Any destructive control added later MUST follow the same rule. (Auth PRD §3.4, AUTH-05, AUTH-07, INV-04, INV-05, USR-02, USR-03, USR-05; design system: destructive actions always go through a dialog)
+Any UI control whose action ends a session, invalidates a token or link, removes or reduces a user's access, or deletes, voids or reverses data SHALL open a confirmation modal on activation and MUST NOT send any request to the server until the user explicitly confirms. Cancelling, pressing Escape, or closing the modal MUST send no request and leave state unchanged. This SHALL apply to at least: app-shell Log out (sidebar and the mobile More sheet), invite-screen "Log out to continue", `/me` per-session Log out, `/me` Log out all devices, admin Revoke invite, admin Resend invite, admin Deactivate, admin Reactivate, admin Log out everywhere, and saving a role change for an existing user (the server revokes that user's sessions on any role change). Any destructive control added later MUST follow the same rule. (Auth PRD §3.4, AUTH-05, AUTH-07, INV-04, INV-05, USR-02, USR-03, USR-05; design system: destructive actions always go through a dialog)
 
 #### Scenario: Sidebar logout asks first
 - **WHEN** a logged-in user clicks the Log out icon in the desktop sidebar
@@ -25,8 +25,8 @@ Any UI control whose action ends a session, invalidates a token or link, removes
 - **WHEN** the confirmation modal is open and the user presses Escape
 - **THEN** the modal closes without sending any request
 
-#### Scenario: Mobile bottom-nav logout asks first
-- **WHEN** a user on a 360px-wide screen taps Log out in the bottom nav
+#### Scenario: Mobile More-sheet logout asks first
+- **WHEN** a user on a 360px-wide screen opens More and taps Log out
 - **THEN** the same confirmation modal opens before any request is sent
 
 #### Scenario: Revoke one device

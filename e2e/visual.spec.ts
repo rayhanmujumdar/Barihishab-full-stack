@@ -79,7 +79,8 @@ for (const locale of ["bn", "en"] as const) {
       }
 
       if (name === "home") {
-        // Logout confirmation: sidebar on desktop, bottom nav at 360px — whichever is visible.
+        // Logout confirmation: sidebar on desktop, the More sheet at 360px (Home PRD §4).
+        if (info.project.name === "mobile-360") await page.locator("nav.bottom-nav").getByRole("button", { name: locale === "bn" ? "আরও" : "More" }).click();
         await page.getByRole("button", { name: locale === "bn" ? "লগ আউট" : "Log out" }).locator("visible=true").first().click();
         const dialog = page.getByRole("alertdialog");
         await expect(dialog).toBeVisible();

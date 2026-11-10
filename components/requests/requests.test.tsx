@@ -328,3 +328,25 @@ describe("Bangla", () => {
     expect(screen.getAllByText(/৳১০,০০০/).length).toBeGreaterThan(0);
   });
 });
+
+describe("?new=1 deep link (Home PRD §4 + Request money)", () => {
+  it("opens the request form on arrival and drops the param on close", async () => {
+    render(<RequestsView locale="en" data={ownerPage()} autoNew />);
+    expect(await screen.findByRole("dialog", { name: "Request money" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    expect(replace).toHaveBeenCalledWith(expect.not.stringContaining("new="), { scroll: false });
+  });
+
+  it("opens the form when ?new=1 arrives while Requests is already open", async () => {
+    const data = ownerPage();
+    const { rerender } = render(<RequestsView locale="en" data={data} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    rerender(<RequestsView locale="en" data={data} autoNew />);
+    expect(await screen.findByRole("dialog", { name: "Request money" })).toBeInTheDocument();
+  });
+
+  it("does nothing for someone who cannot ask", () => {
+    render(<RequestsView locale="en" data={ownerPage({ perms: { ...ownerPage().perms, create: false } })} autoNew />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

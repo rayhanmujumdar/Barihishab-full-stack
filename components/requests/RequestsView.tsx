@@ -33,11 +33,25 @@ function Panel({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Requests screen (Requests PRD F1, F12): decision queue for the Super Admin, own + paid out for owners. */
-export function RequestsView({ locale, data }: { locale: Locale; data: RequestsPageData }) {
+export function RequestsView({ locale, data, autoNew = false }: { locale: Locale; data: RequestsPageData; autoNew?: boolean }) {
   const tr = translator(locale);
   const router = useRouter();
-  const [open, setOpen] = useState<RequestOpen>(null);
   const { list, perms, filters, tab } = data;
+  const canAsk = perms.create && (data.ownOwnerId !== null || perms.record);
+  // `?new=1` (top-bar + Request money, Home PRD §4) opens the form on arrival.
+  const asked = autoNew && canAsk;
+  const newForm: RequestOpen = { kind: data.ownOwnerId ? "new" : "record" };
+  const [open, setOpen] = useState<RequestOpen>(() => (asked ? newForm : null));
+  const [deepLinked, setDeepLinked] = useState(asked);
+  // `?new=1` can also arrive while this view is mounted (+ Request money on Requests).
+  const [seenAsk, setSeenAsk] = useState(asked);
+  if (seenAsk !== asked) {
+    setSeenAsk(asked);
+    if (asked) {
+      setOpen(newForm);
+      setDeepLinked(true);
+    }
+  }
   const base = { tab, owner: filters.owner, type: filters.type, status: filters.status, year: filters.year, limit: filters.limit };
   const go = (q: Partial<typeof base> & { request?: string | null }) => router.replace(requestsHref(locale, { ...base, ...q }), { scroll: false });
   // Filters start from the first page again; "Show older" grows it.
@@ -49,8 +63,15 @@ export function RequestsView({ locale, data }: { locale: Locale; data: RequestsP
     if (!unseen) return;
     void apiFetch("/requests/seen", { method: "POST" }).then((res) => res.ok && router.refresh());
   }, [unseen, router]);
+  /** Closing what `?new=1` opened drops the parameter. */
+  const dropDeepLink = () => {
+    if (!deepLinked) return;
+    setDeepLinked(false);
+    go({});
+  };
   const done = () => {
     setOpen(null);
+    dropDeepLink();
     router.refresh();
   };
   // F1: the Super Admin's sections and the owner's sections each live on their own tab.
@@ -65,7 +86,6 @@ export function RequestsView({ locale, data }: { locale: Locale; data: RequestsP
           { id: "mine", label: "req.section.mine", count: list.mine.filter((r) => r.unseen).length },
           { id: "paid", label: "req.section.paid" },
         ];
-  const canAsk = perms.create && (data.ownOwnerId !== null || perms.record);
   const startNew = () => setOpen({ kind: data.ownOwnerId ? "new" : "record" });
 
   const cards = (rows: RequestDto[], label: string) => (
@@ -203,7 +223,17 @@ export function RequestsView({ locale, data }: { locale: Locale; data: RequestsP
       ) : null}
 
       {open?.kind === "new" || open?.kind === "record" ? (
-        <RequestFormDialog locale={locale} mode={open.kind} owners={data.owners} ownOwnerId={data.ownOwnerId} onClose={() => setOpen(null)} onDone={done} />
+        <RequestFormDialog
+          locale={locale}
+          mode={open.kind}
+          owners={data.owners}
+          ownOwnerId={data.ownOwnerId}
+          onClose={() => {
+            setOpen(null);
+            dropDeepLink();
+          }}
+          onDone={done}
+        />
       ) : null}
       {open?.kind === "edit" ? <RequestFormDialog locale={locale} mode="edit" request={open.request} owners={data.owners} ownOwnerId={data.ownOwnerId} onClose={() => setOpen(null)} onDone={done} /> : null}
       {open?.kind === "approve" ? (

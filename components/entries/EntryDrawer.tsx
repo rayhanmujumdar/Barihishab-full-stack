@@ -24,7 +24,7 @@ import { isAfterTomorrow } from "@/lib/transactions/rules";
 import { AttachmentPicker } from "./AttachmentPicker";
 import { newIdempotencyKey } from "./upload";
 import { categoryName } from "./format";
-import type { EntriesData, Kind, TxnDto } from "./types";
+import type { EntryFormData, Kind, TxnDto } from "./types";
 
 type Mode = { kind: Kind; entry?: undefined } | { entry: TxnDto; kind?: undefined };
 type Warning = { code: string; fundAccountId?: string; balancePaisa?: number };
@@ -63,7 +63,7 @@ type Form = {
   reason: string;
 };
 
-function initialForm(data: EntriesData, mode: Mode): Form {
+function initialForm(data: EntryFormData, mode: Mode): Form {
   if (mode.entry) {
     const e = mode.entry;
     return {
@@ -106,7 +106,7 @@ function initialForm(data: EntriesData, mode: Mode): Form {
 }
 
 /** S4 — entry drawer for creating and correcting income/expenses (PRD §6.2). */
-export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: Locale; data: EntriesData; mode: Mode; onClose: () => void; onSaved: () => void }) {
+export function EntryDrawer({ locale, data, mode, onClose, onSaved }: { locale: Locale; data: EntryFormData; mode: Mode; onClose: () => void; onSaved: () => void }) {
   const tr = translator(locale);
   const correcting = !!mode.entry;
   const [form, setForm] = useState<Form>(() => initialForm(data, mode));

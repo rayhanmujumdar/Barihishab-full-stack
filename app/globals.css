@@ -413,7 +413,8 @@ svg[data-slot="icon"] {
   border-top: 4px solid transparent;
   cursor: pointer;
 }
-.bottom-nav [aria-current="page"] {
+.bottom-nav [aria-current="page"],
+.bottom-nav [data-active] {
   border-top-color: var(--signal);
 }
 @media (min-width: 860px) {
@@ -1244,4 +1245,236 @@ button.stair-cell {
   color: var(--color-bg);
   font-size: 14px;
   font-weight: 600;
+}
+
+/* ─── Home (docs/home_section_PRD.md F10) ───
+   One flex column; blocks reorder with `order` per breakpoint and empty
+   blocks drop out so the gap stays even. Desktop: header → hero + this month
+   → request → setup → desk → reminders → house → activity | notices.
+   Mobile: … request → reminders → setup → desk → house → notices → activity. */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+.home-block:empty,
+.home-pair:not(:has(> .home-block:not(:empty))) {
+  display: none;
+}
+.home-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+.home-o-request { order: 3; }
+.home-o-reminders { order: 4; }
+.home-o-setup { order: 5; }
+.home-o-desk { order: 6; }
+.home-o-house { order: 7; }
+.home-o-feed { order: 8; }
+.home-feed > .home-o-activity { order: 2; }
+@media (min-width: 860px) {
+  .home-o-setup { order: 4; }
+  .home-o-desk { order: 5; }
+  .home-o-reminders { order: 6; }
+  .home-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 40px;
+    align-items: start;
+  }
+  .home-feed > .home-o-activity { order: 0; }
+}
+.home-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 2px solid var(--color-text);
+  padding-top: 12px;
+}
+.hero-amount {
+  margin: 0;
+  font-size: clamp(48px, 7vw, 84px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.hero-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-neutral-800);
+  max-width: 52ch;
+}
+.home-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--color-text);
+}
+.home-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-divider);
+  color: inherit;
+  text-decoration: none;
+}
+.home-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+.home-row-value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.desk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+.desk-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px 14px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+@media (min-width: 560px) {
+  .desk-tile {
+    padding-left: 16px;
+    border-right: 1px solid var(--color-divider);
+  }
+}
+.count-box {
+  display: inline-flex;
+  align-items: center;
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.count-box[data-signal="true"] {
+  background: var(--signal);
+  color: var(--color-text);
+}
+.recon-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 2px solid var(--color-text);
+  font-size: 14px;
+}
+.recon-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.recon-table td {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.recon-total th,
+.recon-total td {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--color-text);
+}
+.activity-row {
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
+.activity-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+.activity-date {
+  flex: none;
+  width: 52px;
+  font-size: 12px;
+  color: var(--color-neutral-700);
+}
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--signal);
+  outline: 1px solid var(--color-text);
+}
+.section-head-flush {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: 8px;
+}
+
+/* ─── Shell additions (Home PRD §4): [+] cell, More sheet, top-bar action ─── */
+.bottom-nav .bottom-nav-plus {
+  background: var(--signal);
+  color: var(--color-text);
+  border-top-color: var(--signal);
+}
+.more-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.more-grid a,
+.more-grid button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: pointer;
+}
+.more-grid li:nth-child(odd) {
+  border-right: 1px solid var(--color-divider);
+}
+.more-grid [aria-current="page"] {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.more-grid button.text-destructive {
+  color: var(--neg-700);
+}
+.topbar-action {
+  display: none;
+}
+@media (min-width: 860px) {
+  .topbar-action {
+    display: inline-flex;
+  }
+}
+
+/* Home has its own pull-to-refresh (F11): stop the browser's from reloading the page too. */
+html:has(.home) {
+  overscroll-behavior-y: contain;
 }

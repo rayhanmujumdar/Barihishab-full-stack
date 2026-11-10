@@ -204,7 +204,7 @@ test("an Owner sees every owner read-only and is refused on writes (§4)", async
   await expect(page.getByRole("button", { name: /^Void/ })).toHaveCount(0);
 
   await page.goto("/en");
-  await expect(page.getByRole("link", { name: /Statement/ })).toHaveAttribute("href", /\/en\/owners\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("link", { name: /My statement/ })).toHaveAttribute("href", /\/en\/owners\/[0-9a-f-]{36}$/);
 
   const csrf = (await context.cookies()).find((c) => c.name === "bh_csrf")!.value;
   const res = await context.request.post("/api/v1/payouts", {

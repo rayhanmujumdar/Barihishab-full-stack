@@ -7,11 +7,15 @@ Gives every member an Owners screen that shows every owner's share, balance and 
 ## Requirements
 
 ### Requirement: Navigation and home shortcut
-The app shell SHALL show "Owners" (`/[lang]/owners`) to users with `owner.view` in both the desktop sidebar and the mobile navigation. The home page SHALL show a "Statement →" link to the viewer's own owner detail when the viewer is linked to an owner, and no link otherwise. (F17)
+The app shell SHALL show "Owners" (`/[lang]/owners`) to users with `owner.view` in both the desktop sidebar and the mobile navigation (bottom bar, where it is labelled "Accounts" for owners, or the More sheet). The Home balance hero SHALL show a **My statement →** link to the viewer's own owner detail when the viewer is linked to an owner, and no hero or link otherwise. (F17; Home PRD F2)
 
 #### Scenario: Owner sees nav and shortcut
 - **WHEN** an Owner linked to an owner record opens `/en`
-- **THEN** "Owners" is in the navigation and "Statement →" links to `/en/owners/{theirOwnerId}`
+- **THEN** Owners is reachable from the navigation and **My statement →** links to `/en/owners/{theirOwnerId}`
+
+#### Scenario: Unlinked admin
+- **WHEN** a Super Admin not linked to an owner opens `/en`
+- **THEN** no **My statement →** link is rendered
 
 ### Requirement: Owner list screen
 `/[lang]/owners` SHALL show a kicker "{House name} · {total} share units", the title "Owners", and one card per current or new owner in display order: square initials avatar, name, responsibility, share % in large type (1 decimal, Bangla digits in বাংলা), tags (You, Super Admin, Invite pending, No login, "{n} units"), balance label + amount (Owed green / Advance outstanding red / Settled ink-on-grey, always with the word), and loan outstanding or "None". Each card MUST be a link to the owner detail. Cards form a ruled grid: 1 column under 860px, 2–3 above. On phones the viewer's own card MUST be shown first while other cards keep their order. A "Former owners" section/link appears only when there are former owners, listing each with last balance and the month they left. A "Share timeline" link opens the house's share sets (effective month, each owner's units and %, reason, saved by). When there are no owners, show "No owners yet. Add the first owner, then give everyone their shares." with **Add owner** for Super Admins. (F1, F5, F9, F17, §8)
