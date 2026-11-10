@@ -19,6 +19,8 @@ export const AUDIT_ACTIONS = [
   "user.deactivated",
   "user.reactivated",
   "user.sessions.revoked",
+  "user.avatar.updated",
+  "user.avatar.removed",
   // Income & Expenses PRD §12.1 (all financial: owners may see them)
   "transaction.created",
   "transaction.updated",

@@ -141,6 +141,15 @@ describe("GET /api/v1/advances (F11, G5, G6, §7.6)", () => {
     expect(d.limit).toEqual({ multiplierPct: 100 });
   });
 
+  it("judges recovery in recording order: a back-dated advance after a full payout is still OUTSTANDING", async () => {
+    const w = await world();
+    // Tanvir (owed 805585) is paid in full on the 15th, then an advance dated the 12th is recorded.
+    await (await import("@/app/api/v1/payouts/route")).POST(moneyPost("/payouts", w.adminLogin, { ownerId: w.owners.tanvir.id, amountPaisa: 805585, date: "2026-10-15", fundAccountId: w.house.id, method: "CASH" }), params({}));
+    await advance(w.adminLogin, body(w, { ownerId: w.owners.tanvir.id, date: "2026-10-12", reason: "Back-dated" }));
+    const row = (await json(await list(w.adminLogin, `?ownerId=${w.owners.tanvir.id}`))).data.advances[0];
+    expect(row).toMatchObject({ reason: "Back-dated", status: "OUTSTANDING", ownerBalancePaisa: -500000 });
+  });
+
   it("keeps an advance OUTSTANDING while the balance is negative and filters by owner and year", async () => {
     const w = await world();
     const d = (await json(await list(w.adminLogin, `?ownerId=${w.owners.nasrin.id}&year=2026`))).data;

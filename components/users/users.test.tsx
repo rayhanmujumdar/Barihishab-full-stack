@@ -5,6 +5,8 @@ import { apiFetch } from "@/lib/api/client";
 import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
 import type { PublicUser } from "@/lib/users/dto";
 import { Toaster } from "@/components/ui/sonner";
+import { stubImageLoading } from "@/tests/helpers/image";
+import { uploadAvatar } from "./avatar-upload";
 import { UsersManager } from "./UsersManager";
 
 const refresh = vi.fn();
@@ -14,6 +16,11 @@ vi.mock("@/lib/api/client", async () => {
   return { ...actual, apiFetch: vi.fn() };
 });
 const api = vi.mocked(apiFetch);
+vi.mock("./avatar-upload", async () => {
+  const actual = await vi.importActual<typeof import("./avatar-upload")>("./avatar-upload");
+  return { ...actual, uploadAvatar: vi.fn() };
+});
+const upload = vi.mocked(uploadAvatar);
 
 function user(p: Partial<PublicUser>): PublicUser {
   return {
@@ -30,6 +37,7 @@ function user(p: Partial<PublicUser>): PublicUser {
     whatsapp: null,
     whatsappSameAsPhone: false,
     houseResponsibility: null,
+    avatarUrl: null,
     locale: "en",
     status: "ACTIVE",
     roles: ["OWNER"],
@@ -344,5 +352,107 @@ describe("user drawer required markers (form-required-indicator)", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "Deactivate Karim?" });
     expect(marked("confirm-reason")).toBe(true);
     expectRequiredMarkersMatch(dialog);
+  });
+});
+
+describe("UsersManager photos (A6, add-profile-photo)", () => {
+  const png = () => new File([new Uint8Array(10)], "karim.png", { type: "image/png" });
+  beforeEach(() => {
+    stubImageLoading();
+    upload.mockReset();
+  });
+
+  async function openNew() {
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} />);
+    await userEvent.click(screen.getByRole("button", { name: /New user/ }));
+    const drawer = screen.getByRole("dialog", { name: "New user" });
+    await userEvent.type(within(drawer).getByLabelText(/Username/), "salma");
+    await userEvent.type(within(drawer).getByLabelText(/^Email/), "salma@example.com");
+    return drawer;
+  }
+
+  it("shows each user's photo in the Person column, initials otherwise", async () => {
+    const withPhoto = user({ username: "rina", name: "Rina Akter", firstName: "Rina", avatarUrl: "/api/v1/attachments/r1/file" });
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items: [admin, withPhoto] }} />);
+    await waitFor(() => expect(row("Rina Akter").querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/r1/file"));
+    expect(row("Boss Admin").querySelector("img")).toBeNull();
+    expect(within(row("Boss Admin")).getByText("BA")).toBeInTheDocument();
+  });
+
+  it("New user drawer: optional photo is uploaded first, then sent as avatarId", async () => {
+    upload.mockResolvedValueOnce({ ok: true, id: "av1" });
+    const created = user({ username: "salma", name: "Salma", status: "INVITED", avatarUrl: "/api/v1/attachments/av1/file" });
+    api.mockResolvedValueOnce({ ok: true, status: 201, data: { user: created } } as never);
+    const drawer = await openNew();
+    expect(within(drawer).getByText("Photo")).toBeInTheDocument();
+    await userEvent.upload(within(drawer).getByTestId("avatar-input"), png());
+    expect(upload).not.toHaveBeenCalled(); // only on Save
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save and send invite/ }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/users", expect.objectContaining({ method: "POST", body: expect.objectContaining({ username: "salma", avatarId: "av1" }) })));
+    expect(upload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(row("Salma").querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/av1/file"));
+  });
+
+  it("New user drawer without a photo sends no avatarId", async () => {
+    api.mockResolvedValueOnce({ ok: true, status: 201, data: { user: user({ username: "salma", name: "Salma", status: "INVITED" }) } } as never);
+    const drawer = await openNew();
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save and send invite/ }));
+    await waitFor(() => expect(api).toHaveBeenCalled());
+    expect((api.mock.calls[0][1] as { body: Record<string, unknown> }).body).not.toHaveProperty("avatarId");
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("keeps the drawer open with its values and posts nothing when the upload fails", async () => {
+    upload.mockResolvedValueOnce({ ok: false, reason: "failed" });
+    const drawer = await openNew();
+    await userEvent.upload(within(drawer).getByTestId("avatar-input"), png());
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save and send invite/ }));
+    expect(await within(drawer).findByText("Photo upload failed. Try again.")).toBeInTheDocument();
+    expect(api).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "New user" })).toBeInTheDocument();
+    expect(within(drawer).getByLabelText(/Username/)).toHaveValue("salma");
+  });
+
+  it("does not upload the same photo twice when the save is retried", async () => {
+    upload.mockResolvedValueOnce({ ok: true, id: "av1" });
+    api.mockResolvedValueOnce({ ok: false, status: 409, error: { code: "EMAIL_TAKEN", message: "That email is already in use." } });
+    api.mockResolvedValueOnce({ ok: true, status: 201, data: { user: user({ username: "salma", name: "Salma", status: "INVITED" }) } } as never);
+    const drawer = await openNew();
+    await userEvent.upload(within(drawer).getByTestId("avatar-input"), png());
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save and send invite/ }));
+    await within(drawer).findByText("That email is already in use.");
+    await userEvent.click(within(drawer).getByRole("button", { name: /Save and send invite/ }));
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect((api.mock.calls[1][1] as { body: Record<string, unknown> }).body.avatarId).toBe("av1");
+  });
+
+  it("Edit drawer: removing a saved photo asks first and sends avatarId null", async () => {
+    const withPhoto = user({ username: "rina", name: "Rina Akter", firstName: "Rina", avatarUrl: "/api/v1/attachments/r1/file" });
+    api.mockResolvedValueOnce({ ok: true, status: 200, data: { user: { ...withPhoto, avatarUrl: null } } } as never);
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items: [admin, withPhoto] }} />);
+    await userEvent.click(within(row("Rina Akter")).getByRole("button", { name: /Actions for Rina Akter/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const drawer = screen.getByRole("dialog", { name: /Rina Akter/ });
+    await userEvent.click(within(drawer).getByRole("button", { name: "Remove photo" }));
+    const confirm = await screen.findByRole("alertdialog");
+    expect(within(confirm).getByText("Rina Akter's initials will show instead.")).toBeInTheDocument();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove photo" }));
+    expect(api).not.toHaveBeenCalled(); // applied on Save
+    await userEvent.click(within(screen.getByRole("dialog", { name: /Rina Akter/ })).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith(`/users/${withPhoto.id}`, expect.objectContaining({ method: "PATCH", body: expect.objectContaining({ avatarId: null }) })));
+  });
+
+  it("Edit drawer: replacing a photo uploads and sends the new avatarId", async () => {
+    const withPhoto = user({ username: "rina", name: "Rina Akter", firstName: "Rina", avatarUrl: "/api/v1/attachments/r1/file" });
+    upload.mockResolvedValueOnce({ ok: true, id: "r2" });
+    api.mockResolvedValueOnce({ ok: true, status: 200, data: { user: { ...withPhoto, avatarUrl: "/api/v1/attachments/r2/file" } } } as never);
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items: [admin, withPhoto] }} />);
+    await userEvent.click(within(row("Rina Akter")).getByRole("button", { name: /Actions for Rina Akter/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const drawer = screen.getByRole("dialog", { name: /Rina Akter/ });
+    await userEvent.upload(within(drawer).getByTestId("avatar-input"), png());
+    await userEvent.click(within(drawer).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith(`/users/${withPhoto.id}`, expect.objectContaining({ body: expect.objectContaining({ avatarId: "r2" }) })));
   });
 });

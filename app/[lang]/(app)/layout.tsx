@@ -26,7 +26,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
   const name = [viewer.firstName, viewer.lastName].filter(Boolean).join(" ") || viewer.username;
   return (
     <div className="shell" lang={locale}>
-      <ShellNav locale={locale} viewer={{ name, initials: initials(name), roles: viewer.roles, permissions: viewer.permissions }} pendingInvites={pendingInvites} />
+      <ShellNav locale={locale} viewer={{ name, initials: initials(name), avatarUrl: viewer.avatarUrl, roles: viewer.roles, permissions: viewer.permissions }} pendingInvites={pendingInvites} />
       <div style={{ minWidth: 0 }}>
         <header className="topbar">
           <span className="brand-mark">{tr("app.name")}</span>

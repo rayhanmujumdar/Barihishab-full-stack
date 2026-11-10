@@ -1,7 +1,11 @@
 // User writes shared by /me and /users. Every write: one transaction with
 // its audit row (and outbox row when an email is due).
 import type { Prisma, User } from "@/lib/generated/prisma/client";
+import { Abort } from "@/lib/api/in-transaction";
+import { isFail, type Fail } from "@/lib/api/result";
+import { prepareAvatar, setAvatar } from "@/lib/attachments/avatar-service";
 import { audit } from "@/lib/audit";
+import { currentPropertyId } from "@/lib/property";
 import { prisma } from "@/lib/prisma";
 import type { SessionMeta } from "@/lib/auth/session-service";
 import { revokeOpenTokens } from "@/lib/auth/token-service";
@@ -22,6 +26,8 @@ export type ProfilePatch = {
   whatsappSameAsPhone?: boolean;
   houseResponsibility?: string | null;
   locale?: "bn" | "en";
+  /** Profile photo upload to set (uuid), `null` to remove, omitted to keep (add-profile-photo). */
+  avatarId?: string | null;
 };
 
 export type Conflict = "USERNAME_TAKEN" | "EMAIL_TAKEN";
@@ -88,9 +94,19 @@ function diff(before: User, after: User) {
   return { before: b, after: a };
 }
 
-export type UpdateResult =
-  | { ok: true; user: User & { roles: { role: string }[] }; emailChanged: boolean }
-  | { ok: false; code: Conflict | "NOT_FOUND" };
+export type UpdateResult = { ok: true; user: User & { roles: { role: string }[] }; emailChanged: boolean } | Fail;
+
+/**
+ * Verifies a requested photo change before the write transaction (it reads
+ * storage). Returns the property to link it in, or the 422 failure.
+ */
+export async function preparePhoto(avatarId: string | null | undefined, actorId: string): Promise<{ propertyId: string } | Fail | null> {
+  if (avatarId === undefined) return null;
+  const propertyId = await currentPropertyId();
+  if (avatarId === null) return { propertyId };
+  return (await prepareAvatar(propertyId, avatarId, actorId)) ?? { propertyId };
+}
+
 
 export async function updateUserProfile(
   userId: string,
@@ -99,10 +115,14 @@ export async function updateUserProfile(
 ): Promise<UpdateResult> {
   const conflict = await findConflict(prisma, patch, userId);
   if (conflict) return { ok: false, code: conflict };
+  const photo = await preparePhoto(patch.avatarId, actor.id);
+  if (isFail(photo)) return photo;
   try {
     return await prisma.$transaction(async (tx) => {
       const current = await tx.user.findUnique({ where: { id: userId } });
       if (!current) return { ok: false as const, code: "NOT_FOUND" as const };
+      // Its own audit row (user.avatar.*); never part of the user.updated diff.
+      if (photo) await setAvatar(tx, photo.propertyId, userId, patch.avatarId ?? null, actor);
       const updated = await tx.user.update({ where: { id: userId }, data: toData(patch, current), include: { roles: true } });
       const changes = diff(current, updated);
       const emailChanged = current.email.toLowerCase() !== updated.email.toLowerCase();
@@ -122,6 +142,7 @@ export async function updateUserProfile(
       return { ok: true as const, user: updated, emailChanged };
     });
   } catch (err) {
+    if (err instanceof Abort) return err.fail;
     const c = conflictFromError(err);
     if (c) return { ok: false, code: c };
     throw err;

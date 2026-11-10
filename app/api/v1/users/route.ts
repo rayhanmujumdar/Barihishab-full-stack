@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { parse, readJson, searchParams } from "@/lib/api/body";
-import { apiError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
+import { failResponse } from "@/lib/api/result";
 import { withAuth } from "@/lib/auth/guard";
 import { requestMeta } from "@/lib/auth/request-meta";
 import { countActiveSuperAdmins, createInvitedUser, listUsers } from "@/lib/users/admin-service";
@@ -24,7 +24,7 @@ export const POST = withAuth(
     const body = await readJson(req, CreateUserBodySchema);
     if (!body.ok) return body.response;
     const result = await createInvitedUser(body.data, { id: auth.userId, ...requestMeta(req) });
-    if (!result.ok) return apiError(result.code);
+    if (!result.ok) return failResponse(result);
     return ok({ user: toPublicUser(result.user) }, { status: 201 });
   },
   { permission: "user.create", strict: true },

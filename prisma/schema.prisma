@@ -116,11 +116,14 @@ model User {
   lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(6)
   passwordChangedAt   DateTime?  @map("password_changed_at") @db.Timestamptz(6)
   tokenVersion        Int        @default(0) @map("token_version")
+  /// Current profile photo (add-profile-photo D2); an `attachments` row with entity_type 'user_avatar'.
+  avatarAttachmentId  String?    @unique @map("avatar_attachment_id") @db.Uuid
   createdById         String?    @map("created_by") @db.Uuid
   createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   createdBy    User?         @relation("UserCreatedBy", fields: [createdById], references: [id])
+  avatar       Attachment?   @relation("UserAvatar", fields: [avatarAttachmentId], references: [id], onDelete: Restrict)
   created      User[]        @relation("UserCreatedBy")
   accounts     Account[]
   baSessions   BaSession[]
@@ -518,6 +521,7 @@ model Attachment {
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   uploadedBy User     @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
   removedBy  User?    @relation("AttachmentRemovedBy", fields: [removedById], references: [id], onDelete: Restrict)
+  avatarOf   User?    @relation("UserAvatar")
 
   @@map("attachments")
 }

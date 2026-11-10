@@ -14,9 +14,11 @@ import { POST as logoutAll } from "@/app/api/v1/auth/logout-all/route";
 import { POST as forgot } from "@/app/api/v1/auth/forgot/route";
 import { POST as reset } from "@/app/api/v1/auth/reset/route";
 import { POST as changePassword } from "@/app/api/v1/me/password/route";
+import { POST as presignAvatar } from "@/app/api/v1/avatars/presign/route";
 import { AUDIT_ACTIONS } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { createUser, DEFAULT_PASSWORD } from "../../helpers/factory";
+import { createProperty, createUser, DEFAULT_PASSWORD } from "../../helpers/factory";
+import { fileBytes, useFakeStorage } from "../../helpers/fake-storage";
 import { apiRequest, json, loginAs, params } from "../../helpers/http";
 
 const p = params({});
@@ -26,11 +28,13 @@ const IP = { "x-forwarded-for": "203.0.113.7" };
 afterEach(() => vi.unstubAllEnvs());
 
 describe("audit trail", () => {
-  it("writes all 16 auth/user actions with IP and user agent, and never stores secrets", async () => {
+  it("writes all 18 auth/user actions with IP and user agent, and never stores secrets", async () => {
     vi.stubEnv("TRUST_PROXY", "true");
     // audit_logs is append-only and shared across files: only count rows from this test.
     const { _max } = await prisma.auditLog.aggregate({ _max: { id: true } });
     const lastIdBefore = _max.id ?? BigInt(0);
+    const store = useFakeStorage();
+    await createProperty(); // profile photos are stored under the current property
     const admin = await createUser({ roles: ["SUPER_ADMIN"] });
     await createUser({ roles: ["SUPER_ADMIN"] }); // second admin so demotion paths are allowed
     const adminLogin = await loginAs(admin);
@@ -71,6 +75,13 @@ describe("audit trail", () => {
     expect((await deactivate(req(`/users/${karimId}/deactivate`, { body: { reason: "test" }, login: adminLogin }), at(karimId))).status).toBe(200);
     expect((await reactivate(req(`/users/${karimId}/reactivate`, { body: { reason: "test" }, login: adminLogin }), at(karimId))).status).toBe(200);
 
+    // user.avatar.updated / user.avatar.removed
+    const signed = await json(await presignAvatar(req("/avatars/presign", { body: { fileName: "k.png", mime: "image/png", size: 64 }, login: adminLogin }), p));
+    store.put((await prisma.attachment.findUniqueOrThrow({ where: { id: signed.data.avatarId } })).storageKey, fileBytes("png", 64));
+    expect((await patchUser(req(`/users/${karimId}`, { method: "PATCH", body: { avatarId: signed.data.avatarId }, login: adminLogin }), at(karimId))).status).toBe(200);
+    expect((await patchUser(req(`/users/${karimId}`, { method: "PATCH", body: { avatarId: null }, login: adminLogin }), at(karimId))).status).toBe(200);
+    store.reset();
+
     // auth.invite.revoked
     const other = await json(await createUserApi(req("/users", { body: { username: "salma", email: "salma@example.com", role: "OWNER" }, login: adminLogin }), p));
     expect((await revokeInvite(req(`/users/${other.data.user.id}/revoke-invite`, { method: "POST", login: adminLogin }), at(other.data.user.id))).status).toBe(204);
@@ -78,7 +89,7 @@ describe("audit trail", () => {
     const rows = await prisma.auditLog.findMany({ where: { id: { gt: lastIdBefore } } });
     const seen = new Set(rows.map((r) => r.action));
     const authActions = AUDIT_ACTIONS.filter((a) => a.startsWith("auth.") || a.startsWith("user."));
-    expect(authActions).toHaveLength(16);
+    expect(authActions).toHaveLength(18);
     for (const action of authActions) expect(seen.has(action), action).toBe(true);
     for (const r of rows.filter((r) => r.entityId === karimId)) {
       expect(r.ip, r.action).toBe("203.0.113.7");

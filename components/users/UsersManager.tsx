@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { ConfirmDialog, menuTriggerOfFocused } from "@/components/app/confirm-dialog";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { SelectField, TextField } from "@/components/forms/fields";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,8 +17,8 @@ import { apiGet, qk, queryErrorMessage, useApiMutation, useServerSeed, type User
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
 import type { PublicUser } from "@/lib/users/dto";
-import { initials } from "@/lib/users/initials";
 import { UserForm } from "./UserForm";
+import { UserAvatar } from "./UserAvatar";
 
 export type UserPage = { items: PublicUser[]; nextCursor: string | null; activeSuperAdminCount: number };
 
@@ -215,9 +214,7 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
                   <TableRow key={u.id} aria-label={u.name}>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <Avatar aria-hidden="true">
-                          <AvatarFallback>{initials(u.name)}</AvatarFallback>
-                        </Avatar>
+                        <UserAvatar name={u.name} avatarUrl={u.avatarUrl} />
                         <div>
                           <div className="font-bold">{u.name}</div>
                           <div className="muted">@{u.username}</div>

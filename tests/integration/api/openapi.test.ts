@@ -191,3 +191,17 @@ describe("GET /api/v1/openapi.json — attachment viewing", () => {
     expect(Object.keys(meta.properties).sort()).toEqual(["fileName", "mime", "url"]);
   });
 });
+
+describe("GET /api/v1/openapi.json — profile photo (add-profile-photo)", () => {
+  it("documents the photo presign and avatarId/avatarUrl fields", async () => {
+    const doc = await (await GET()).json();
+    const op = doc.paths["/avatars/presign"]?.post;
+    expect(op).toBeDefined();
+    expect(Object.keys(op.responses)).toEqual(expect.arrayContaining(["201", "413", "422", "429"]));
+    expect(doc.components.schemas.PublicUser.properties).toHaveProperty("avatarUrl");
+    for (const body of ["PatchMeBody", "CreateUserBody", "PatchUserBody"]) {
+      expect(doc.components.schemas[body].properties, body).toHaveProperty("avatarId");
+    }
+    expect(doc.components.schemas.AvatarPresignBody.properties.mime.enum).toEqual(["image/jpeg", "image/png", "image/webp"]);
+  });
+});

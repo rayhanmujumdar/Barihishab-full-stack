@@ -47,12 +47,17 @@ export type StandingDto = {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** Every ledger entry of the property in posting order (month, date, creation). */
+/**
+ * Every ledger entry in posting month, then recording order. Recording order
+ * (not the entry date) decides recovery: a payout can't exceed the balance when
+ * it is recorded, so a back-dated advance entered after a full payout is still
+ * money beyond what was owed (§7.6).
+ */
 async function ledgerInOrder(propertyId: string) {
   return prisma.ownerLedgerEntry.findMany({
     where: { propertyId },
     select: { id: true, ownerId: true, type: true, amountPaisa: true, entryDate: true, note: true, origin: true, isSelf: true, flagged: true, voidedAt: true, voidReason: true, period: { select: { month: true } } },
-    orderBy: [{ period: { month: "asc" } }, { entryDate: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    orderBy: [{ period: { month: "asc" } }, { createdAt: "asc" }, { id: "asc" }],
   });
 }
 
@@ -86,6 +91,7 @@ export async function listAdvances(propertyId: string, filters: { ownerId?: stri
   const advances = all
     .filter((e) => (!filters.ownerId || e.ownerId === filters.ownerId) && yearOf(e) === year)
     .reverse()
+    // Listed newest date first (ties: last recorded first).
     .sort((a, b) => b.entryDate.getTime() - a.entryDate.getTime())
     .map((e): AdvanceRowDto => {
       const st = statuses.get(e.id) ?? { status: "OUTSTANDING", recoveredMonth: null };

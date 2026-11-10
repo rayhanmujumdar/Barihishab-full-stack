@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { AvatarPicker } from "@/components/users/AvatarPicker";
+import { uploadAvatar } from "@/components/users/avatar-upload";
 import { apiFetch, fieldErrors } from "@/lib/api/client";
 import { qk, useApiMutation } from "@/lib/api/query";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,6 +77,46 @@ export function MeScreen({
   const [revoking, setRevoking] = useState<SessionItem | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revokeBusy, setRevokeBusy] = useState(false);
+
+  // Photo saves on its own, right away — independent of the profile form's Save.
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.username;
+
+  async function savePhoto(avatarId: string | null) {
+    const res = await updateMe.run({ avatarId });
+    if (!res.ok) {
+      setPhotoError(fieldErrors(res).avatarId ?? (res.status === 0 ? tr("common.network") : res.error.message || tr("common.error")));
+      return false;
+    }
+    setAvatarUrl((res.data as { profile: PublicUser }).profile.avatarUrl);
+    toast(tr(avatarId ? "photo.saved" : "photo.removed"));
+    router.refresh(); // the sidebar photo comes from the server layout
+    return true;
+  }
+
+  async function changePhoto(file: File) {
+    setPhotoError(null);
+    setPhotoBusy(true);
+    try {
+      const up = await uploadAvatar(file);
+      if (!up.ok) return setPhotoError(tr(up.reason === "bad" ? "photo.bad" : "photo.failed"));
+      await savePhoto(up.id);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    setPhotoError(null);
+    setPhotoBusy(true);
+    try {
+      await savePhoto(null);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const set = (key: keyof typeof form, value: string | boolean) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -172,6 +214,9 @@ export function MeScreen({
       <section aria-labelledby="me-profile">
         <div className="section-head">
           <h2 id="me-profile">{tr("me.profile")}</h2>
+        </div>
+        <div className="mb-6">
+          <AvatarPicker locale={locale} name={displayName} currentUrl={avatarUrl} picked={null} onPick={changePhoto} onRemove={removePhoto} error={photoError} busy={photoBusy} />
         </div>
         <form className="form-stack max-w-[760px]" onSubmit={saveProfile} noValidate>
           <ErrorStrip message={profileError} />

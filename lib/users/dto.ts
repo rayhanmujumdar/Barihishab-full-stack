@@ -1,6 +1,7 @@
 // The only shape in which a user leaves the API. Never includes password
 // hashes, tokens, lockout counters or token_version.
 import type { Role as DbRole, User, UserRole } from "@/lib/generated/prisma/client";
+import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import { permissionsFor, type Role } from "@/lib/permissions";
 
 export type PublicUser = {
@@ -17,6 +18,8 @@ export type PublicUser = {
   whatsapp: string | null;
   whatsappSameAsPhone: boolean;
   houseResponsibility: string | null;
+  /** Same-origin URL of the current profile photo, or null (add-profile-photo). */
+  avatarUrl: string | null;
   locale: "bn" | "en";
   status: "INVITED" | "ACTIVE" | "INACTIVE";
   roles: Role[];
@@ -43,6 +46,7 @@ export function toPublicUser(user: User & { roles: Pick<UserRole, "role">[] }): 
     whatsapp: user.whatsapp,
     whatsappSameAsPhone: user.whatsappSameAsPhone,
     houseResponsibility: user.houseResponsibility,
+    avatarUrl: user.avatarAttachmentId ? attachmentFileUrl(user.avatarAttachmentId) : null,
     locale: user.locale,
     status: user.status,
     roles: rolesOf(user),

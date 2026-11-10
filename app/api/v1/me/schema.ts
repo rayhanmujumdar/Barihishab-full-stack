@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { ApiErrorSchema, apiSuccessSchema, jsonResponse } from "@/lib/api/openapi";
 import { cookieAuth, cookieAuthRead, PermissionSchema, PublicUserSchema, RoleSchema } from "@/lib/api/schemas";
-import { identityFields, profileFields } from "@/lib/validation/user-fields";
+import { avatarIdField, identityFields, profileFields } from "@/lib/validation/user-fields";
 import { registry } from "../registry";
 
 export const MeSchema = z
   .object({ profile: PublicUserSchema, roles: z.array(RoleSchema), permissions: z.array(PermissionSchema) })
   .meta({ id: "Me" });
 
-export const PatchMeBodySchema = z.object({ ...profileFields, ...identityFields }).strict().meta({ id: "PatchMeBody" });
+export const PatchMeBodySchema = z.object({ ...profileFields, ...identityFields, avatarId: avatarIdField }).strict().meta({ id: "PatchMeBody" });
 
 registry.registerPath({
   method: "get",
@@ -27,7 +27,7 @@ registry.registerPath({
   path: "/me",
   tags: ["Me"],
   summary: "Update my profile",
-  description: "Requires `profile.update.self`. Changing `email` or `username` also requires `profile.identity.self` (Super Admin only).",
+  description: "Requires `profile.update.self`. Changing `email` or `username` also requires `profile.identity.self` (Super Admin only). `avatarId` (from POST /avatars/presign) sets or replaces the photo; `null` removes it.",
   security: cookieAuth,
   request: { body: { content: { "application/json": { schema: PatchMeBodySchema } } } },
   responses: {

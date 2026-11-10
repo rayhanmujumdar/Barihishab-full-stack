@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
 import { permissionsFor } from "@/lib/permissions";
 import { expectRequiredMarkersMatch } from "@/tests/helpers/required";
+import { toast } from "sonner";
+import { uploadAvatar } from "@/components/users/avatar-upload";
+import { stubImageLoading } from "@/tests/helpers/image";
 import { MeScreen } from "./MeScreen";
 
 const refresh = vi.fn();
@@ -15,6 +18,11 @@ vi.mock("@/lib/api/client", async () => {
   return { ...actual, apiFetch: vi.fn() };
 });
 const api = vi.mocked(apiFetch);
+vi.mock("@/components/users/avatar-upload", async () => {
+  const actual = await vi.importActual<typeof import("@/components/users/avatar-upload")>("@/components/users/avatar-upload");
+  return { ...actual, uploadAvatar: vi.fn() };
+});
+const upload = vi.mocked(uploadAvatar);
 
 const profile = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -30,6 +38,7 @@ const profile = {
   whatsapp: null,
   whatsappSameAsPhone: false,
   houseResponsibility: null,
+  avatarUrl: null as string | null,
   locale: "en" as const,
   status: "ACTIVE" as const,
   roles: ["OWNER" as const],
@@ -148,5 +157,56 @@ describe("MeScreen required markers (form-required-indicator)", () => {
     render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
     expect(marked("me-current") && marked("me-new") && marked("me-repeat")).toBe(true);
     expect(screen.getByLabelText("Current password")).toBeRequired();
+  });
+});
+
+describe("MeScreen photo block (A7, add-profile-photo)", () => {
+  const png = () => new File([new Uint8Array(10)], "me.png", { type: "image/png" });
+  const meOk = (avatarUrl: string | null) => ({ ok: true as const, status: 200, data: { profile: { ...profile, avatarUrl }, roles: ["OWNER"], permissions: [] } });
+  beforeEach(() => {
+    stubImageLoading();
+    upload.mockReset();
+    refresh.mockReset();
+    vi.mocked(toast).mockReset();
+  });
+
+  it("shows initials without a photo and the photo when set", async () => {
+    const { container, unmount } = render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Choose photo" })).toBeInTheDocument();
+    expect(container.querySelector("img")).toBeNull();
+    unmount();
+    const withPhoto = render(<MeScreen locale="en" profile={{ ...profile, avatarUrl: "/api/v1/attachments/a1/file" }} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    await waitFor(() => expect(withPhoto.container.querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/a1/file"));
+  });
+
+  it("uploads a picked photo and saves it at once", async () => {
+    upload.mockResolvedValueOnce({ ok: true, id: "a2" });
+    api.mockResolvedValueOnce(meOk("/api/v1/attachments/a2/file"));
+    const { container } = render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    await userEvent.upload(screen.getByTestId("avatar-input"), png());
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/me", { method: "PATCH", body: { avatarId: "a2" } }));
+    expect(toast).toHaveBeenCalledWith("Photo updated.");
+    expect(refresh).toHaveBeenCalled();
+    await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/a2/file"));
+  });
+
+  it("asks before removing, then sends avatarId null", async () => {
+    api.mockResolvedValueOnce(meOk(null));
+    render(<MeScreen locale="en" profile={{ ...profile, avatarUrl: "/api/v1/attachments/a1/file" }} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Remove photo" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(api).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove photo" }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith("/me", { method: "PATCH", body: { avatarId: null } }));
+    expect(toast).toHaveBeenCalledWith("Photo removed.");
+    expect(await screen.findByRole("button", { name: "Choose photo" })).toBeInTheDocument();
+  });
+
+  it("shows a field error when the upload fails and saves nothing", async () => {
+    upload.mockResolvedValueOnce({ ok: false, reason: "failed" });
+    render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    await userEvent.upload(screen.getByTestId("avatar-input"), png());
+    expect(await screen.findByText("Photo upload failed. Try again.")).toBeInTheDocument();
+    expect(api).not.toHaveBeenCalled();
   });
 });

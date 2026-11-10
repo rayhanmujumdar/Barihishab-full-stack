@@ -20,6 +20,7 @@ export const PublicUserSchema = z
     whatsapp: z.string().nullable(),
     whatsappSameAsPhone: z.boolean(),
     houseResponsibility: z.string().nullable(),
+    avatarUrl: z.string().nullable().meta({ description: "Same-origin URL of the profile photo (served by GET /attachments/{id}/file), or null", example: "/api/v1/attachments/3f1c2a4e-0000-4000-8000-000000000000/file" }),
     locale: z.enum(["bn", "en"]),
     status: z.enum(["INVITED", "ACTIVE", "INACTIVE"]),
     roles: z.array(RoleSchema),

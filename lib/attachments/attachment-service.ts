@@ -27,6 +27,8 @@ export type AttachmentDto = { id: string; fileName: string; mime: string; sizeBy
 const toDto = (a: Attachment): AttachmentDto => ({ id: a.id, fileName: a.fileName, mime: a.mime, sizeBytes: a.sizeBytes });
 
 const LINKED = { removedAt: null, linkedAt: { not: null } } as const;
+/** An unlinked bill/receipt upload; profile-photo uploads (`user_avatar`) can never become a bill. */
+const BILL_UPLOAD = { entityId: null, removedAt: null, entityType: { not: "user_avatar" } } as const;
 
 export async function attachmentCounts(db: Db, txnIds: string[]): Promise<Map<string, number>> {
   if (!txnIds.length) return new Map();
@@ -74,7 +76,7 @@ export async function prepareAttachments(propertyId: string, ids: string[], exis
   const unique = [...new Set(ids)];
   if (!unique.length) return [];
   if (existing + unique.length > MAX_FILES) return failWith("TOO_MANY_ATTACHMENTS");
-  const rows = await prisma.attachment.findMany({ where: { id: { in: unique }, propertyId, entityId: null, removedAt: null } });
+  const rows = await prisma.attachment.findMany({ where: { id: { in: unique }, propertyId, ...BILL_UPLOAD } });
   if (rows.length !== unique.length) return fieldFail("attachmentIds", UPLOAD_AGAIN);
   for (const row of rows) {
     const info = await storage().head(row.storageKey);
@@ -100,7 +102,7 @@ export async function linkAttachments(
 ): Promise<void> {
   for (const row of rows) {
     const { count } = await tx.attachment.updateMany({
-      where: { id: row.id, propertyId, entityId: null, removedAt: null },
+      where: { id: row.id, propertyId, ...BILL_UPLOAD },
       data: { entityType, entityId: txnId, linkedAt: now() },
     });
     if (count !== 1) throw new Abort(fieldFail("attachmentIds", UPLOAD_AGAIN));
