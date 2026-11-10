@@ -35,3 +35,10 @@ export function setPeriodStatus(month: string, status: "OPEN" | "CLOSED"): Promi
     );
   });
 }
+
+/** Clears the auth rate-limit counters so the next spec's logins aren't throttled by this one's. */
+export function resetRateLimits(): Promise<void> {
+  return withClient(async (c) => {
+    await c.query(`DELETE FROM rate_limits`);
+  });
+}

@@ -12,7 +12,10 @@ import type { EnabledRole } from "@/lib/permissions";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { displayName, rolesOf } from "./dto";
-import { conflictFromError, findConflict, updateUserProfile, type Conflict, type ProfilePatch } from "./user-service";
+import { Abort } from "@/lib/api/in-transaction";
+import { setAvatar } from "@/lib/attachments/avatar-service";
+import { isFail } from "@/lib/api/result";
+import { conflictFromError, findConflict, preparePhoto, updateUserProfile, type Conflict, type ProfilePatch } from "./user-service";
 
 type Tx = Prisma.TransactionClient;
 type Actor = { id: string } & SessionMeta;
@@ -62,7 +65,9 @@ export type CreateUserInput = ProfilePatch & { username: string; email: string; 
 export async function createInvitedUser(input: CreateUserInput, actor: Actor) {
   const conflict = await findConflict(prisma, input);
   if (conflict) return { ok: false as const, code: conflict };
-  const { role, birthday, whatsappSameAsPhone, ...rest } = input;
+  const photo = input.avatarId ? await preparePhoto(input.avatarId, actor.id) : null;
+  if (isFail(photo)) return photo;
+  const { role, birthday, whatsappSameAsPhone, avatarId, ...rest } = input;
   try {
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -88,15 +93,23 @@ export async function createInvitedUser(input: CreateUserInput, actor: Actor) {
         ip: actor.ip,
         userAgent: actor.userAgent,
       });
-      await sendInvite(tx, created, actor);
-      return created;
+      // Photo is attached before the invite is queued: a failed claim rolls back user + invite.
+      const withPhoto = photo && avatarId ? await linkPhoto(tx, photo.propertyId, created.id, avatarId, actor) : created;
+      await sendInvite(tx, withPhoto, actor);
+      return withPhoto;
     });
     return { ok: true as const, user };
   } catch (err) {
+    if (err instanceof Abort) return err.fail;
     const c = conflictFromError(err);
     if (c) return { ok: false as const, code: c };
     throw err;
   }
+}
+
+async function linkPhoto(tx: Tx, propertyId: string, userId: string, avatarId: string, actor: Actor) {
+  await setAvatar(tx, propertyId, userId, avatarId, actor);
+  return tx.user.findUniqueOrThrow({ where: { id: userId }, include: USER_WITH_ROLES });
 }
 
 export type ListQuery = { q?: string; role?: DbRole; status?: UserStatus; cursor?: string; limit: number };

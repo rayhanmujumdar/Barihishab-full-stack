@@ -9,6 +9,8 @@ import { listCategories } from "@/lib/master-data/category-service";
 import { listFunds } from "@/lib/master-data/fund-service";
 import { listUnits } from "@/lib/master-data/unit-service";
 import { getReserveSettings } from "@/lib/distribution/reserve-service";
+import { loadAdvanceLimit } from "@/lib/loans/settings-service";
+import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
 
@@ -38,5 +40,6 @@ async function Settings() {
     listCategories(propertyId),
     reserveAllowed ? getReserveSettings(propertyId) : null,
   ]);
-  return <SettingsView locale={locale} units={units} funds={funds} categories={categories} can={allowed} reserve={reserve} />;
+  const advanceLimitPct = reserveAllowed ? (await loadAdvanceLimit(prisma, propertyId)).multiplierPct : null;
+  return <SettingsView locale={locale} units={units} funds={funds} categories={categories} can={allowed} reserve={reserve} advanceLimitPct={advanceLimitPct} />;
 }

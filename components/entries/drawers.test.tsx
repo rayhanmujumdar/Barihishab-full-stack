@@ -208,6 +208,14 @@ describe("DetailDrawer + Void dialog (DET-01, VOD-01)", () => {
     expect(screen.queryByRole("button", { name: "Correct" })).toBeNull();
   });
 
+  it("offers no Correct / Void on a loan write-off expense (Advances & Loans F10)", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: detail({ source: "LOAN_WRITE_OFF", description: "L2 written off · Hardship" }) });
+    render(<DetailDrawer locale="en" id="z" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    await screen.findByText("Payee / vendor");
+    expect(screen.queryByRole("button", { name: "Correct" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Void" })).toBeNull();
+  });
+
   describe("opening a bill (attachment-viewer)", () => {
     const pdf = { id: "00000000-0000-4000-8000-0000000000d1", fileName: "desco.pdf", mime: "application/pdf", sizeBytes: 900 };
     const photo = { id: "00000000-0000-4000-8000-0000000000d2", fileName: "receipt.jpg", mime: "image/jpeg", sizeBytes: 900 };

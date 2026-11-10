@@ -147,6 +147,74 @@ test("the Owner accepts the invite in another browser and is refused admin pages
   expect(body.error.code).toBe("FORBIDDEN");
 });
 
+/** A real, decodable 1200×900 phone-style PNG drawn by the browser itself. */
+async function photoPng(page: Page): Promise<Buffer> {
+  const dataUrl = await page.evaluate(() => {
+    const c = document.createElement("canvas");
+    c.width = 1200;
+    c.height = 900;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fillRect(0, 0, 1200, 900);
+    ctx.fillStyle = "#f5c518";
+    ctx.fillRect(300, 150, 600, 600);
+    return c.toDataURL("image/png");
+  });
+  return Buffer.from(dataUrl.split(",")[1], "base64");
+}
+
+const PHOTO = 'img[src^="/api/v1/attachments/"]';
+
+test("the Owner sets a profile photo on /me, sees it in the shell, and removing it asks first", async () => {
+  const page = await owner.newPage();
+  await page.goto("/en/me");
+  await expect(page.getByRole("button", { name: "Choose photo" })).toBeVisible();
+  await expect(page.locator(PHOTO)).toHaveCount(0);
+
+  await page.getByTestId("avatar-input").setInputFiles({ name: "phone.png", mimeType: "image/png", buffer: await photoPng(page) });
+  await expect(page.getByText("Photo updated.")).toBeVisible();
+  // Profile block + shell user block, both from the app's own origin.
+  await expect(page.locator(PHOTO)).toHaveCount(2);
+
+  // The browser cropped and re-encoded it: a 512×512 JPEG streamed through the same-origin proxy.
+  const src = (await page.locator(PHOTO).first().getAttribute("src"))!;
+  const stored = await page.evaluate(async (url) => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const bmp = await createImageBitmap(blob);
+    return { status: res.status, type: blob.type, w: bmp.width, h: bmp.height };
+  }, src);
+  expect(stored).toEqual({ status: 200, type: "image/jpeg", w: 512, h: 512 });
+
+  // Remove asks first: "Keep photo" changes nothing.
+  await page.getByRole("button", { name: "Remove photo" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Keep photo" }).click();
+  await expect(page.locator(PHOTO)).toHaveCount(2);
+  await page.getByRole("button", { name: "Remove photo" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove photo" }).click();
+  await expect(page.getByText("Photo removed.")).toBeVisible();
+  await expect(page.locator(PHOTO)).toHaveCount(0);
+  // The replaced/removed file is no longer served.
+  expect((await page.request.get(src)).status()).toBe(404);
+  await page.close();
+});
+
+test("the Super Admin adds a photo while creating a new user", async () => {
+  await admin.goto("/admin/users");
+  await admin.getByRole("button", { name: /New user/ }).click();
+  const drawer = admin.getByRole("dialog", { name: "New user" });
+  await drawer.locator("#u-username").fill("nila");
+  await drawer.locator("#u-email").fill("nila@example.com");
+  await drawer.locator("#u-first").fill("Nila");
+  await drawer.getByTestId("avatar-input").setInputFiles({ name: "nila.png", mimeType: "image/png", buffer: await photoPng(admin) });
+  await expect(drawer.locator('img[src^="data:image/png"]')).toBeVisible(); // local preview before Save
+  await drawer.getByRole("button", { name: /Save and send invite/ }).click();
+  await expect(admin.getByText("Invite sent to nila@example.com.")).toBeVisible();
+  const row = admin.getByRole("row", { name: /Nila/ });
+  await expect(row).toContainText("Invited");
+  await expect(row.locator(PHOTO)).toBeVisible();
+});
+
 test("five wrong passwords lock the account for 15 minutes", async ({ browser }) => {
   const ctx = await newContext(browser);
   const page = await ctx.newPage();

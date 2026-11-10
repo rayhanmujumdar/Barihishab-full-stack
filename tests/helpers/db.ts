@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 // assert on audit rows by the fresh ids they create instead.
 const RESETTABLE_TABLES = [
   "period_reopens",
+  "loan_movements",
   "loans",
   "owner_ledger_entries",
   "share_set_items",

@@ -5,6 +5,7 @@ import { hardNavigate } from "@/components/auth/navigate";
 import { apiFetch } from "@/lib/api/client";
 import { permissionsFor } from "@/lib/permissions";
 import { HomeDesk } from "./HomeDesk";
+import { stubImageLoading } from "@/tests/helpers/image";
 import { ShellNav } from "./ShellNav";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ refresh: vi.fn() }) }));
@@ -57,6 +58,16 @@ describe("ShellNav (RBAC-05)", () => {
       const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
       expect(links).toContain("/en/distribution");
       expect(links.indexOf("/en/distribution")).toBe(links.indexOf("/en/entries") + 1);
+      unmount();
+    }
+  });
+
+  it("shows Advances & loans after Owners to Owners and Super Admins (advances-loans-ui)", () => {
+    for (const roles of [["OWNER"], ["SUPER_ADMIN"]] as const) {
+      const { unmount } = render(<ShellNav locale="en" viewer={viewer([...roles])} pendingInvites={0} />);
+      expect(screen.getAllByRole("link", { name: /^Advances & loans/ })[0]).toHaveAttribute("href", "/en/advances");
+      const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+      expect(links.indexOf("/en/advances")).toBe(links.indexOf("/en/owners") + 1);
       unmount();
     }
   });
@@ -186,5 +197,24 @@ describe("HomeDesk close reminder (Distribution F14)", () => {
   it("is absent without a reminder", () => {
     render(<HomeDesk locale="en" name="Karim" permissions={permissionsFor(["OWNER"])} stats={null} />);
     expect(screen.queryByRole("link", { name: /Review distribution/ })).toBeNull();
+  });
+});
+
+describe("ShellNav profile photo (add-profile-photo)", () => {
+  beforeEach(() => stubImageLoading());
+
+  it("shows the viewer's photo instead of initials", async () => {
+    const { container } = render(<ShellNav locale="en" viewer={{ ...viewer(["OWNER"]), avatarUrl: "/api/v1/attachments/v1/file" }} pendingInvites={0} />);
+    await waitFor(() => expect(container.querySelector("img")).toHaveAttribute("src", "/api/v1/attachments/v1/file"));
+    expect(screen.queryByText("KU")).toBeNull();
+  });
+
+  it("falls back to initials when the photo is missing or broken", async () => {
+    const { unmount } = render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
+    expect(screen.getByText("KU")).toBeInTheDocument();
+    unmount();
+    const broken = render(<ShellNav locale="en" viewer={{ ...viewer(["OWNER"]), avatarUrl: "/api/v1/attachments/broken/file" }} pendingInvites={0} />);
+    await waitFor(() => expect(screen.getByText("KU")).toBeInTheDocument());
+    expect(broken.container.querySelector("img")).toBeNull();
   });
 });

@@ -19,7 +19,7 @@ const NO_MOVES: Movement = { income: 0, expense: 0, ledger: 0, loans: 0 };
 /**
  * Per fund account: Σ non-voided income / expense, Σ owner-ledger moves
  * (all of them — voided payouts are cancelled by their reversals) and
- * Σ principal of ACTIVE loans disbursed from it.
+ * Σ principal of every loan disbursed from it, net of its cash-side loan movements.
  */
 export async function fundMovements(db: Db, propertyId: string, fundIds?: string[]) {
   const fundFilter = fundIds ? { fundAccountId: { in: fundIds } } : {};
@@ -33,11 +33,15 @@ export async function fundMovements(db: Db, propertyId: string, fundIds?: string
   // Every disbursed loan left the fund, whatever its status now; deductions
   // on close move no cash (Distribution design D1).
   const loans = await db.loan.groupBy({ by: ["fundAccountId"], where: { propertyId, ...fundFilter }, _sum: { principalPaisa: true } });
+  // Loan movements carry their effect on the outstanding (repayment −, its
+  // reversal +, cancellation/write-off −); cash moves the other way (Advances & Loans D1).
+  const loanMoves = await db.loanMovement.groupBy({ by: ["fundAccountId"], where: { propertyId, ...fundFilter }, _sum: { amountPaisa: true } });
   const map = new Map<string, Movement>();
   const at = (id: string) => map.get(id) ?? map.set(id, { ...NO_MOVES }).get(id)!;
   for (const g of txns) at(g.fundAccountId)[g.kind === "INCOME" ? "income" : "expense"] += Number(g._sum.amountPaisa ?? 0);
   for (const g of ledger) if (g.fundAccountId) at(g.fundAccountId).ledger += Number(g._sum.amountPaisa ?? 0);
   for (const g of loans) at(g.fundAccountId).loans += Number(g._sum.principalPaisa ?? 0);
+  for (const g of loanMoves) at(g.fundAccountId).loans += Number(g._sum.amountPaisa ?? 0);
   return map;
 }
 

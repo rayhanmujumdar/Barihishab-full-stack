@@ -110,12 +110,17 @@ export type LoanDeduction = { loanId: string; ownerId: string; amountPaisa: numb
  * For each loan with an instalment (oldest first): deduct min(instalment,
  * outstanding, entitlement still free). Nothing free → skipped (G4).
  */
-export function loanDeductions(entitlements: readonly Allocation[], loans: readonly LoanForClose[]): { deductions: LoanDeduction[]; skipped: { loanId: string; ownerId: string }[] } {
+export function loanDeductions(
+  entitlements: readonly Allocation[],
+  loans: readonly LoanForClose[],
+  month?: string,
+): { deductions: LoanDeduction[]; skipped: { loanId: string; ownerId: string }[] } {
   const free = new Map(entitlements.map((e) => [e.ownerId, e.amountPaisa]));
   const deductions: LoanDeduction[] = [];
   const skipped: { loanId: string; ownerId: string }[] = [];
   const due = loans
-    .filter((l) => (l.installmentPaisa ?? 0) > 0 && l.outstandingPaisa > 0)
+    // §7.3: the first instalment is taken the month after disbursement.
+    .filter((l) => (l.installmentPaisa ?? 0) > 0 && l.outstandingPaisa > 0 && (!month || l.disbursedOn < `${month}-01`))
     .sort((a, b) => a.disbursedOn.localeCompare(b.disbursedOn) || a.id.localeCompare(b.id));
   for (const loan of due) {
     const available = free.get(loan.ownerId) ?? 0;

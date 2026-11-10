@@ -14,7 +14,7 @@ import {
 import { setInForce, totalUnits, unitsIn } from "@/lib/accounting/owners";
 import { toPeriodTotals, type PeriodTotals } from "@/lib/accounting/totals";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { activeLoans, type LoanDto } from "@/lib/owners/loan-service";
+import { activeLoans, type LoanDto } from "@/lib/loans/loan-service";
 import { loadShareSets } from "@/lib/owners/share-service";
 import { monthKey } from "@/lib/periods/month";
 import { prisma } from "@/lib/prisma";
@@ -110,7 +110,7 @@ export async function computeMonth(db: Db, propertyId: string, periods: readonly
   const set = setInForce(sets, period.key);
   const shares = owners.map((o) => ({ ownerId: o.id, name: o.displayName, units: unitsIn(set, o.id) }));
   const entitlements = allocate(stair.distributablePaisa, shares);
-  const { deductions, skipped } = loanDeductions(entitlements, loans);
+  const { deductions, skipped } = loanDeductions(entitlements, loans, period.key);
   return { stair, totals, previousDeficitMonth: prev.month, settings, shares, totalUnits: totalUnits(set), entitlements, loans, deductions, skipped };
 }
 

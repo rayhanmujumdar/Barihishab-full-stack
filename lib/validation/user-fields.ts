@@ -56,6 +56,9 @@ export const profileFields = {
   locale: localeField.optional(),
 };
 
+/** Profile photo: upload id from POST /avatars/presign, or null to remove (add-profile-photo). */
+export const avatarIdField = z.uuid("Upload the photo again.").nullable().optional();
+
 export const identityFields = {
   username: usernameField.optional(),
   email: emailField.optional(),

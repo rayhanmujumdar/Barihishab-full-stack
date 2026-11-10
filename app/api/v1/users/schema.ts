@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ApiErrorSchema, apiSuccessSchema, jsonResponse } from "@/lib/api/openapi";
 import { cookieAuth, cookieAuthRead, PublicUserSchema, RoleSchema } from "@/lib/api/schemas";
-import { emailField, enabledRoleField, localeField, profileFields, usernameField } from "@/lib/validation/user-fields";
+import { avatarIdField, emailField, enabledRoleField, localeField, profileFields, usernameField } from "@/lib/validation/user-fields";
 import { registry } from "../registry";
 
 export const CreateUserBodySchema = z
@@ -11,6 +11,7 @@ export const CreateUserBodySchema = z
     email: emailField,
     role: enabledRoleField,
     locale: localeField.default("bn"),
+    avatarId: avatarIdField,
   })
   .strict()
   .meta({ id: "CreateUserBody" });
@@ -54,7 +55,7 @@ registry.registerPath({
   path: "/users",
   tags: ["Users"],
   summary: "Create a user and send the invite",
-  description: "Permission `user.create`. The user starts INVITED; an invite email (72 h link) is queued.",
+  description: "Permission `user.create`. The user starts INVITED; an invite email (72 h link) is queued. Optional `avatarId` (from POST /avatars/presign) attaches a profile photo in the same transaction.",
   security: cookieAuth,
   request: { body: { content: { "application/json": { schema: CreateUserBodySchema } } } },
   responses: {

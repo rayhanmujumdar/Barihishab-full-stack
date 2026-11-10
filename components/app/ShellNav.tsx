@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowRightStartOnRectangleIcon, BanknotesIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightStartOnRectangleIcon, BanknotesIcon, CreditCardIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardNavigate } from "@/components/auth/navigate";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/users/UserAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,7 +19,8 @@ type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 type NavItem = { href: string; label: MessageKey; short?: MessageKey; icon: HeroIcon; permission?: Permission; anyOf?: Permission[]; badge?: number };
 
-export type ShellViewer = { name: string; initials: string; roles: Role[]; permissions: Permission[] };
+/** `avatarUrl`: same-origin profile photo, initials shown when absent (add-profile-photo). */
+export type ShellViewer = { name: string; initials: string; avatarUrl?: string | null; roles: Role[]; permissions: Permission[] };
 
 export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; viewer: ShellViewer; pendingInvites: number }) {
   const tr = translator(locale);
@@ -36,6 +37,7 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
       { href: "/entries", label: "nav.entries", short: "nav.entriesShort", icon: BanknotesIcon, permission: "transaction.view" },
       { href: "/distribution", label: "nav.distribution", icon: ScaleIcon, permission: "distribution.view" },
       { href: "/owners", label: "nav.owners", icon: UserGroupIcon, permission: "owner.view" },
+      { href: "/advances", label: "nav.advances", short: "nav.advancesShort", icon: CreditCardIcon, permission: "loan.view" },
       { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: pendingInvites },
       { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
       { href: "/me", label: "nav.profile", icon: UserIcon },
@@ -79,9 +81,7 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
         <div className="mt-auto flex flex-col gap-3">
           <Separator />
           <div className="flex items-center gap-2.5">
-            <Avatar aria-hidden="true">
-              <AvatarFallback>{viewer.initials}</AvatarFallback>
-            </Avatar>
+            <UserAvatar name={viewer.name} avatarUrl={viewer.avatarUrl ?? null} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-bold">{viewer.name}</div>
               <div className="muted">{roleLabel}</div>

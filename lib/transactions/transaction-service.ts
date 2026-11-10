@@ -4,7 +4,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { toPeriodTotals, type PeriodTotals } from "@/lib/accounting/totals";
 import { type SaveIdempotent } from "@/lib/api/idempotency";
 import { Abort, inTransaction as runInTransaction } from "@/lib/api/in-transaction";
-import { failWith, fieldFail, type Actor, type Fail, type Result } from "@/lib/api/result";
+import { failWith, fieldFail, isFail, type Actor, type Fail, type Result } from "@/lib/api/result";
 import { audit, type AuditAction } from "@/lib/audit";
 import { todayIsoInDhaka } from "@/lib/clock";
 import { diffFields } from "@/lib/diff";
@@ -62,7 +62,6 @@ async function openPeriod(propertyId: string, month: string): Promise<PeriodDto 
   return period;
 }
 
-const isFail = (v: unknown): v is Fail => !!v && typeof v === "object" && (v as Fail).ok === false;
 
 async function resolveRefs(db: Db, propertyId: string, f: { categoryId: string; unitId?: string | null; fundAccountId: string; referencePeriod?: string | null }) {
   const [category, unit, fund, reference] = await Promise.all([
@@ -190,6 +189,7 @@ export async function createAdjustment(propertyId: string, input: AdjustmentInpu
 export async function correctTransaction(propertyId: string, id: string, input: CorrectInput, actor: Actor, opts: { canAdjust: boolean }): Promise<Result<WriteResult>> {
   const current = await prisma.houseTransaction.findFirst({ where: { id, propertyId }, include: TXN_INCLUDE });
   if (!current) return failWith("NOT_FOUND");
+  if (current.source === "LOAN_WRITE_OFF") return failWith("NOT_EDITABLE");
   if (current.voidedAt) return failWith("ALREADY_VOIDED");
   if (current.period.status !== "OPEN") return failWith("PERIOD_CLOSED");
 
@@ -258,6 +258,8 @@ export async function correctTransaction(propertyId: string, id: string, input: 
 export async function voidTransaction(propertyId: string, id: string, reason: string, actor: Actor): Promise<Result<{ transaction: TxnDto; periodTotals: PeriodTotals }>> {
   const current = await prisma.houseTransaction.findFirst({ where: { id, propertyId } });
   if (!current) return failWith("NOT_FOUND");
+  // Its fund offset lives on the loan; it changes only with the loan (Advances & Loans F10).
+  if (current.source === "LOAN_WRITE_OFF") return failWith("NOT_EDITABLE");
   return inTransaction(async (tx) => {
     await lockOpen(tx, current.periodId);
     const fresh = await lockEntry(tx, id);

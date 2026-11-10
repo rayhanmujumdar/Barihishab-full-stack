@@ -19,7 +19,7 @@ import { OpeningDialog } from "./OpeningDialog";
 import { OwnerFormDialog } from "./OwnerFormDialog";
 import { PayDrawer } from "./PayDrawer";
 import { StatementTable } from "./StatementTable";
-import type { LoanDto } from "@/lib/owners/loan-service";
+import type { LoanDto } from "@/lib/loans/loan-service";
 import type { LedgerEntryDto, OwnerPageData } from "./types";
 
 type Open = { kind: "pay" | "advance" | "adjust" | "edit" | "opening" } | { kind: "void"; entry: LedgerEntryDto } | { kind: "loan"; loan: LoanDto } | null;
@@ -191,9 +191,12 @@ export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageD
             {owner.loans.map((l) => (
               <li key={l.id} className="list-row flex-wrap">
                 <span className="flex flex-col">
+                  <Link href={`/${locale}/advances?tab=loans&loan=${l.id}`} className="font-semibold">
+                    {tr("al.loanNo", { n: l.number })}
+                  </Link>
                   <span className="font-extrabold">{tr("loan.outstanding", { amount: formatMoney(locale, l.outstandingPaisa) })}</span>
                   <span className="muted">
-                    {l.reason} · {l.installmentPaisa ? tr("loan.instalmentShow", { amount: formatMoney(locale, l.installmentPaisa) }) : tr("loan.noInstalment")}
+                    {l.reason} · {l.installmentPaisa ? tr("loan.instalmentShow", { amount: formatMoney(locale, l.installmentPaisa) }) : tr("al.manual")}
                   </span>
                 </span>
                 {perms.loan ? (

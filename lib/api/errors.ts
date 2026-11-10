@@ -152,6 +152,17 @@ export const ERRORS = {
     en: "Only an active loan can be changed.",
     bn: "শুধু চলমান ঋণ বদলানো যায়।",
   },
+  // Advances & Loans PRD §9
+  LOAN_HAS_REPAYMENTS: {
+    status: 409,
+    en: "This loan has repayments, so it can't be cancelled. Void the repayments first or write it off.",
+    bn: "এই ঋণে পরিশোধ আছে, তাই বাতিল করা যাবে না। আগে পরিশোধগুলো বাতিল করুন বা ঋণটি মওকুফ করুন।",
+  },
+  NOT_EDITABLE: {
+    status: 409,
+    en: "This expense comes from a loan write-off and can't be changed here.",
+    bn: "এই খরচটি ঋণ মওকুফ থেকে এসেছে, এখানে বদলানো যাবে না।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",
@@ -163,14 +174,14 @@ export type ErrorCode = keyof typeof ERRORS;
 
 export function apiError(
   code: ErrorCode,
-  opts: { details?: unknown; locale?: "bn" | "en"; headers?: HeadersInit } = {},
+  opts: { details?: unknown; locale?: "bn" | "en"; headers?: HeadersInit; message?: string } = {},
 ): Response {
   const def = ERRORS[code];
   return fail(
     {
       status: def.status,
       code,
-      message: opts.locale === "bn" ? def.bn : def.en,
+      message: opts.message ?? (opts.locale === "bn" ? def.bn : def.en),
       ...(opts.details === undefined ? {} : { details: opts.details }),
     },
     { headers: opts.headers },

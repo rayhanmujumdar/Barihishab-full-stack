@@ -8,6 +8,7 @@ import { registry } from "../registry";
 // ─── Shared ledger shapes (also used by advances, adjustments, void, statement) ───
 
 export const LedgerTypeSchema = z.enum(["OPENING", "ENTITLEMENT", "PAYOUT", "ADVANCE", "LOAN_DEDUCTION", "ADJUSTMENT", "REVERSAL"]).meta({ id: "LedgerType" });
+export const OriginSchema = z.enum(["DIRECT", "CLOSE", "PAYOUT_SPLIT"]).meta({ id: "EntryOrigin", description: "Where the entry came from" });
 export const PayMethodSchema = z.enum(["CASH", "BANK", "BKASH", "NAGAD"], { error: "Pick a method." }).meta({ id: "PayMethod" });
 export const OwnerReasonSchema = z.string().trim().min(1, "Please write a reason — everyone can see it.").max(300, "At most 300 characters");
 export const REF_REQUIRED = "Add the bKash TrxID, Nagad TrxID or cheque number.";
@@ -39,6 +40,7 @@ export const LedgerEntrySchema = z
     voidReason: z.string().nullable(),
     isSelf: z.boolean(),
     flagged: z.boolean(),
+    origin: OriginSchema,
     recordedBy: z.string(),
     recordedAt: z.iso.datetime(),
     attachments: z.array(z.object({ id: z.uuid(), fileName: z.string(), mime: z.string() })),
@@ -47,23 +49,29 @@ export const LedgerEntrySchema = z
 
 export const LedgerWarningSchema = z
   .object({
-    code: z.enum(["FUND_SHORT", "HOUSE_FUND_SHORT", "ADVANCE_OVER_LIMIT"]),
+    code: z.enum(["FUND_SHORT", "HOUSE_FUND_SHORT", "ADVANCE_OVER_LIMIT", "OWNER_OWED"]),
     fundAccountId: z.uuid().optional(),
     balancePaisa: z.number().int().optional(),
     limitPaisa: z.number().int().optional(),
   })
   .meta({ id: "LedgerWarning" });
 
+export const LoanStatusSchema = z.enum(["ACTIVE", "REPAID", "WRITTEN_OFF", "CANCELLED"]).meta({ id: "LoanStatus" });
+
 export const LoanSchema = z
   .object({
     id: z.uuid(),
+    number: z.number().int().meta({ description: "Shown as L{number}; sequential per house, never reused" }),
     ownerId: z.uuid(),
     principalPaisa: z.number().int(),
     disbursedOn: IsoDateSchema,
-    status: z.enum(["ACTIVE", "REPAID", "WRITTEN_OFF"]),
+    status: LoanStatusSchema,
     reason: z.string(),
     installmentPaisa: z.number().int().nullable().meta({ description: "Monthly instalment deducted from entitlement on month close" }),
-    outstandingPaisa: z.number().int().meta({ description: "Principal − loan deductions" }),
+    outstandingPaisa: z.number().int().meta({ description: "Principal − deductions − cash repayments (+ reversals)" }),
+    origin: z.enum(["DIRECT", "PAYOUT_SPLIT"]),
+    isSelf: z.boolean(),
+    flagged: z.boolean(),
   })
   .meta({ id: "Loan" });
 

@@ -148,9 +148,34 @@ describe("GET /api/v1/openapi.json — Distribution", () => {
 
   it("documents the loan instalment endpoint and the payout instalment field", async () => {
     const doc = await (await GET()).json();
-    expect(doc.paths["/loans/{id}"]?.patch?.tags).toEqual(["Owners"]);
+    expect(doc.paths["/loans/{id}"]?.patch?.tags).toEqual(["Advances & loans"]);
     expect(doc.components.schemas.PayoutBody.properties).toHaveProperty("loanInstallmentPaisa");
     expect(doc.components.schemas.Loan.properties).toHaveProperty("installmentPaisa");
+  });
+
+  it("documents every Advances & Loans endpoint (Advances & Loans PRD)", async () => {
+    const doc = await (await GET()).json();
+    const LOANS: [string, string][] = [
+      ["get", "/loans"],
+      ["post", "/loans"],
+      ["get", "/loans/{id}"],
+      ["patch", "/loans/{id}"],
+      ["post", "/loans/{id}/repayments"],
+      ["post", "/loans/{id}/repayments/{repaymentId}/void"],
+      ["post", "/loans/{id}/cancel"],
+      ["post", "/loans/{id}/write-off"],
+      ["get", "/advances"],
+      ["get", "/advances/by-owner"],
+      ["get", "/settings/advance-limit"],
+      ["put", "/settings/advance-limit"],
+    ];
+    for (const [method, path] of LOANS) {
+      expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(doc.paths[path][method].tags, path).toEqual(["Advances & loans"]);
+    }
+    for (const name of ["LoanBody", "RepaymentBody", "LoanDetail", "LoanCard", "AdvanceRow", "AdvanceLimitSettings", "OwnerStanding"]) expect(doc.components.schemas, name).toHaveProperty(name);
+    expect(doc.components.schemas.PatchLoanBody.required).toContain("reason");
+    expect(doc.components.schemas.LoanStatus.enum).toContain("CANCELLED");
   });
 });
 
@@ -164,5 +189,19 @@ describe("GET /api/v1/openapi.json — attachment viewing", () => {
     expect((file.parameters ?? []).map((p: { name: string; in: string }) => `${p.in}:${p.name}`)).toEqual(expect.arrayContaining(["path:id", "query:download", "header:If-None-Match"]));
     const meta = doc.components.schemas.AttachmentUrl;
     expect(Object.keys(meta.properties).sort()).toEqual(["fileName", "mime", "url"]);
+  });
+});
+
+describe("GET /api/v1/openapi.json — profile photo (add-profile-photo)", () => {
+  it("documents the photo presign and avatarId/avatarUrl fields", async () => {
+    const doc = await (await GET()).json();
+    const op = doc.paths["/avatars/presign"]?.post;
+    expect(op).toBeDefined();
+    expect(Object.keys(op.responses)).toEqual(expect.arrayContaining(["201", "413", "422", "429"]));
+    expect(doc.components.schemas.PublicUser.properties).toHaveProperty("avatarUrl");
+    for (const body of ["PatchMeBody", "CreateUserBody", "PatchUserBody"]) {
+      expect(doc.components.schemas[body].properties, body).toHaveProperty("avatarId");
+    }
+    expect(doc.components.schemas.AvatarPresignBody.properties.mime.enum).toEqual(["image/jpeg", "image/png", "image/webp"]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesMime, sniffMime } from "./magic";
+import { IMAGE_MIME, isImageMime, matchesMime, sniffMime } from "./magic";
 
 const bytes = (...b: number[]) => new Uint8Array([...b, ...new Array(16).fill(0)]);
 const ascii = (s: string) => new TextEncoder().encode(s.padEnd(16, "\0"));
@@ -24,5 +24,18 @@ describe("matchesMime", () => {
     expect(matchesMime(bytes(0xff, 0xd8, 0xff), "image/jpeg")).toBe(true);
     expect(matchesMime(ascii("MZ"), "image/jpeg")).toBe(false);
     expect(matchesMime(ascii("%PDF-"), "image/png")).toBe(false);
+  });
+});
+
+describe("IMAGE_MIME / isImageMime (profile photos)", () => {
+  it("allows only JPEG, PNG and WebP", () => {
+    expect([...IMAGE_MIME]).toEqual(["image/jpeg", "image/png", "image/webp"]);
+    expect(isImageMime("image/png")).toBe(true);
+    expect(isImageMime("application/pdf")).toBe(false);
+    expect(isImageMime("image/gif")).toBe(false);
+  });
+
+  it("rejects PDF bytes even when declared as an image", () => {
+    expect(matchesMime(ascii("%PDF-1.7"), "image/png")).toBe(false);
   });
 });

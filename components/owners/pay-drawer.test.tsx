@@ -148,3 +148,20 @@ describe("PayDrawer — advance (F12)", () => {
     expect(warning).toHaveBeenCalledWith("Above the advance limit — allowed, but flagged.");
   });
 });
+
+describe("PayDrawer — advance limit panel (Advances & Loans F12, F14)", () => {
+  it("shows the limit, the share used and the owed warning", async () => {
+    const data = ownerPage();
+    render(<PayDrawer locale="en" mode="advance" data={{ ...data, advanceLimitPaisa: 1243595 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const panel = screen.getByTestId("advance-limit-panel");
+    expect(panel).toHaveTextContent("৳12,435.95");
+    expect(panel).toHaveTextContent("Tanvir Ahmed is owed ৳8,055.85 — pay that first; an advance is for money beyond what is owed.");
+    await userEvent.type(screen.getByLabelText(/^Amount/), "6000");
+    expect(panel).toHaveTextContent("48% of the limit");
+  });
+
+  it("says there is no limit yet", () => {
+    render(<PayDrawer locale="en" mode="advance" data={{ ...ownerPage(), advanceLimitPaisa: null }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.getByTestId("advance-limit-panel")).toHaveTextContent("No limit yet — no closed months.");
+  });
+});

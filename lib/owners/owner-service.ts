@@ -21,7 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName, rolesOf } from "@/lib/users/dto";
 import { initials as initialsOf } from "@/lib/users/initials";
 import type { OwnerDetailDto, OwnerDto, OwnerListDto } from "./dto";
-import { activeLoans, loanOutstandingByOwner } from "./loan-service";
+import { activeLoans, loanOutstandingByOwner } from "@/lib/loans/loan-service";
 import { loadShareSets, type ShareSetRow } from "./share-service";
 
 type Db = Prisma.TransactionClient | typeof prisma;

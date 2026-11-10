@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { can, permissionsFor, type Permission, type Role } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import { rolesOf } from "@/lib/users/dto";
 import { COOKIE } from "./cookies";
 import { getLocale } from "@/lib/i18n/server";
@@ -22,6 +23,8 @@ export type Viewer = {
   username: string;
   firstName: string | null;
   lastName: string | null;
+  /** Same-origin profile photo URL, or null (add-profile-photo). */
+  avatarUrl: string | null;
   locale: "bn" | "en";
   roles: Role[];
   permissions: Permission[];
@@ -47,6 +50,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
+    avatarUrl: user.avatarAttachmentId ? attachmentFileUrl(user.avatarAttachmentId) : null,
     locale: user.locale,
     roles,
     permissions: permissionsFor(roles),

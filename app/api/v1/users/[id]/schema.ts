@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { ApiErrorSchema, apiSuccessSchema, jsonResponse } from "@/lib/api/openapi";
 import { cookieAuth, cookieAuthRead, PublicUserSchema, RoleSchema } from "@/lib/api/schemas";
-import { identityFields, profileFields } from "@/lib/validation/user-fields";
+import { avatarIdField, identityFields, profileFields } from "@/lib/validation/user-fields";
 import { registry } from "../../registry";
 import { UserEnvelopeSchema } from "../schema";
 
-export const PatchUserBodySchema = z.object({ ...profileFields, ...identityFields }).strict().meta({ id: "PatchUserBody" });
+export const PatchUserBodySchema = z.object({ ...profileFields, ...identityFields, avatarId: avatarIdField }).strict().meta({ id: "PatchUserBody" });
 export const UserDetailSchema = z
   .object({ user: PublicUserSchema, roles: z.array(RoleSchema), lastLoginAt: z.iso.datetime().nullable() })
   .meta({ id: "UserDetail" });
@@ -33,7 +33,7 @@ registry.registerPath({
   path: "/users/{id}",
   tags: ["Users"],
   summary: "Edit a user (any field, incl. username/email)",
-  description: "Permission `user.update`.",
+  description: "Permission `user.update`. `avatarId` (from POST /avatars/presign) sets or replaces the photo; `null` removes it.",
   security: cookieAuth,
   request: { params: idParam, body: { content: { "application/json": { schema: PatchUserBodySchema } } } },
   responses: {

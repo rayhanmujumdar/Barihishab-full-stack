@@ -148,3 +148,19 @@ describe("Settings › Reserve holdback (Distribution F9, SET-02)", () => {
     expect(screen.getByText("Enter a valid amount.")).toBeInTheDocument();
   });
 });
+
+describe("Settings › Advance limit (Advances & Loans F14, SET-02)", () => {
+  it("is hidden without settings.manage and saves the chosen multiplier", async () => {
+    const { unmount } = render(<SettingsView {...props} />);
+    expect(screen.queryByRole("heading", { name: "Advance limit" })).toBeNull();
+    unmount();
+    api.mockResolvedValue({ ok: true, status: 200, data: { multiplierPct: 200 } });
+    render(<SettingsView {...props} advanceLimitPct={100} />);
+    expect(screen.getByRole("heading", { name: "Advance limit" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "1×" })).toBeChecked();
+    for (const name of ["0.5×", "1.5×", "2×"]) expect(screen.getByRole("radio", { name })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "2×" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save advance limit" }));
+    expect(api).toHaveBeenLastCalledWith("/settings/advance-limit", { method: "PUT", body: { multiplierPct: 200 } });
+  });
+});

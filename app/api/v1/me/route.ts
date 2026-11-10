@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { readJson } from "@/lib/api/body";
 import { apiError } from "@/lib/api/errors";
 import { ok } from "@/lib/api/response";
+import { failResponse } from "@/lib/api/result";
 import { withAuth, type AuthContext } from "@/lib/auth/guard";
 import { requestMeta } from "@/lib/auth/request-meta";
 import { can } from "@/lib/permissions";
@@ -30,7 +31,7 @@ export const PATCH = withAuth(
     if (touchesIdentity && !can(auth, "profile.identity.self")) return apiError("FORBIDDEN");
 
     const result = await updateUserProfile(auth.userId, body.data, { id: auth.userId, ...requestMeta(req) });
-    if (!result.ok) return apiError(result.code);
+    if (!result.ok) return failResponse(result);
     return ok(meBody(result.user as Parameters<typeof sessionPayload>[0]));
   },
   { permission: "profile.update.self" },

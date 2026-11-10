@@ -30,7 +30,7 @@ type Mode = { kind: Kind; entry?: undefined } | { entry: TxnDto; kind?: undefine
 type Warning = { code: string; fundAccountId?: string; balancePaisa?: number };
 type WriteResult = { transaction: TxnDto; warnings: Warning[] };
 
-const HIDDEN_CODES = ["OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP"];
+const HIDDEN_CODES = ["OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP", "LOAN_WRITTEN_OFF"];
 const LAST_CATEGORY = "bh.lastCategory.EXPENSE";
 const LAST_FUND = "bh.lastFund";
 

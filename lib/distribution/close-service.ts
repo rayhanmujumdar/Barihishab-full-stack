@@ -56,11 +56,11 @@ async function postEntitlementsAndInstalments(
 ): Promise<void> {
   const entitlements = f.entitlements.filter((e) => e.amountPaisa > 0);
   if (entitlements.length) {
-    await tx.ownerLedgerEntry.createMany({ data: entitlements.map((e) => ({ ...base, ownerId: e.ownerId, type: "ENTITLEMENT" as const, amountPaisa: BigInt(e.amountPaisa) })) });
+    await tx.ownerLedgerEntry.createMany({ data: entitlements.map((e) => ({ ...base, ownerId: e.ownerId, type: "ENTITLEMENT" as const, origin: "CLOSE" as const, amountPaisa: BigInt(e.amountPaisa) })) });
   }
   if (!f.deductions.length) return;
   await tx.ownerLedgerEntry.createMany({
-    data: f.deductions.map((d) => ({ ...base, ownerId: d.ownerId, loanId: d.loanId, type: "LOAN_DEDUCTION" as const, amountPaisa: BigInt(-d.amountPaisa) })),
+    data: f.deductions.map((d) => ({ ...base, ownerId: d.ownerId, loanId: d.loanId, type: "LOAN_DEDUCTION" as const, origin: "CLOSE" as const, amountPaisa: BigInt(-d.amountPaisa) })),
   });
   const paidOff = f.deductions.filter((d) => d.paysOff).map((d) => d.loanId);
   if (paidOff.length) await tx.loan.updateMany({ where: { id: { in: paidOff } }, data: { status: "REPAID" } });
@@ -119,7 +119,7 @@ export async function closeMonth(propertyId: string, month: string, version: num
   );
 }
 
-/** F7: the latest closed month only; entitlements and deductions become Void + Reversal. */
+/** F7: the latest closed month only; close-posted entitlements and deductions become Void + Reversal. */
 export async function reopenMonth(propertyId: string, month: string, reason: string, actor: Actor): Promise<Result<{ month: string }>> {
   return inTransaction(
     async (tx) => {
@@ -127,6 +127,18 @@ export async function reopenMonth(propertyId: string, month: string, reason: str
       const row = await lockPeriodRow(tx, propertyId, month);
       const laterClosed = await tx.period.count({ where: { propertyId, status: "CLOSED", month: { gt: monthDate(month) } } });
       if (row.status !== "CLOSED" || laterClosed > 0) throw new Abort(failWith("REOPEN_NOT_ALLOWED"));
+      // A written-off loan's outstanding was expensed; bringing its instalments back would
+      // leave debt on a closed loan that no total counts (Advances & Loans F10).
+      const writtenOff = await tx.loan.findFirst({
+        where: { status: "WRITTEN_OFF", deductions: { some: { periodId: row.id, origin: "CLOSE", voidedAt: null } } },
+        select: { number: true },
+      });
+      if (writtenOff) {
+        throw new Abort({
+          ...failWith("REOPEN_NOT_ALLOWED"),
+          message: `L${writtenOff.number} was written off after this month closed, so its instalments can't be reversed. Record an Adjustment in the open month instead.`,
+        });
+      }
 
       const period = await tx.period.update({ where: { id: row.id }, data: { status: "OPEN", reopenCount: { increment: 1 } } });
       await tx.periodReopen.create({
@@ -134,7 +146,8 @@ export async function reopenMonth(propertyId: string, month: string, reason: str
       });
 
       // Status is OPEN now, so the ledger guard allows the reversals in this month.
-      const posted = await tx.ownerLedgerEntry.findMany({ where: { periodId: row.id, type: { in: ["ENTITLEMENT", "LOAN_DEDUCTION"] }, voidedAt: null } });
+      // Only what the close posted: manual loan deductions stay (Advances & Loans F6).
+      const posted = await tx.ownerLedgerEntry.findMany({ where: { periodId: row.id, type: { in: ["ENTITLEMENT", "LOAN_DEDUCTION"] }, origin: "CLOSE", voidedAt: null } });
       const at = now();
       if (posted.length) {
         await tx.ownerLedgerEntry.updateMany({ where: { id: { in: posted.map((e) => e.id) } }, data: { voidedAt: at, voidedById: actor.id, voidReason: reason } });

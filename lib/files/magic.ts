@@ -4,6 +4,11 @@
 export const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 export type AllowedMime = (typeof ALLOWED_MIME)[number];
 
+/** Profile photos (add-profile-photo): images only, never PDF. */
+export const IMAGE_MIME = ["image/jpeg", "image/png", "image/webp"] as const;
+export type ImageMime = (typeof IMAGE_MIME)[number];
+export const isImageMime = (mime: string): mime is ImageMime => (IMAGE_MIME as readonly string[]).includes(mime);
+
 /** Bytes needed to recognise every allowed type. */
 export const SNIFF_BYTES = 12;
 

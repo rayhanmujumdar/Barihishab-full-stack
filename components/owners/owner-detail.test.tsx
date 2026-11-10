@@ -144,7 +144,8 @@ describe("OwnerDetail loans and instalment (Distribution F11)", () => {
     render(<OwnerDetail locale="en" data={ownerPage()} />);
     const loans = screen.getByRole("region", { name: "Loans" });
     expect(loans).toHaveTextContent("Outstanding ৳35,000");
-    expect(loans).toHaveTextContent("Medical · No instalment");
+    expect(loans).toHaveTextContent("Medical · Manual");
+    expect(within(loans).getByRole("link", { name: "L2" })).toHaveAttribute("href", "/en/advances?tab=loans&loan=l-1");
     await userEvent.click(within(loans).getByRole("button", { name: "Set instalment" }));
     const dialog = screen.getByRole("dialog", { name: "Monthly instalment" });
     await userEvent.type(within(dialog).getByLabelText(/^Monthly instalment/), "40000");
@@ -154,12 +155,17 @@ describe("OwnerDetail loans and instalment (Distribution F11)", () => {
     await userEvent.clear(within(dialog).getByLabelText(/^Monthly instalment/));
     await userEvent.type(within(dialog).getByLabelText(/^Monthly instalment/), "5000");
     await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(apiFetch).toHaveBeenCalledWith("/loans/l-1", { method: "PATCH", body: { installmentPaisa: 500000 } });
+    expect(apiFetch).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent("A reason is required — every owner can see it.");
+    await userEvent.type(within(dialog).getByLabelText(/^Reason/), "Agreed at family meeting");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(apiFetch).toHaveBeenCalledWith("/loans/l-1", { method: "PATCH", body: { installmentPaisa: 500000, reason: "Agreed at family meeting" } });
   });
 
   it("shows loans read-only to Owners", () => {
     render(<OwnerDetail locale="en" data={ownerPage({ perms: ownerPagePermsNone })} />);
     expect(screen.getByRole("region", { name: "Loans" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set instalment" })).toBeNull();
+    expect(screen.getByRole("link", { name: "L2" })).toBeInTheDocument();
   });
 });

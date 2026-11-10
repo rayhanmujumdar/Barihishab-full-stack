@@ -48,6 +48,10 @@ export const ALL_PERMISSIONS = [
   "period.reopen",
   "reserve.override",
   "loan.manage",
+  // Advances & Loans PRD §4 (P1)
+  "loan.view",
+  "loan.create",
+  "loan.repay",
 ] as const;
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
@@ -62,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "attachment.view",
     "owner.view",
     "distribution.view",
+    "loan.view",
   ],
   ACCOUNTANT: [],
   VIEWER: [],

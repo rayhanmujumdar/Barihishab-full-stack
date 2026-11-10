@@ -14,6 +14,8 @@ import { apiFetch, fieldErrors, type ApiResult } from "@/lib/api/client";
 import { useApiMutation } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import type { PublicUser } from "@/lib/users/dto";
+import { AvatarPicker } from "./AvatarPicker";
+import { uploadAvatar } from "./avatar-upload";
 
 type FormState = {
   username: string;
@@ -76,6 +78,11 @@ export function UserForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [roleConfirmOpen, setRoleConfirmOpen] = useState(false);
+  // Photo: picked file (uploaded on Save), or a confirmed removal of the saved one.
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  // An upload survives a failed save (e.g. 409), so a retry doesn't upload again.
+  const [uploaded, setUploaded] = useState<{ file: File; id: string } | null>(null);
   // The list cache is patched by the parent (onSaved / onProfileSaved → UsersManager.replaceUser).
   const createUser = useApiMutation(["users", "create"], (body: Record<string, unknown>) => apiFetch<{ user: PublicUser }>("/users", { method: "POST", body }));
   const updateUser = useApiMutation(["users", "update"], (v: { id: string; body: Record<string, unknown> }) => apiFetch<{ user: PublicUser }>(`/users/${v.id}`, { method: "PATCH", body: v.body }));
@@ -125,15 +132,33 @@ export function UserForm({
       email: form.email,
     };
 
+    // Upload the picked photo before the form goes out; a failure keeps the drawer as it is.
+    let avatarId: string | null | undefined = photoRemoved ? null : undefined;
+    if (photo) {
+      if (uploaded?.file === photo) avatarId = uploaded.id;
+      else {
+        const up = await uploadAvatar(photo);
+        if (!up.ok) {
+          setPending(false);
+          setRoleConfirmOpen(false);
+          setErrors({ avatarId: tr(up.reason === "bad" ? "photo.bad" : "photo.failed") });
+          return;
+        }
+        setUploaded({ file: photo, id: up.id });
+        avatarId = up.id;
+      }
+    }
+    const withPhoto = avatarId === undefined ? profile : { ...profile, avatarId };
+
     if (isNew) {
-      const res = await createUser.run({ ...profile, role: form.role });
+      const res = await createUser.run({ ...withPhoto, role: form.role });
       setPending(false);
       if (res.ok) onSaved(res.data.user, true);
       else applyErrors(res);
       return;
     }
 
-    const res = await updateUser.run({ id: user.id, body: profile });
+    const res = await updateUser.run({ id: user.id, body: withPhoto });
     if (!res.ok) {
       setPending(false);
       setRoleConfirmOpen(false);
@@ -187,6 +212,21 @@ export function UserForm({
             </Alert>
           ) : null}
           <RequiredLegend text={tr("common.required")} />
+          <AvatarPicker
+            locale={locale}
+            name={[form.firstName, form.lastName].filter(Boolean).join(" ") || form.username || "?"}
+            currentUrl={photoRemoved ? null : (user?.avatarUrl ?? null)}
+            picked={photo}
+            onPick={(file) => {
+              setPhoto(file);
+              setErrors(({ avatarId: _drop, ...rest }) => rest);
+            }}
+            onClearPick={() => setPhoto(null)}
+            onRemove={() => setPhotoRemoved(true)}
+            error={errors.avatarId}
+            busy={pending}
+            removeBody={user ? tr("photo.removeBodyAdmin", { name: user.name }) : undefined}
+          />
           <div className="grid-2">
             <TextField id="u-username" label={tr("users.field.username")} placeholder={tr("ph.username")} value={form.username} onChange={(e) => set("username", e.target.value.toLowerCase())} error={errors.username} autoCapitalize="none" required />
             <TextField id="u-email" type="email" label={tr("users.field.email")} placeholder={tr("ph.email")} value={form.email} onChange={(e) => set("email", e.target.value)} error={errors.email} required />

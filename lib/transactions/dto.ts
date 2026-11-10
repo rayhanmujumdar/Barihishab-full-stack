@@ -30,7 +30,7 @@ export type TxnDto = {
   description: string | null;
   fromReserve: boolean;
   referencePeriod: string | null;
-  source: "MANUAL" | "GENERATED_RENT" | "ADJUSTMENT";
+  source: "MANUAL" | "GENERATED_RENT" | "ADJUSTMENT" | "LOAN_WRITE_OFF";
   isCorrected: boolean;
   voidedAt: string | null;
   voidReason: string | null;
