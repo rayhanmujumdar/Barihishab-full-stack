@@ -51,14 +51,20 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
  * Every ledger entry in posting month, then recording order. Recording order
  * (not the entry date) decides recovery: a payout can't exceed the balance when
  * it is recorded, so a back-dated advance entered after a full payout is still
- * money beyond what was owed (§7.6).
+ * money beyond what was owed (§7.6). Rows written in one transaction share a
+ * timestamp (a payout split's PAYOUT + ADVANCE, a close's entitlement +
+ * deduction): credits go first, other debits next, advances last.
  */
 async function ledgerInOrder(propertyId: string) {
-  return prisma.ownerLedgerEntry.findMany({
+  const rows = await prisma.ownerLedgerEntry.findMany({
     where: { propertyId },
-    select: { id: true, ownerId: true, type: true, amountPaisa: true, entryDate: true, note: true, origin: true, isSelf: true, flagged: true, voidedAt: true, voidReason: true, period: { select: { month: true } } },
-    orderBy: [{ period: { month: "asc" } }, { createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, ownerId: true, type: true, amountPaisa: true, entryDate: true, createdAt: true, note: true, origin: true, isSelf: true, flagged: true, voidedAt: true, voidReason: true, period: { select: { month: true } } },
   });
+  const rank = (e: (typeof rows)[number]) => (e.amountPaisa > BigInt(0) ? 0 : e.type === "ADVANCE" ? 2 : 1);
+  return rows.sort(
+    (a, b) =>
+      a.period.month.getTime() - b.period.month.getTime() || a.createdAt.getTime() - b.createdAt.getTime() || rank(a) - rank(b) || a.id.localeCompare(b.id),
+  );
 }
 
 /** Non-voided entitlement totals per owner in the last 3 closed months (newest first). */
