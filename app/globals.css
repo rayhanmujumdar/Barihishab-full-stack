@@ -553,7 +553,15 @@ svg[data-slot="icon"] {
 /* ─── Income & expenses (S3/S4) ─── */
 .skeleton {
   background: var(--color-neutral-200);
+  border-radius: 0;
+  pointer-events: none;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+/* Loading placeholders (loading-skeletons spec): inert, never selectable. */
+.skeleton-region {
+  min-width: 0;
+  user-select: none;
+  pointer-events: none;
 }
 @keyframes skeleton-pulse {
   50% {

@@ -15,6 +15,7 @@ import { currentPropertyId } from "@/lib/property";
 import { decisionContexts } from "@/lib/requests/context-service";
 import type { DecisionContext } from "@/lib/requests/dto";
 import { listRequests, MAX_LIMIT, requestDetail } from "@/lib/requests/request-read";
+import { RequestsSkeleton } from "@/components/skeletons/pages";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -30,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RequestsPage({ searchParams }: { searchParams: Search }) {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<p className="muted">{t(locale, "common.loading")}</p>}>
+    <Suspense fallback={<RequestsSkeleton locale={locale} />}>
       <Requests searchParams={searchParams} />
     </Suspense>
   );

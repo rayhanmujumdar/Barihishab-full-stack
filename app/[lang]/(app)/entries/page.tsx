@@ -26,7 +26,7 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 export default async function EntriesPage({ searchParams }: { searchParams: Search }) {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<EntriesSkeleton label={t(locale, "entries.loading")} />}>
+    <Suspense fallback={<EntriesSkeleton locale={locale} />}>
       <Entries searchParams={searchParams} />
     </Suspense>
   );

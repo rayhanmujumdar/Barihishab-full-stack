@@ -19,6 +19,7 @@ import { recentEntitlements } from "@/lib/owners/ledger-service";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
+import { OwnerDetailSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.owner") };
@@ -30,7 +31,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<str
 export default async function OwnerPage(props: Props) {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<p className="muted">{t(locale, "owners.loading")}</p>}>
+    <Suspense fallback={<OwnerDetailSkeleton locale={locale} />}>
       <Owner {...props} />
     </Suspense>
   );

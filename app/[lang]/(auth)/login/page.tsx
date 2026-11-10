@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { AuthHeading, FormSkeleton } from "@/components/auth/AuthHeading";
+import { AuthHeading } from "@/components/auth/AuthHeading";
+import { AuthFormSkeleton } from "@/components/skeletons/pages";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { safeLocalNext } from "@/lib/auth/safe-redirect";
 import { getViewer } from "@/lib/auth/server";
@@ -12,9 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.login") };
 }
 
-export default function LoginPage({ searchParams }: PageProps<"/[lang]/login">) {
+export default async function LoginPage({ searchParams }: PageProps<"/[lang]/login">) {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={<FormSkeleton />}>
+    <Suspense fallback={<AuthFormSkeleton locale={locale} />}>
       <Login searchParams={searchParams} />
     </Suspense>
   );

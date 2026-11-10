@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { AuthHeading, FormSkeleton } from "@/components/auth/AuthHeading";
+import { AuthHeading } from "@/components/auth/AuthHeading";
+import { AuthFormSkeleton } from "@/components/skeletons/pages";
 import { ResetExpired } from "@/components/auth/ResetExpired";
 import { ResetForm } from "@/components/auth/ResetForm";
 import { inspectToken } from "@/lib/auth/token-service";
@@ -12,9 +13,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.reset") };
 }
 
-export default function ResetPage({ params }: PageProps<"/[lang]/reset/[token]">) {
+export default async function ResetPage({ params }: PageProps<"/[lang]/reset/[token]">) {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={<FormSkeleton />}>
+    <Suspense fallback={<AuthFormSkeleton locale={locale} />}>
       <Reset params={params} />
     </Suspense>
   );

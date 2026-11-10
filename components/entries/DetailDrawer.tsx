@@ -20,6 +20,8 @@ import { monthLabel } from "@/lib/periods/month";
 import { AttachmentPicker } from "./AttachmentPicker";
 import { categoryName, longDate } from "./format";
 import type { EntriesPerms, TxnDto } from "./types";
+import { DetailDrawerSkeleton } from "@/components/skeletons/overlays";
+import { Skeleton } from "@/components/skeletons/primitives";
 
 export type Detail = TxnDto & {
   recordedBy: string | null;
@@ -130,10 +132,22 @@ export function DetailDrawer({
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" showCloseButton={false} aria-describedby={undefined} className="w-full gap-0 border-l-2 border-foreground bg-background p-0 sm:max-w-135">
         <SheetHeader className="flex-row items-start justify-between gap-3 border-b-2 border-foreground px-5 py-4">
-          <div>
-            <p className="kicker">{detail ? tr(detail.kind === "INCOME" ? "detail.income" : "detail.expense") : tr("detail.loading")}</p>
-            <SheetTitle className="text-[22px] font-extrabold tracking-[-0.015em]">{detail ? categoryName(locale, detail.category) : "…"}</SheetTitle>
-          </div>
+          {detail ? (
+            <div>
+              <p className="kicker">{tr(detail.kind === "INCOME" ? "detail.income" : "detail.expense")}</p>
+              <SheetTitle className="text-[22px] font-extrabold tracking-[-0.015em]">{categoryName(locale, detail.category)}</SheetTitle>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 pt-1">
+              {detailQuery.isPending ? (
+                <>
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-6 w-40" />
+                </>
+              ) : null}
+              <SheetTitle className="sr-only">{tr(detailQuery.isPending ? "detail.loading" : "detail.failed")}</SheetTitle>
+            </div>
+          )}
           <SheetClose asChild>
             <Button ref={closeRef} variant="ghost" size="icon" aria-label={tr("common.close")}>
               <XMarkIcon />
@@ -211,6 +225,8 @@ export function DetailDrawer({
                 </ol>
               </section>
             </>
+          ) : detailQuery.isPending ? (
+            <DetailDrawerSkeleton locale={locale} />
           ) : null}
         </div>
         {canFix || canVoid ? (

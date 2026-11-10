@@ -12,6 +12,7 @@ import { getLocale } from "@/lib/i18n/server";
 import { loanDetail } from "@/lib/loans/loan-read";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
+import { StatementPrintSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.loanStatement") };
@@ -20,10 +21,11 @@ export async function generateMetadata(): Promise<Metadata> {
 type Props = { params: Promise<{ id: string }> };
 
 /** Loan statement print view → browser "Save as PDF" (Advances & Loans PRD F15). No app chrome. */
-export default function LoanPrintPage(props: Props) {
+export default async function LoanPrintPage(props: Props) {
+  const locale = await getLocale();
   return (
     <main className="print-page">
-      <Suspense fallback={null}>
+      <Suspense fallback={<StatementPrintSkeleton locale={locale} />}>
         <Print {...props} />
       </Suspense>
     </main>

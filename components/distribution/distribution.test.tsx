@@ -175,6 +175,18 @@ describe("role-aware actions (§4)", () => {
 });
 
 describe("Close month dialog (F5, G2, G12)", () => {
+  it("shows a preview skeleton and keeps Close & lock disabled while the checks load", async () => {
+    api.mockImplementation((path: string) => (path.endsWith("close-preview") ? new Promise(() => {}) : Promise.resolve({ ok: true, status: 200, data: closedOctober() })));
+    show(october());
+    await userEvent.click(screen.getByRole("button", { name: /Close month/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Close month · October 2026" });
+    const region = within(dialog).getByLabelText("Checking the month…");
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(region.querySelectorAll(".skeleton").length).toBeGreaterThanOrEqual(6);
+    expect(within(dialog).queryByText("Checking the month…")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: /Close & lock/ })).toBeDisabled();
+  });
+
   it("lists checks, warnings and what happens, then closes with the version", async () => {
     api.mockImplementation(async (path: string) =>
       path.endsWith("close-preview") ? { ok: true, status: 200, data: preview({ reopenCount: 2 }) } : { ok: true, status: 200, data: closedOctober() },

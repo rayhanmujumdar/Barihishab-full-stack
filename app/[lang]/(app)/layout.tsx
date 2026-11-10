@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { ShellNav, TopbarAction } from "@/components/app/ShellNav";
 import { LanguageToggle } from "@/components/app/language-toggle";
+import { ShellSkeleton } from "@/components/skeletons/shell";
 import { requireViewer } from "@/lib/auth/server";
 import { translator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
@@ -12,9 +13,12 @@ import { initials } from "@/lib/users/initials";
 
 // App shell (design system §4). The session read streams in behind Suspense,
 // as Cache Components requires; the proxy has already bounced anonymous visits.
-export default function AppLayout({ children }: LayoutProps<"/[lang]">) {
+// Until it resolves, the shell skeleton holds the layout (loading-skeletons).
+export default async function AppLayout({ children }: LayoutProps<"/[lang]">) {
+  // The locale is a static root param, so the shell skeleton stays in the prerendered shell.
+  const locale = await getLocale();
   return (
-    <Suspense fallback={<div className="shell" aria-busy="true" />}>
+    <Suspense fallback={<ShellSkeleton locale={locale} />}>
       <Shell>{children}</Shell>
     </Suspense>
   );

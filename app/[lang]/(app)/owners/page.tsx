@@ -11,6 +11,7 @@ import { listShareSets } from "@/lib/owners/share-service";
 import { ensureCurrentPeriod, listPeriods } from "@/lib/periods/period-service";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
+import { OwnersSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.owners") };
@@ -20,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function OwnersPage() {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<p className="muted">{t(locale, "owners.loading")}</p>}>
+    <Suspense fallback={<OwnersSkeleton locale={locale} />}>
       <Owners />
     </Suspense>
   );

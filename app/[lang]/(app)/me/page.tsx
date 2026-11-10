@@ -8,14 +8,16 @@ import { describeUserAgent } from "@/lib/auth/user-agent";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { toPublicUser } from "@/lib/users/dto";
+import { ProfileSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.profile") };
 }
 
-export default function MePage() {
+export default async function MePage() {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ProfileSkeleton locale={locale} />}>
       <Me />
     </Suspense>
   );

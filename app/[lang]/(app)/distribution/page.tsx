@@ -12,6 +12,7 @@ import { isMonthKey } from "@/lib/periods/month";
 import { ensureCurrentPeriod } from "@/lib/periods/period-service";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
+import { DistributionSkeleton } from "@/components/skeletons/pages";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -23,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DistributionPage({ searchParams }: { searchParams: Search }) {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<p className="muted">{t(locale, "common.loading")}</p>}>
+    <Suspense fallback={<DistributionSkeleton locale={locale} />}>
       <Distribution searchParams={searchParams} />
     </Suspense>
   );

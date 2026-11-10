@@ -1,23 +1,26 @@
-// S3 loading state: six skeleton rows (Income & Expenses PRD §6.1).
-export function EntriesSkeleton({ label }: { label: string }) {
+// S3 loading state: six skeleton rows (Income & Expenses PRD §6.1, LST-01..05),
+// under the same head, month picker and Income/Expense tabs as the real list.
+import { Skeleton, SkeletonMonthPicker, SkeletonPageHead, SkeletonRegion, SkeletonRows } from "@/components/skeletons/primitives";
+import { translator, type Locale } from "@/lib/i18n";
+
+export function EntriesSkeleton({ locale }: { locale: Locale }) {
   return (
-    <div className="page-stack" aria-busy="true" aria-label={label}>
-      <div>
-        <div className="skeleton h-3 w-24" />
-        <div className="skeleton mt-3 h-10 w-72 max-w-full" />
-      </div>
-      <div className="grid grid-cols-2 border-t-2 border-foreground">
-        <div className="skeleton m-3 h-12" />
-        <div className="skeleton m-3 h-12" />
-      </div>
-      <ul className="m-0 list-none p-0">
-        {Array.from({ length: 6 }, (_, i) => (
-          <li key={i} className="list-row">
-            <div className="skeleton h-4 w-1/2" />
-            <div className="skeleton h-5 w-20" />
-          </li>
-        ))}
-      </ul>
-    </div>
+    <SkeletonRegion label={translator(locale)("entries.loading")} className="page-stack">
+      <SkeletonPageHead action />
+      <SkeletonMonthPicker />
+      <section className="flex flex-col gap-4">
+        <div className="entry-tabs">
+          <span className="flex flex-col gap-2 p-3 pl-0">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-32" />
+          </span>
+          <span className="flex flex-col gap-2 p-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-32" />
+          </span>
+        </div>
+        <SkeletonRows rows={6} meta />
+      </section>
+    </SkeletonRegion>
   );
 }
