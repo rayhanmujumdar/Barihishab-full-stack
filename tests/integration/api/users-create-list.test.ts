@@ -116,6 +116,23 @@ describe("GET /api/v1/users", () => {
     expect(first.data.activeSuperAdminCount).toBe(1);
   });
 
+  it("reports each INVITED user's latest invite delivery state, code only", async () => {
+    const { login } = await admin();
+    const created = await json(await createUserApi(apiRequest("/users", { body: valid, login }), p));
+    const invitedId: string = created.data.user.id;
+    await prisma.emailOutbox.updateMany({
+      where: { toUserId: invitedId },
+      data: { status: "FAILED", attempts: 1, lastError: "SENDER_NOT_VERIFIED: The gmail.com domain is not verified" },
+    });
+    const active = await createUser({ status: "ACTIVE" });
+
+    const items: { id: string; inviteEmail: unknown }[] = (await json(await listUsers(apiRequest("/users", { login }), p))).data.items;
+    const invited = items.find((u) => u.id === invitedId);
+    expect(invited?.inviteEmail).toEqual({ status: "FAILED", queuedAt: expect.any(String), sentAt: null, failureCode: "SENDER_NOT_VERIFIED" });
+    expect(items.find((u) => u.id === active.id)?.inviteEmail).toBeNull();
+    expect(JSON.stringify(items)).not.toContain("domain is not verified");
+  });
+
   it("returns one user or 404", async () => {
     const { login } = await admin();
     const u = await createUser();

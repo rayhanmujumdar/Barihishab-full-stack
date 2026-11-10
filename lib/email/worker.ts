@@ -5,11 +5,12 @@ import type { EmailOutbox, Prisma } from "@/lib/generated/prisma/client";
 import { addMs, MINUTE, now } from "@/lib/clock";
 import { mask } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { EmailSendError, MAX_ATTEMPTS } from "./errors";
 import type { OutboxPayload } from "./outbox";
 import { renderEmail } from "./render";
 import type { Transport } from "./transport";
 
-export const MAX_ATTEMPTS = 5;
+export { MAX_ATTEMPTS };
 const LEASE_MS = 10 * MINUTE;
 
 /** Raw tokens may only live in the outbox until the row is terminal. */
@@ -58,14 +59,18 @@ export async function processBatch(
       stats.sent++;
     } catch (err) {
       const attempts = row.attempts + 1;
-      const lastError = mask(err instanceof Error ? err.message : String(err)).slice(0, 500);
-      if (attempts >= MAX_ATTEMPTS) {
+      const detail = mask(err instanceof Error ? err.message : String(err));
+      // Permanent rejections (unverified sender, bad address) can never succeed: fail now.
+      const permanent = err instanceof EmailSendError && err.permanent;
+      if (permanent || attempts >= MAX_ATTEMPTS) {
+        const code = permanent ? err.code : "RETRIES_EXHAUSTED";
+        const lastError = `${code}: ${detail}`.slice(0, 500);
         await prisma.emailOutbox.update({ where: { id: row.id }, data: { status: "FAILED", attempts, lastError, payload: scrubbed(row.payload) } });
         stats.failed++;
       } else {
         await prisma.emailOutbox.update({
           where: { id: row.id },
-          data: { status: "QUEUED", attempts, lastError, nextAttemptAt: addMs(now(), 2 ** attempts * MINUTE) },
+          data: { status: "QUEUED", attempts, lastError: detail.slice(0, 500), nextAttemptAt: addMs(now(), 2 ** attempts * MINUTE) },
         });
         stats.retried++;
       }

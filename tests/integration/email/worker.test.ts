@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { enqueueEmail } from "@/lib/email/outbox";
 import { MAX_ATTEMPTS, processBatch } from "@/lib/email/worker";
 import type { Transport } from "@/lib/email/transport";
+import { EmailSendError, type SendFailureCode } from "@/lib/email/errors";
 import { createUser } from "../../helpers/factory";
 
 afterEach(() => vi.useRealTimers());
@@ -17,6 +18,17 @@ function fakeTransport(fail = false) {
     },
   };
   return { t, sent };
+}
+
+function failingTransport(code: SendFailureCode, message: string) {
+  let calls = 0;
+  const t: Transport = {
+    async send() {
+      calls++;
+      throw new EmailSendError(code, message, "validation_error", 403);
+    },
+  };
+  return { t, calls: () => calls };
 }
 
 async function queueInvite(userId: string, email: string, key = "k1") {
@@ -62,7 +74,35 @@ describe("email worker", () => {
     }
     row = await prisma.emailOutbox.findFirstOrThrow();
     expect(row).toMatchObject({ status: "FAILED", attempts: MAX_ATTEMPTS });
+    expect(row.lastError).toMatch(/^RETRIES_EXHAUSTED: /);
     expect(JSON.stringify(row.payload)).not.toContain("RAW_TOKEN_VALUE");
+  });
+
+  it("fails a permanently rejected email on the first attempt without retrying", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const user = await createUser({ status: "INVITED", password: null });
+    await queueInvite(user.id, user.email);
+    const { t, calls } = failingTransport("SENDER_NOT_VERIFIED", "The gmail.com domain is not verified for owner@gmail.com");
+    expect(await processBatch(t)).toMatchObject({ sent: 0, failed: 1, retried: 0 });
+    const row = await prisma.emailOutbox.findFirstOrThrow();
+    expect(row).toMatchObject({ status: "FAILED", attempts: 1 });
+    expect(row.lastError).toMatch(/^SENDER_NOT_VERIFIED: /);
+    expect(row.lastError).not.toContain("owner@gmail.com");
+    expect(JSON.stringify(row.payload)).not.toContain("RAW_TOKEN_VALUE");
+
+    vi.setSystemTime(Date.now() + 24 * 3600_000);
+    await processBatch(t);
+    expect(calls()).toBe(1);
+  });
+
+  it("retries a rate-limited email", async () => {
+    const user = await createUser({ status: "INVITED", password: null });
+    await queueInvite(user.id, user.email);
+    const { t } = failingTransport("TRANSIENT", "Too many requests");
+    expect(await processBatch(t)).toMatchObject({ retried: 1, failed: 0 });
+    const row = await prisma.emailOutbox.findFirstOrThrow();
+    expect(row).toMatchObject({ status: "QUEUED", attempts: 1 });
+    expect(row.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("never emails an inactive user", async () => {

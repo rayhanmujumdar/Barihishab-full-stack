@@ -27,6 +27,7 @@
     "db:seed:advances-loans": "tsx scripts/seed-advances-loans.ts",
     "db:seed:requests": "tsx scripts/seed-requests.ts",
     "email:worker": "tsx scripts/email-worker.ts",
+    "email:test": "tsx scripts/email-test.ts",
     "storage:init": "tsx scripts/storage-init.ts"
   },
   "dependencies": {

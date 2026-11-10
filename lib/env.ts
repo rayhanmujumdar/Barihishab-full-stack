@@ -1,16 +1,18 @@
 // Server-only environment, validated once. Never import from client components
 // (none of these are NEXT_PUBLIC_, so Next would never inline them anyway).
 import { z } from "zod";
+import { assertSendableSender, EmailEnvFields } from "./email/config";
 
 const EnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: EmailEnvFields.NODE_ENV,
   DATABASE_URL: z.string().min(1),
   APP_URL: z.url().default("http://localhost:3000"),
   AUTH_JWT_SECRET: z.string().min(32, "AUTH_JWT_SECRET must be at least 32 characters"),
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   BETTER_AUTH_URL: z.url().optional(),
-  RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM: z.string().default("BariHisab <no-reply@barihisab.local>"),
+  RESEND_API_KEY: EmailEnvFields.RESEND_API_KEY,
+  EMAIL_FROM: EmailEnvFields.EMAIL_FROM,
+  EMAIL_WORKER: EmailEnvFields.EMAIL_WORKER,
   TRUST_PROXY: z
     .enum(["true", "false"])
     .default("false")
@@ -34,14 +36,20 @@ export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | undefined;
 
-export function env(): Env {
-  if (cached) return cached;
-  const parsed = EnvSchema.safeParse(process.env);
+/** Validates an environment. Production refuses an unsendable EMAIL_FROM; development only warns (instrumentation.ts). */
+export function parseEnv(source: Record<string, string | undefined>): Env {
+  const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
     const fields = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid server environment — ${fields}`);
   }
-  cached = parsed.data;
+  assertSendableSender(parsed.data);
+  return parsed.data;
+}
+
+export function env(): Env {
+  if (cached) return cached;
+  cached = parseEnv(process.env);
   return cached;
 }
 

@@ -57,6 +57,7 @@ export const qk = {
   },
   owners: { all: ["owners"] as const },
   me: { all: ["me"] as const },
+  email: { all: ["email"] as const, outboxStatus: ["email", "outbox-status"] as const },
 };
 
 /** Same-origin URL of a bill/receipt (thumbnails, lightbox, PDF links). */

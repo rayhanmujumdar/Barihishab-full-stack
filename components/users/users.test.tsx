@@ -456,3 +456,92 @@ describe("UsersManager photos (A6, add-profile-photo)", () => {
     await waitFor(() => expect(api).toHaveBeenCalledWith(`/users/${withPhoto.id}`, expect.objectContaining({ body: expect.objectContaining({ avatarId: "r2" }) })));
   });
 });
+
+describe("UsersManager email delivery (fix-email-delivery)", () => {
+  const healthy = { queued: 0, oldestQueuedAt: null, stalled: false, failedLast7Days: 0, lastFailure: null };
+  const failedInvite = { status: "FAILED", queuedAt: "2026-11-10T06:00:00.000Z", sentAt: null, failureCode: "SENDER_NOT_VERIFIED" } as const;
+  const sentInvite = { status: "SENT", queuedAt: "2026-11-10T06:00:00.000Z", sentAt: "2026-11-10T06:04:00.000Z", failureCode: null } as const;
+
+  async function openAction(name: string, action: string) {
+    await userEvent.click(within(row(name)).getByRole("button", { name: new RegExp(`Actions for ${name}`) }));
+    await userEvent.click(screen.getByRole("menuitem", { name: action }));
+    return screen.findByRole("alertdialog");
+  }
+
+  it("shows why an invite was not sent, in words", () => {
+    const items = [admin, { ...invited, inviteEmail: failedInvite }];
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items }} outbox={healthy} />);
+    expect(within(row("Karim")).getByText("Invite not sent — sender address not verified")).toBeInTheDocument();
+  });
+
+  it("shows when an invite was sent, in Dhaka time", () => {
+    const items = [admin, { ...invited, inviteEmail: sentInvite }];
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items }} outbox={healthy} />);
+    // 06:04 UTC = 12:04 Asia/Dhaka
+    expect(within(row("Karim")).getByText(/Invite sent .*12:04/)).toBeInTheDocument();
+  });
+
+  it("shows the Bangla reason for a failed invite", () => {
+    const items = [admin, { ...invited, inviteEmail: failedInvite }];
+    render(<UsersManager locale="bn" viewerId={admin.id} initial={{ ...initial, items }} outbox={healthy} />);
+    expect(within(row("Karim")).getByText("আমন্ত্রণ পাঠানো যায়নি — প্রেরকের ঠিকানা যাচাই করা হয়নি")).toBeInTheDocument();
+  });
+
+  it("warns when the email worker looks stopped, ahead of recent failures", () => {
+    const outbox = { ...healthy, queued: 3, stalled: true, failedLast7Days: 2, lastFailure: { at: "2026-11-10T06:00:00.000Z", template: "INVITE", failureCode: "SENDER_NOT_VERIFIED" } } as const;
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} outbox={outbox} />);
+    const banner = screen.getByRole("status", { name: /email delivery/i });
+    expect(banner).toHaveTextContent("Emails are not being sent. The email worker may be stopped.");
+    expect(banner).not.toHaveTextContent("failed to send");
+  });
+
+  it("reports recent failures with the last reason", () => {
+    const outbox = { ...healthy, failedLast7Days: 2, lastFailure: { at: "2026-11-10T06:00:00.000Z", template: "INVITE", failureCode: "SENDER_NOT_VERIFIED" } } as const;
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} outbox={outbox} />);
+    expect(screen.getByRole("status", { name: /email delivery/i })).toHaveTextContent("2 emails failed to send in the last 7 days. Last reason: sender address not verified.");
+  });
+
+  it("shows no banner when email is healthy", () => {
+    render(<UsersManager locale="en" viewerId={admin.id} initial={initial} outbox={healthy} />);
+    expect(screen.queryByRole("status", { name: /email delivery/i })).toBeNull();
+  });
+
+  it("drops a stale invite state when a reactivated user returns to INVITED and refetches the real one", async () => {
+    const wasInvited = { ...inactive, inviteEmail: failedInvite };
+    const queued = { status: "QUEUED", queuedAt: new Date().toISOString(), sentAt: null, failureCode: null };
+    let listCalls = 0;
+    let releaseList: () => void = () => {};
+    const listGate = new Promise<void>((r) => (releaseList = r));
+    api.mockImplementation(async (path) => {
+      if (String(path).endsWith("/reactivate")) return { ok: true, status: 200, data: { user: { ...inactive, status: "INVITED" } } } as never;
+      if (String(path).startsWith("/email/outbox/status")) return { ok: true, status: 200, data: healthy } as never;
+      listCalls++;
+      await listGate;
+      return { ok: true, status: 200, data: { items: [admin, { ...inactive, status: "INVITED", inviteEmail: queued }], nextCursor: null, activeSuperAdminCount: 1 } } as never;
+    });
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items: [admin, wasInvited] }} outbox={healthy} />);
+    const dialog = await openAction("Gone", "Reactivate");
+    await userEvent.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Back in the house");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reactivate" }));
+    // Before the refetch lands, the old failure must not be shown as current.
+    await waitFor(() => expect(within(row("Gone")).getByText("Invited")).toBeInTheDocument());
+    expect(within(row("Gone")).queryByText(/Invite not sent/)).toBeNull();
+    await waitFor(() => expect(listCalls).toBeGreaterThan(0));
+    releaseList();
+    await waitFor(() => expect(within(row("Gone")).getByText("Invite queued — waiting to be sent")).toBeInTheDocument());
+  });
+
+  it("refreshes the invite state after a resend", async () => {
+    const items = [admin, { ...invited, inviteEmail: failedInvite }];
+    const queued = { status: "QUEUED", queuedAt: new Date().toISOString(), sentAt: null, failureCode: null };
+    api.mockImplementation(async (path) => {
+      if (String(path).endsWith("/resend-invite")) return { ok: true, status: 200, data: null } as never;
+      if (String(path).startsWith("/email/outbox/status")) return { ok: true, status: 200, data: healthy } as never;
+      return { ok: true, status: 200, data: { items: [admin, { ...invited, inviteEmail: queued }], nextCursor: null, activeSuperAdminCount: 1 } } as never;
+    });
+    render(<UsersManager locale="en" viewerId={admin.id} initial={{ ...initial, items }} outbox={healthy} />);
+    const dialog = await openAction("Karim", "Resend invite");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Resend invite" }));
+    await waitFor(() => expect(within(row("Karim")).getByText("Invite queued — waiting to be sent")).toBeInTheDocument());
+  });
+});

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ApiErrorSchema, apiSuccessSchema, jsonResponse } from "@/lib/api/openapi";
 import { cookieAuth, cookieAuthRead, PublicUserSchema, RoleSchema } from "@/lib/api/schemas";
 import { avatarIdField, emailField, enabledRoleField, localeField, profileFields, usernameField } from "@/lib/validation/user-fields";
+import { FAILURE_CODES } from "@/lib/email/errors";
 import { registry } from "../registry";
 
 export const CreateUserBodySchema = z
@@ -24,9 +25,22 @@ export const ListUsersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
+export const InviteEmailStateSchema = z
+  .object({
+    status: z.enum(["QUEUED", "SENT", "FAILED"]),
+    queuedAt: z.iso.datetime(),
+    sentAt: z.iso.datetime().nullable(),
+    failureCode: z.enum(FAILURE_CODES).nullable(),
+  })
+  .meta({ id: "InviteEmailState", description: "Delivery state of the user's latest invite email. Codes only — never addresses or provider text." });
+
+export const UserListItemSchema = PublicUserSchema.extend({
+  inviteEmail: InviteEmailStateSchema.nullable().meta({ description: "Latest invite email for INVITED users; null for everyone else" }),
+}).meta({ id: "UserListItem" });
+
 export const UserListSchema = z
   .object({
-    items: z.array(PublicUserSchema),
+    items: z.array(UserListItemSchema),
     nextCursor: z.uuid().nullable(),
     activeSuperAdminCount: z.number().int().meta({ description: "Used by the UI to disable deactivate/demote on the last active Super Admin" }),
   })

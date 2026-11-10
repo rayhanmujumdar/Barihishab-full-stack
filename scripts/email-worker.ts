@@ -1,51 +1,38 @@
-// Sends queued emails from email_outbox. Run alongside the app:
+// Sends queued emails from email_outbox. Run alongside the app in production:
 //   pnpm email:worker          # loop every 5 s
 //   pnpm email:worker --once   # one batch, then exit (cron)
-// Housekeeping rides along: rate-limit pruning every loop, and hourly a
-// sweep of bill uploads that were never linked to an entry plus the Super
-// Admin request reminders (Requests PRD F13; deduplicated, so reruns are safe).
+// In development `pnpm dev` already runs this loop in-process (instrumentation.ts).
+// The loop and its housekeeping live in lib/email/loop.ts.
 import "dotenv/config";
-import { sweepUnlinkedUploads } from "../lib/attachments/attachment-service";
-import { pruneRateLimits } from "../lib/auth/rate-limit";
-import { processBatch } from "../lib/email/worker";
+import { leaderGate, shouldRunDevWorker, warnSenderProblem } from "../lib/email/boot";
+import { runWorkerLoop } from "../lib/email/loop";
+import { senderAddress } from "../lib/email/sender";
+import { emailEnv } from "../lib/email/config";
 import { transportFromEnv } from "../lib/email/transport";
-import { logError, logInfo } from "../lib/log";
+import { logInfo } from "../lib/log";
 import { prisma } from "../lib/prisma";
-import { queueRequestReminders } from "../lib/requests/reminders";
-
-const INTERVAL_MS = 5000;
-const SWEEP_EVERY_MS = 60 * 60_000;
 
 async function main() {
+  // Only the email settings are validated, so a worker container needs no auth
+  // secrets. Same sender rule as the app: production refuses, development warns.
+  const e = emailEnv(process.env);
+  warnSenderProblem(e);
   const once = process.argv.includes("--once");
   const transport = transportFromEnv();
-  let stopping = false;
-  const stop = () => {
-    stopping = true;
-  };
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
+  const controller = new AbortController();
+  process.on("SIGINT", () => controller.abort());
+  process.on("SIGTERM", () => controller.abort());
 
-  logInfo("email-worker", `started (${transport.constructor.name})`);
-  let lastSweep = 0;
-  do {
-    try {
-      const stats = await processBatch(transport);
-      // Housekeeping piggybacks on the worker loop.
-      await pruneRateLimits();
-      if (Date.now() - lastSweep >= SWEEP_EVERY_MS) {
-        lastSweep = Date.now();
-        const swept = await sweepUnlinkedUploads();
-        if (swept) logInfo("email-worker", `swept ${swept} unlinked upload(s)`);
-        const reminders = await queueRequestReminders();
-        if (reminders) logInfo("email-worker", `queued ${reminders} request reminder(s)`);
-      }
-      if (stats.sent || stats.failed || stats.retried) logInfo("email-worker", JSON.stringify(stats));
-    } catch (err) {
-      logError("email-worker", err);
-    }
-    if (!once && !stopping) await new Promise((r) => setTimeout(r, INTERVAL_MS));
-  } while (!once && !stopping);
+  const senderDomain = senderAddress(e.EMAIL_FROM).split("@").pop();
+  logInfo("email-worker", `started (${transport.constructor.name}, sender domain ${senderDomain}); restart after editing .env`);
+  if (e.NODE_ENV === "development" && shouldRunDevWorker(e)) {
+    console.warn("[email-worker] `pnpm dev` already runs this worker in-process — you don't need this one in development.");
+  }
+  // In development, compete for the same single-worker lock as the dev servers
+  // (shared dev DB, per-workspace .env). Production replicas share work via SKIP LOCKED.
+  const leader = e.NODE_ENV === "development" ? leaderGate(process.env.DATABASE_URL ?? "", "this `pnpm email:worker`") : null;
+  await runWorkerLoop({ transport, once, signal: controller.signal, gate: leader?.gate });
+  await leader?.release();
   await prisma.$disconnect();
 }
 

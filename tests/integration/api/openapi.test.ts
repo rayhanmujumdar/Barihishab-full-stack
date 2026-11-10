@@ -244,3 +244,17 @@ describe("GET /api/v1/openapi.json — Home (Home PRD, main PRD §9 GET /dashboa
     }
   });
 });
+
+describe("GET /api/v1/openapi.json — Email delivery (fix-email-delivery)", () => {
+  it("documents the outbox status endpoint and invite state on user list items", async () => {
+    const doc = await (await GET()).json();
+    const op = doc.paths["/email/outbox/status"]?.get;
+    expect(op?.tags).toEqual(["Email"]);
+    expect(Object.keys(op.responses)).toEqual(expect.arrayContaining(["200", "401", "403"]));
+    expect(doc.components.schemas.OutboxStatus.properties).toHaveProperty("stalled");
+    expect(doc.components.schemas.UserListItem.properties).toHaveProperty("inviteEmail");
+    const invite = doc.components.schemas.UserListItem.properties.inviteEmail;
+    expect(invite.properties.failureCode.enum).toEqual(expect.arrayContaining(["SENDER_NOT_VERIFIED", "RETRIES_EXHAUSTED"]));
+    expect(invite.properties).not.toHaveProperty("lastError");
+  });
+});

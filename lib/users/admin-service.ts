@@ -8,6 +8,7 @@ import { hasPassword } from "@/lib/auth/credentials";
 import { revokeAllSessions, type SessionMeta } from "@/lib/auth/session-service";
 import { INVITE_TTL_MS, issueToken, revokeOpenTokens } from "@/lib/auth/token-service";
 import { enqueueEmail } from "@/lib/email/outbox";
+import { latestInviteStates } from "@/lib/email/status";
 import type { EnabledRole } from "@/lib/permissions";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
@@ -142,7 +143,9 @@ export async function listUsers(query: ListQuery) {
   });
   const hasMore = rows.length > query.limit;
   const items = hasMore ? rows.slice(0, query.limit) : rows;
-  return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
+  // Invite delivery state, only for INVITED users on this page (one query).
+  const inviteEmails = await latestInviteStates(items.filter((u) => u.status === "INVITED").map((u) => u.id));
+  return { items, inviteEmails, nextCursor: hasMore ? items[items.length - 1].id : null };
 }
 
 export function getUser(id: string) {
