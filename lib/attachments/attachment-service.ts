@@ -1,6 +1,7 @@
 // Bills & receipts (Income & Expenses PRD ATT-01..03). Files live in a
 // private bucket; rows are created unlinked at presign time and linked to an
 // entry once the upload is verified (exists, size, magic bytes).
+import { visibleTo } from "@/lib/accounting/requests";
 import { randomUUID } from "node:crypto";
 import type { Prisma, Attachment } from "@/lib/generated/prisma/client";
 import { Abort, inTransaction as run } from "@/lib/api/in-transaction";
@@ -90,7 +91,7 @@ export async function prepareAttachments(propertyId: string, ids: string[], exis
  * Links verified uploads to an entry inside the caller's transaction (one audit row each).
  * Must run inside `inTransaction`: an upload linked or swept meanwhile aborts with a 422.
  */
-export type AttachmentEntity = "house_transaction" | "owner_ledger_entry" | "loan";
+export type AttachmentEntity = "house_transaction" | "owner_ledger_entry" | "loan" | "money_request";
 
 export async function linkAttachments(
   tx: Tx,
@@ -171,6 +172,22 @@ function etagMatches(ifNoneMatch: string, etag: string) {
   return ifNoneMatch.split(",").some((t) => t.trim() === "*" || bare(t) === bare(etag));
 }
 
+/** Who opens a file: request files follow the request's visibility (Requests F15, Rule 12). */
+export type FileViewer = { userId: string; viewAll: boolean };
+
+/**
+ * Bills, receipts and loan files are visible to everyone with `attachment.view`;
+ * a money request's files only to its requester and the Super Admin — and,
+ * once paid out, to every owner unless the requester marked the file Private.
+ */
+async function mayView(att: { entityType: string; entityId: string | null; isPrivate: boolean }, viewer: FileViewer): Promise<boolean> {
+  if (att.entityType !== "money_request") return true;
+  const r = await prisma.moneyRequest.findUnique({ where: { id: att.entityId! }, select: { status: true, createdById: true, owner: { select: { userId: true } } } });
+  if (!r) return false;
+  const v = visibleTo({ status: r.status, ownerUserId: r.owner.userId, createdById: r.createdById }, viewer);
+  return v === "full" || (v === "limited" && !att.isPrivate);
+}
+
 export type OpenedFile =
   | { notModified: true; etag: string }
   | ({ notModified: false; mime: string; fileName: string } & StoredObject);
@@ -181,9 +198,9 @@ export type OpenedFile =
  * object doesn't exist. A matching `If-None-Match` is answered from a HEAD,
  * so an unchanged file is never downloaded from storage again.
  */
-export async function openFile(propertyId: string, id: string, opts: { ifNoneMatch?: string | null } = {}): Promise<OpenedFile | null> {
+export async function openFile(propertyId: string, id: string, viewer: FileViewer, opts: { ifNoneMatch?: string | null } = {}): Promise<OpenedFile | null> {
   const att = await prisma.attachment.findFirst({ where: { id, propertyId, ...LINKED } });
-  if (!att) return null;
+  if (!att || !(await mayView(att, viewer))) return null;
   if (opts.ifNoneMatch) {
     const info = await storage().head(att.storageKey);
     if (!info) return null;
@@ -195,9 +212,9 @@ export async function openFile(propertyId: string, id: string, opts: { ifNoneMat
 }
 
 /** ATT-02: what a client needs to show a linked, non-removed file of this property. */
-export async function fileMeta(propertyId: string, id: string) {
-  const att = await prisma.attachment.findFirst({ where: { id, propertyId, ...LINKED }, select: { id: true, mime: true, fileName: true } });
-  if (!att) return null;
+export async function fileMeta(propertyId: string, id: string, viewer: FileViewer) {
+  const att = await prisma.attachment.findFirst({ where: { id, propertyId, ...LINKED }, select: { id: true, mime: true, fileName: true, entityType: true, entityId: true, isPrivate: true } });
+  if (!att || !(await mayView(att, viewer))) return null;
   return { url: attachmentFileUrl(att.id), mime: att.mime, fileName: att.fileName };
 }
 

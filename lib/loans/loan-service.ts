@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { earliestOpenMonth } from "./loan-read";
 import type { SaveIdempotent } from "@/lib/api/idempotency";
 import { linkAttachments } from "@/lib/attachments/attachment-service";
+import { REQUEST_REF_SELECT, requestRef, type RequestRef } from "@/lib/requests/ref";
 import { averageEntitlement, cashWarnings, checkCashOut, latestOpenPeriod, lockOwner, type CashOut, type LedgerWarning } from "@/lib/owners/ledger-service";
 
 type Tx = Prisma.TransactionClient;
@@ -30,6 +31,8 @@ export type LoanDto = {
   origin: EntryOrigin;
   isSelf: boolean;
   flagged: boolean;
+  /** The money request this loan pays out (Requests PRD F7). */
+  request: RequestRef;
 };
 
 type LoanRow = {
@@ -44,6 +47,7 @@ type LoanRow = {
   origin: EntryOrigin;
   isSelf: boolean;
   flagged: boolean;
+  request?: { id: string; year: number; number: number } | null;
 };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -62,6 +66,7 @@ export function toLoanDto(l: LoanRow, outstandingPaisa: number): LoanDto {
     origin: l.origin,
     isSelf: l.isSelf,
     flagged: l.flagged,
+    request: requestRef(l.request),
   };
 }
 
@@ -91,6 +96,7 @@ export async function outstandingOf(db: Db, loan: { id: string; principalPaisa: 
 export async function activeLoans(db: Db, propertyId: string, ownerIds?: string[]): Promise<LoanDto[]> {
   const rows = await db.loan.findMany({
     where: { propertyId, status: "ACTIVE", ...(ownerIds ? { ownerId: { in: ownerIds } } : {}) },
+    include: { request: REQUEST_REF_SELECT },
     orderBy: [{ disbursedOn: "asc" }, { number: "asc" }],
   });
   const figures = await figuresByLoan(db, rows);
@@ -139,9 +145,11 @@ export async function createLoanInTx(
     reason: string;
     payoutEntryId: string | null;
     installmentPaisa?: number | null;
-    origin?: "DIRECT" | "PAYOUT_SPLIT";
+    origin?: "DIRECT" | "PAYOUT_SPLIT" | "REQUEST";
     isSelf?: boolean;
     flagged?: boolean;
+    /** The money request this loan pays out (Requests PRD F7). */
+    requestId?: string | null;
   },
   actor: Actor,
 ): Promise<LoanDto> {
@@ -155,6 +163,7 @@ export async function createLoanInTx(
       installmentPaisa: installmentPaisa ? BigInt(installmentPaisa) : null,
       createdById: actor.id,
     },
+    include: { request: REQUEST_REF_SELECT },
   });
   const dto = toLoanDto(row, data.principalPaisa);
   await audit(tx, { actorId: actor.id, action: "loan.created", entityType: "loan", entityId: row.id, after: dto, reason: data.reason, ip: actor.ip, userAgent: actor.userAgent });

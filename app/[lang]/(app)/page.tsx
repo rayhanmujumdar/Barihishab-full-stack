@@ -8,6 +8,8 @@ import { can } from "@/lib/permissions";
 import { closeReminder } from "@/lib/distribution/distribution-service";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
+import { latestOpenRequest } from "@/lib/requests/request-read";
+import { requestReminders } from "@/lib/requests/reminders";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.home") };
@@ -37,5 +39,20 @@ async function Home() {
     // F14: Close-the-month reminder for whoever can close it.
     can(viewer, "period.close") ? closeReminder(propertyId) : null,
   ]);
-  return <HomeDesk locale={locale} name={viewer.firstName ?? viewer.username} permissions={viewer.permissions} stats={stats} ownerId={owner?.id ?? null} closeReminder={reminder} />;
+  // Requests F14: pending tile + reminders for the Super Admin; the owner's open request.
+  const viewAll = can(viewer, "request.view.all");
+  const requests = viewAll ? { pending: await prisma.moneyRequest.count({ where: { propertyId, status: "PENDING" } }), reminders: await requestReminders(propertyId) } : null;
+  const latestRequest = !viewAll && can(viewer, "request.view") ? await latestOpenRequest(propertyId, { userId: viewer.id, viewAll: false }) : null;
+  return (
+    <HomeDesk
+      locale={locale}
+      name={viewer.firstName ?? viewer.username}
+      permissions={viewer.permissions}
+      stats={stats}
+      ownerId={owner?.id ?? null}
+      closeReminder={reminder}
+      requests={requests}
+      latestRequest={latestRequest}
+    />
+  );
 }

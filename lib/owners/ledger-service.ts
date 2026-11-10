@@ -19,6 +19,7 @@ import { isAfterTomorrow } from "@/lib/transactions/rules";
 import { displayName } from "@/lib/users/dto";
 import { createLoanInTx, type LoanDto } from "@/lib/loans/loan-service";
 import { loadAdvanceLimit } from "@/lib/loans/settings-service";
+import { REQUEST_REF_SELECT, requestRef, type RequestRef } from "@/lib/requests/ref";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -47,6 +48,8 @@ export type LedgerEntryDto = {
   recordedBy: string;
   recordedAt: string;
   attachments: Pick<AttachmentDto, "id" | "fileName" | "mime">[];
+  /** The money request this advance pays out (Requests PRD F7). */
+  request: RequestRef;
 };
 
 export type LedgerWarning =
@@ -61,6 +64,7 @@ const ENTRY_INCLUDE = {
   referencePeriod: { select: { month: true } },
   fundAccount: { select: { name: true } },
   createdBy: NAME,
+  request: REQUEST_REF_SELECT,
 } as const;
 type EntryRow = Prisma.OwnerLedgerEntryGetPayload<{ include: typeof ENTRY_INCLUDE }>;
 
@@ -91,6 +95,7 @@ function toEntryDto(e: EntryRow, attachments: AttachmentDto[] = []): LedgerEntry
     recordedBy: displayName(e.createdBy),
     recordedAt: e.createdAt.toISOString(),
     attachments: attachments.map(({ id, fileName, mime }) => ({ id, fileName, mime })),
+    request: requestRef(e.request),
   };
 }
 
@@ -157,6 +162,7 @@ type NewEntry = {
   flagged?: boolean;
   origin?: EntryOrigin;
   loanId?: string | null;
+  requestId?: string | null;
 };
 
 export async function insertEntry(tx: Tx, propertyId: string, ownerId: string, periodId: string, e: NewEntry, actor: Actor, action: AuditAction, reason?: string | null) {
@@ -178,6 +184,7 @@ export async function insertEntry(tx: Tx, propertyId: string, ownerId: string, p
       flagged: e.flagged ?? false,
       origin: e.origin ?? "DIRECT",
       loanId: e.loanId ?? null,
+      requestId: e.requestId ?? null,
       createdById: actor.id,
     },
     include: ENTRY_INCLUDE,
@@ -308,39 +315,58 @@ export async function createAdvance(propertyId: string, input: AdvanceInput, act
   return inTransaction(async (tx) => {
     const owner = await lockOwner(tx, propertyId, input.ownerId);
     const period = await latestOpenPeriod(tx, propertyId);
-    const { multiplierPct } = await loadAdvanceLimit(tx, propertyId);
-    const limit = advanceLimit(await recentEntitlements(tx, propertyId, input.ownerId), multiplierPct);
-    const before = await ownerBalance(tx, input.ownerId);
-    // §7.5: what is already advanced counts toward the limit.
-    const flagged = limit !== null && Math.max(0, -before) + input.amountPaisa > limit;
-    const row = await insertEntry(
-      tx,
-      propertyId,
-      input.ownerId,
-      period.id,
-      {
-        type: "ADVANCE",
-        amountPaisa: -input.amountPaisa,
-        date: input.date,
-        fundAccountId: input.fundAccountId,
-        method: input.method,
-        referenceNo: input.referenceNo,
-        note: input.reason,
-        isSelf: owner!.user_id === actor.id,
-        flagged,
-      },
-      actor,
-      "ledger.advance_created",
-      input.reason,
-    );
+    const { row, warnings } = await createAdvanceInTx(tx, propertyId, period.id, input, actor, { isSelf: owner!.user_id === actor.id });
     await linkAttachments(tx, propertyId, row.id, uploads, actor, "owner_ledger_entry");
-    const warnings = await cashWarnings(tx, propertyId, input.fundAccountId, input.amountPaisa);
-    if (before > 0) warnings.unshift({ code: "OWNER_OWED", balancePaisa: before });
-    if (flagged) warnings.unshift({ code: "ADVANCE_OVER_LIMIT", limitPaisa: limit! });
     const data: AdvanceResult = { entry: (await withFiles(tx, [row]))[0], balancePaisa: await ownerBalance(tx, input.ownerId), warnings };
     await save?.(tx, data);
     return data;
   });
+}
+
+/**
+ * Posts an ADVANCE inside the caller's transaction (owner locked, open period
+ * locked): flags it above the advance limit (§7.5) and returns the warnings.
+ * Used by a direct advance and by disbursing an advance request (Requests F7).
+ */
+export async function createAdvanceInTx(
+  tx: Tx,
+  propertyId: string,
+  periodId: string,
+  input: Omit<AdvanceInput, "attachmentIds">,
+  actor: Actor,
+  extra: { isSelf: boolean; origin?: EntryOrigin; requestId?: string | null; note?: string },
+) {
+  const { multiplierPct } = await loadAdvanceLimit(tx, propertyId);
+  const limit = advanceLimit(await recentEntitlements(tx, propertyId, input.ownerId), multiplierPct);
+  const before = await ownerBalance(tx, input.ownerId);
+  // §7.5: what is already advanced counts toward the limit.
+  const flagged = limit !== null && Math.max(0, -before) + input.amountPaisa > limit;
+  const row = await insertEntry(
+    tx,
+    propertyId,
+    input.ownerId,
+    periodId,
+    {
+      type: "ADVANCE",
+      amountPaisa: -input.amountPaisa,
+      date: input.date,
+      fundAccountId: input.fundAccountId,
+      method: input.method,
+      referenceNo: input.referenceNo,
+      note: extra.note ?? input.reason,
+      isSelf: extra.isSelf,
+      flagged,
+      origin: extra.origin,
+      requestId: extra.requestId,
+    },
+    actor,
+    "ledger.advance_created",
+    input.reason,
+  );
+  const warnings = await cashWarnings(tx, propertyId, input.fundAccountId, input.amountPaisa);
+  if (before > 0) warnings.unshift({ code: "OWNER_OWED", balancePaisa: before });
+  if (flagged) warnings.unshift({ code: "ADVANCE_OVER_LIMIT", limitPaisa: limit! });
+  return { row, warnings };
 }
 
 // ─── F13 Void a payout or advance ───

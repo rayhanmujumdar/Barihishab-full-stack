@@ -2,6 +2,7 @@
 
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 import { Badge } from "@/components/ui/badge";
+import { RequestTag } from "@/components/requests/RequestTag";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { translator, type Locale, type MessageKey } from "@/lib/i18n";
@@ -90,6 +91,7 @@ export function LoanCard({
         ) : null}
       </header>
       <p className="m-0">{loan.reason}</p>
+      {loan.request ? <RequestTag locale={locale} request={loan.request} /> : null}
       <p className="muted m-0">
         {tr("al.disbursed", { date: shortDate(locale, loan.disbursedOn) })} · {instalmentText(locale, loan.installmentPaisa)} · {tr(`al.source.${loan.origin}` as MessageKey)}
       </p>

@@ -179,6 +179,33 @@ describe("GET /api/v1/openapi.json — Distribution", () => {
   });
 });
 
+describe("GET /api/v1/openapi.json — requests", () => {
+  it("documents every Requests endpoint (Requests PRD)", async () => {
+    const doc = await (await GET()).json();
+    const REQUESTS: [string, string][] = [
+      ["get", "/requests"],
+      ["post", "/requests"],
+      ["get", "/requests/form-context"],
+      ["post", "/requests/seen"],
+      ["get", "/requests/{id}"],
+      ["patch", "/requests/{id}"],
+      ["post", "/requests/{id}/cancel"],
+      ["post", "/requests/{id}/approve"],
+      ["post", "/requests/{id}/reject"],
+      ["post", "/requests/{id}/withdraw"],
+      ["post", "/requests/{id}/disburse"],
+    ];
+    for (const [method, path] of REQUESTS) {
+      expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+      expect(doc.paths[path][method].tags, path).toEqual(["Requests"]);
+    }
+    for (const name of ["MoneyRequest", "SubmitRequestBody", "EditRequestBody", "ApproveRequestBody", "RequestReasonBody", "DisburseRequestBody", "RequestDetail", "RequestFormContext"]) {
+      expect(doc.components.schemas, name).toHaveProperty(name);
+    }
+    expect(doc.components.schemas.RequestStatus.enum).toContain("WITHDRAWN");
+  });
+});
+
 describe("GET /api/v1/openapi.json — attachment viewing", () => {
   it("documents the same-origin file proxy and a metadata response without a signed URL", async () => {
     const doc = await (await GET()).json();

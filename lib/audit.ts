@@ -59,6 +59,15 @@ export const AUDIT_ACTIONS = [
   "loan.cancelled",
   "loan.written_off",
   "settings.advance_limit_updated",
+  // Requests PRD Rule 15 (financial)
+  "request.submitted",
+  "request.recorded",
+  "request.edited",
+  "request.cancelled",
+  "request.approved",
+  "request.rejected",
+  "request.withdrawn",
+  "request.disbursed",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -13,8 +13,8 @@ import { PresignBodySchema } from "./schema";
 
 export const POST = withAuth(
   async (req, { auth }) => {
-    // Entry bills and owner payout/advance receipts (Owners PRD F11).
-    if (!(["transaction.create", "payout.create", "advance.create"] as const).some((p) => can(auth, p))) return apiError("FORBIDDEN");
+    // Entry bills, owner payout/advance receipts (Owners PRD F11) and request files (Requests PRD F15).
+    if (!(["transaction.create", "payout.create", "advance.create", "request.create"] as const).some((p) => can(auth, p))) return apiError("FORBIDDEN");
     const limited = await limitBy(LIMITS.presignPerUser, auth.userId);
     if (limited) return limited;
     const body = await readJson(req, PresignBodySchema);

@@ -279,3 +279,49 @@ export function createLoanMovement(data: {
 export function setReserveRule(propertyId: string, reserve: { mode: "OFF" } | { mode: "PERCENT"; percentBp: number } | { mode: "FIXED"; fixedPaisa: number }, startingPaisa = 0) {
   return prisma.property.update({ where: { id: propertyId }, data: { settings: { reserve: { ...reserve, startingPaisa } } } });
 }
+
+// ─── Requests ───
+
+/** A raw money request (Requests design D1); numbers follow creation order within the year. */
+export async function createMoneyRequest(data: {
+  propertyId: string;
+  ownerId: string;
+  createdById: string;
+  type?: "ADVANCE" | "LOAN" | "GRANT";
+  amountPaisa?: number;
+  approvedPaisa?: number | null;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "WITHDRAWN" | "DISBURSED";
+  reason?: string;
+  neededBy?: string;
+  repaymentPlan?: string | null;
+  year?: number;
+  createdAt?: Date;
+  isSelf?: boolean;
+}) {
+  const year = data.year ?? 2026;
+  const number = (await prisma.moneyRequest.count({ where: { propertyId: data.propertyId, year } })) + 1;
+  const status = data.status ?? "PENDING";
+  const amount = data.amountPaisa ?? 1000000;
+  const decided = status !== "PENDING" && status !== "CANCELLED";
+  return prisma.moneyRequest.create({
+    data: {
+      propertyId: data.propertyId,
+      year,
+      number,
+      ownerId: data.ownerId,
+      createdById: data.createdById,
+      type: data.type ?? "ADVANCE",
+      amountRequestedPaisa: BigInt(amount),
+      amountApprovedPaisa:
+        data.approvedPaisa !== undefined ? (data.approvedPaisa === null ? null : BigInt(data.approvedPaisa)) : status === "APPROVED" || status === "DISBURSED" ? BigInt(amount) : null,
+      reason: data.reason ?? "Cataract surgery deposit",
+      neededBy: new Date(`${data.neededBy ?? "2026-10-30"}T00:00:00Z`),
+      repaymentPlan: data.repaymentPlan ?? null,
+      status,
+      isSelf: data.isSelf ?? false,
+      decidedById: decided ? data.createdById : null,
+      decidedAt: decided ? new Date() : null,
+      ...(data.createdAt ? { createdAt: data.createdAt } : {}),
+    },
+  });
+}

@@ -216,6 +216,18 @@ describe("DetailDrawer + Void dialog (DET-01, VOD-01)", () => {
     expect(screen.queryByRole("button", { name: "Void" })).toBeNull();
   });
 
+  it("offers Void but not Correct on a request grant, linked to its request (Requests Rule 14)", async () => {
+    api.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: detail({ source: "REQUEST_GRANT", description: "Owner special grant · Sabrina Ahmed · R-2026-009", request: { id: "00000000-0000-4000-8000-000000000a09", number: "R-2026-009" } }),
+    });
+    render(<DetailDrawer locale="en" id="g" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    expect(await screen.findByRole("link", { name: "From request R-2026-009" })).toHaveAttribute("href", "/en/requests?request=00000000-0000-4000-8000-000000000a09");
+    expect(screen.queryByRole("button", { name: "Correct" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Void" })).toBeInTheDocument();
+  });
+
   describe("opening a bill (attachment-viewer)", () => {
     const pdf = { id: "00000000-0000-4000-8000-0000000000d1", fileName: "desco.pdf", mime: "application/pdf", sizeBytes: 900 };
     const photo = { id: "00000000-0000-4000-8000-0000000000d2", fileName: "receipt.jpg", mime: "image/jpeg", sizeBytes: 900 };

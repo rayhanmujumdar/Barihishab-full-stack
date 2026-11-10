@@ -2,6 +2,7 @@
 // money as number paisa, dates ISO, periods YYYY-MM).
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { monthKey } from "@/lib/periods/month";
+import { REQUEST_REF_SELECT, requestRef, type RequestRef } from "@/lib/requests/ref";
 
 export const TXN_INCLUDE = {
   period: { select: { month: true, status: true } },
@@ -9,6 +10,7 @@ export const TXN_INCLUDE = {
   category: { select: { code: true, nameEn: true, nameBn: true } },
   unit: { select: { name: true, tenantName: true } },
   fundAccount: { select: { name: true } },
+  request: REQUEST_REF_SELECT,
 } as const satisfies Prisma.HouseTransactionInclude;
 
 export type TxnRow = Prisma.HouseTransactionGetPayload<{ include: typeof TXN_INCLUDE }>;
@@ -30,7 +32,11 @@ export type TxnDto = {
   description: string | null;
   fromReserve: boolean;
   referencePeriod: string | null;
-  source: "MANUAL" | "GENERATED_RENT" | "ADJUSTMENT" | "LOAN_WRITE_OFF";
+  source: "MANUAL" | "GENERATED_RENT" | "ADJUSTMENT" | "LOAN_WRITE_OFF" | "REQUEST_GRANT";
+  /** Owner who received a special grant (requests only). */
+  beneficiaryOwnerId: string | null;
+  /** The money request this expense pays out. */
+  request: RequestRef;
   isCorrected: boolean;
   voidedAt: string | null;
   voidReason: string | null;
@@ -57,6 +63,8 @@ export function toTxnDto(t: TxnRow, attachmentCount = 0): TxnDto {
     fromReserve: t.fromReserve,
     referencePeriod: t.referencePeriod ? monthKey(t.referencePeriod.month) : null,
     source: t.source,
+    beneficiaryOwnerId: t.beneficiaryOwnerId,
+    request: requestRef(t.request),
     isCorrected: t.isCorrected,
     voidedAt: t.voidedAt?.toISOString() ?? null,
     voidReason: t.voidReason,

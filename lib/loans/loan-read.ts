@@ -4,6 +4,7 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { expectedFinish, loanFigures, loanHistory, type HistoryRow, type LoanFigures, type LoanStatus } from "@/lib/accounting/loans";
 import { prisma } from "@/lib/prisma";
+import { REQUEST_REF_SELECT } from "@/lib/requests/ref";
 import { displayName } from "@/lib/users/dto";
 import { activeLoans, toLoanDto, type LoanDto } from "./loan-service";
 
@@ -34,7 +35,7 @@ export type LoanDetailDto = {
 export type LoanFilters = { ownerId?: string; status?: LoanStatus };
 
 const NAME = { select: { firstName: true, lastName: true, name: true, username: true } } as const;
-const LOAN_INCLUDE = { owner: { select: { displayName: true } }, fundAccount: { select: { name: true } }, createdBy: NAME } as const;
+const LOAN_INCLUDE = { owner: { select: { displayName: true } }, fundAccount: { select: { name: true } }, createdBy: NAME, request: REQUEST_REF_SELECT } as const;
 type LoanRow = Prisma.LoanGetPayload<{ include: typeof LOAN_INCLUDE }>;
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);

@@ -25,6 +25,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:test-users": "tsx scripts/seed-test-users.ts",
     "db:seed:advances-loans": "tsx scripts/seed-advances-loans.ts",
+    "db:seed:requests": "tsx scripts/seed-requests.ts",
     "email:worker": "tsx scripts/email-worker.ts",
     "storage:init": "tsx scripts/storage-init.ts"
   },

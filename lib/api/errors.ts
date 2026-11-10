@@ -163,6 +163,17 @@ export const ERRORS = {
     en: "This expense comes from a loan write-off and can't be changed here.",
     bn: "এই খরচটি ঋণ মওকুফ থেকে এসেছে, এখানে বদলানো যাবে না।",
   },
+  // Requests PRD §9
+  INVALID_REQUEST_STATUS: {
+    status: 409,
+    en: "This request has already moved on — reload to see its current status.",
+    bn: "এই অনুরোধের অবস্থা আগেই বদলেছে — বর্তমান অবস্থা দেখতে রিলোড করুন।",
+  },
+  NO_OWNER_PROFILE: {
+    status: 403,
+    en: "Your account isn't linked to an owner, so you can't request money for yourself.",
+    bn: "আপনার অ্যাকাউন্ট কোনো মালিকের সাথে যুক্ত নয়, তাই নিজের জন্য টাকা চাইতে পারবেন না।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",

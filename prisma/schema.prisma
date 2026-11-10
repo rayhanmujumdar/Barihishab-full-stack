@@ -53,6 +53,7 @@ enum EmailTemplate {
   INVITE
   RESET
   PASSWORD_CHANGED
+  REQUEST_UPDATE
 }
 
 enum EmailStatus {
@@ -86,6 +87,7 @@ model Property {
   ledgerEntries   OwnerLedgerEntry[]
   loans           Loan[]
   periodReopens   PeriodReopen[]
+  moneyRequests   MoneyRequest[]
 
   @@map("properties")
 }
@@ -141,14 +143,16 @@ model User {
   attachmentsAdded   Attachment[]       @relation("AttachmentUploadedBy")
   attachmentsRemoved Attachment[]       @relation("AttachmentRemovedBy")
 
-  owners         Owner[]            @relation("OwnerUser")
-  shareSetsSaved ShareSet[]         @relation("ShareSetCreatedBy")
-  ledgerCreated  OwnerLedgerEntry[] @relation("LedgerCreatedBy")
-  ledgerVoided   OwnerLedgerEntry[] @relation("LedgerVoidedBy")
-  loansCreated   Loan[]             @relation("LoanCreatedBy")
-  loanMovesMade  LoanMovement[]     @relation("LoanMovementCreatedBy")
-  loanMovesVoid  LoanMovement[]     @relation("LoanMovementVoidedBy")
-  periodReopens  PeriodReopen[]     @relation("PeriodReopenedBy")
+  owners          Owner[]            @relation("OwnerUser")
+  shareSetsSaved  ShareSet[]         @relation("ShareSetCreatedBy")
+  ledgerCreated   OwnerLedgerEntry[] @relation("LedgerCreatedBy")
+  ledgerVoided    OwnerLedgerEntry[] @relation("LedgerVoidedBy")
+  loansCreated    Loan[]             @relation("LoanCreatedBy")
+  loanMovesMade   LoanMovement[]     @relation("LoanMovementCreatedBy")
+  loanMovesVoid   LoanMovement[]     @relation("LoanMovementVoidedBy")
+  periodReopens   PeriodReopen[]     @relation("PeriodReopenedBy")
+  requestsMade    MoneyRequest[]     @relation("RequestCreatedBy")
+  requestsDecided MoneyRequest[]     @relation("RequestDecidedBy")
 
   @@index([status])
   @@map("users")
@@ -350,6 +354,7 @@ enum TxnSource {
   GENERATED_RENT
   ADJUSTMENT
   LOAN_WRITE_OFF
+  REQUEST_GRANT
 }
 
 // One accounting month. `month` is the 1st of the month.
@@ -464,38 +469,44 @@ model Category {
 // Income and expenses in one table. Amounts are always positive paisa;
 // `kind` gives the direction. Never deleted — voided with a reason.
 model HouseTransaction {
-  id                String    @id @default(uuid()) @db.Uuid
-  propertyId        String    @map("property_id") @db.Uuid
-  periodId          String    @map("period_id") @db.Uuid
-  kind              TxnKind
-  categoryId        String    @map("category_id") @db.Uuid
-  unitId            String?   @map("unit_id") @db.Uuid
-  amountPaisa       BigInt    @map("amount_paisa")
-  txnDate           DateTime  @map("txn_date") @db.Date
-  fundAccountId     String    @map("fund_account_id") @db.Uuid
-  vendor            String?
-  description       String?
-  fromReserve       Boolean   @default(false) @map("from_reserve")
-  referencePeriodId String?   @map("reference_period_id") @db.Uuid
-  source            TxnSource @default(MANUAL)
-  isCorrected       Boolean   @default(false) @map("is_corrected")
-  voidedAt          DateTime? @map("voided_at") @db.Timestamptz(6)
-  voidedById        String?   @map("voided_by") @db.Uuid
-  voidReason        String?   @map("void_reason")
-  createdById       String    @map("created_by") @db.Uuid
-  updatedById       String?   @map("updated_by") @db.Uuid
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  propertyId         String    @map("property_id") @db.Uuid
+  periodId           String    @map("period_id") @db.Uuid
+  kind               TxnKind
+  categoryId         String    @map("category_id") @db.Uuid
+  unitId             String?   @map("unit_id") @db.Uuid
+  amountPaisa        BigInt    @map("amount_paisa")
+  txnDate            DateTime  @map("txn_date") @db.Date
+  fundAccountId      String    @map("fund_account_id") @db.Uuid
+  vendor             String?
+  description        String?
+  fromReserve        Boolean   @default(false) @map("from_reserve")
+  referencePeriodId  String?   @map("reference_period_id") @db.Uuid
+  source             TxnSource @default(MANUAL)
+  isCorrected        Boolean   @default(false) @map("is_corrected")
+  /// Owner who received a special grant (main PRD §9.3); set only by request disbursal.
+  beneficiaryOwnerId String?   @map("beneficiary_owner_id") @db.Uuid
+  /// The money request this expense pays out (Requests PRD F7); one expense per request.
+  requestId          String?   @unique @map("request_id") @db.Uuid
+  voidedAt           DateTime? @map("voided_at") @db.Timestamptz(6)
+  voidedById         String?   @map("voided_by") @db.Uuid
+  voidReason         String?   @map("void_reason")
+  createdById        String    @map("created_by") @db.Uuid
+  updatedById        String?   @map("updated_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  property        Property    @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  period          Period      @relation("TxnPeriod", fields: [periodId], references: [id], onDelete: Restrict)
-  referencePeriod Period?     @relation("TxnReferencePeriod", fields: [referencePeriodId], references: [id], onDelete: Restrict)
-  category        Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  unit            Unit?       @relation(fields: [unitId], references: [id], onDelete: Restrict)
-  fundAccount     FundAccount @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
-  createdBy       User        @relation("TxnCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy       User?       @relation("TxnUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  voidedBy        User?       @relation("TxnVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  period          Period        @relation("TxnPeriod", fields: [periodId], references: [id], onDelete: Restrict)
+  referencePeriod Period?       @relation("TxnReferencePeriod", fields: [referencePeriodId], references: [id], onDelete: Restrict)
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  unit            Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  fundAccount     FundAccount   @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  createdBy       User          @relation("TxnCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User?         @relation("TxnUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  voidedBy        User?         @relation("TxnVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  beneficiary     Owner?        @relation("TxnBeneficiary", fields: [beneficiaryOwnerId], references: [id], onDelete: Restrict)
+  request         MoneyRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
 
   @@index([periodId, categoryId])
   @@map("house_transactions")
@@ -516,6 +527,8 @@ model Attachment {
   linkedAt     DateTime? @map("linked_at") @db.Timestamptz(6)
   removedAt    DateTime? @map("removed_at") @db.Timestamptz(6)
   removedById  String?   @map("removed_by") @db.Uuid
+  /// Request files only (Requests PRD F15): visible to the requester and Super Admin even after payout.
+  isPrivate    Boolean   @default(false) @map("is_private")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
@@ -576,6 +589,7 @@ enum EntryOrigin {
   DIRECT
   CLOSE
   PAYOUT_SPLIT
+  REQUEST
 }
 
 // Cash-side loan events (design D1). Deductions stay in the owner ledger.
@@ -603,6 +617,8 @@ model Owner {
   shareItems ShareSetItem[]
   entries    OwnerLedgerEntry[]
   loans      Loan[]
+  requests   MoneyRequest[]
+  grants     HouseTransaction[] @relation("TxnBeneficiary")
 
   @@unique([propertyId, userId])
   @@map("owners")
@@ -664,9 +680,12 @@ model OwnerLedgerEntry {
   voidReason        String?     @map("void_reason")
   loanId            String?     @map("loan_id") @db.Uuid
   origin            EntryOrigin @default(DIRECT)
+  /// The money request this advance pays out (Requests PRD F7); one entry per request.
+  requestId         String?     @unique @map("request_id") @db.Uuid
 
   property        Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   owner           Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  request         MoneyRequest?     @relation(fields: [requestId], references: [id], onDelete: Restrict)
   period          Period            @relation("LedgerPeriod", fields: [periodId], references: [id], onDelete: Restrict)
   referencePeriod Period?           @relation("LedgerReferencePeriod", fields: [referencePeriodId], references: [id], onDelete: Restrict)
   fundAccount     FundAccount?      @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
@@ -702,6 +721,8 @@ model Loan {
   installmentPaisa BigInt?     @map("installment_paisa")
   status           LoanStatus  @default(ACTIVE)
   payoutEntryId    String?     @map("payout_entry_id") @db.Uuid
+  /// The money request this loan pays out (Requests PRD F7); one loan per request.
+  requestId        String?     @unique @map("request_id") @db.Uuid
   createdById      String      @map("created_by") @db.Uuid
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -712,6 +733,7 @@ model Loan {
   deductions  OwnerLedgerEntry[] @relation("LoanDeductions")
   movements   LoanMovement[]
   createdBy   User               @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  request     MoneyRequest?      @relation(fields: [requestId], references: [id], onDelete: Restrict)
 
   @@unique([propertyId, number])
   @@index([ownerId, status])
@@ -752,4 +774,64 @@ model LoanMovement {
   @@index([loanId])
   @@index([fundAccountId])
   @@map("loan_movements")
+}
+
+// ─── Requests (docs/requests_section_PRD.md; main PRD §9.4 money_requests) ───
+// The requests migration also holds hand-written SQL Prisma can't express:
+// amount CHECKs, the no-delete trigger. The paid-out entry points back here
+// through request_id on owner_ledger_entries / loans / house_transactions.
+
+enum RequestType {
+  ADVANCE
+  LOAN
+  GRANT
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  WITHDRAWN
+  DISBURSED
+}
+
+model MoneyRequest {
+  id                   String        @id @default(uuid()) @db.Uuid
+  propertyId           String        @map("property_id") @db.Uuid
+  /// Asia/Dhaka year of submission; numbers restart every year (R-2026-014).
+  year                 Int
+  number               Int
+  ownerId              String        @map("owner_id") @db.Uuid
+  type                 RequestType
+  amountRequestedPaisa BigInt        @map("amount_requested_paisa")
+  amountApprovedPaisa  BigInt?       @map("amount_approved_paisa")
+  reason               String
+  neededBy             DateTime      @map("needed_by") @db.Date
+  repaymentPlan        String?       @map("repayment_plan")
+  status               RequestStatus @default(PENDING)
+  isSelf               Boolean       @default(false) @map("is_self")
+  recordedOnBehalf     Boolean       @default(false) @map("recorded_on_behalf")
+  createdById          String        @map("created_by") @db.Uuid
+  decidedById          String?       @map("decided_by") @db.Uuid
+  decidedAt            DateTime?     @map("decided_at") @db.Timestamptz(6)
+  decisionNote         String?       @map("decision_note")
+  /// The requester hasn't seen the latest decision yet (nav badge, F1).
+  decisionUnseen       Boolean       @default(false) @map("decision_unseen")
+  disbursedAt          DateTime?     @map("disbursed_at") @db.Timestamptz(6)
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property    Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  owner       Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy   User              @relation("RequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  decidedBy   User?             @relation("RequestDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
+  ledgerEntry OwnerLedgerEntry?
+  loan        Loan?
+  transaction HouseTransaction?
+
+  @@unique([propertyId, year, number])
+  @@index([propertyId, status])
+  @@index([ownerId])
+  @@map("money_requests")
 }

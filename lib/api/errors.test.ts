@@ -55,6 +55,13 @@ describe("error catalogue", () => {
     expect(ERRORS.NOT_EDITABLE.en).toBe("This expense comes from a loan write-off and can't be changed here.");
   });
 
+  it("maps the Requests PRD codes", () => {
+    expect(ERRORS.INVALID_REQUEST_STATUS.status).toBe(409);
+    expect(ERRORS.NO_OWNER_PROFILE.status).toBe(403);
+    expect(ERRORS.INVALID_REQUEST_STATUS.en).toBe("This request has already moved on — reload to see its current status.");
+    expect(ERRORS.NO_OWNER_PROFILE.en).toBe("Your account isn't linked to an owner, so you can't request money for yourself.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

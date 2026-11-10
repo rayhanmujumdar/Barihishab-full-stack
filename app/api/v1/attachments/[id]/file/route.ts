@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/api/params";
 import { openFile } from "@/lib/attachments/attachment-service";
 import { withAuth } from "@/lib/auth/guard";
 import { contentDisposition } from "@/lib/files/disposition";
+import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
 
 /** Lets the browser's own image/PDF viewer render the file; no scripts, no plugins. */
@@ -15,10 +16,10 @@ const FILE_CSP = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline';
 const CACHE = "private, max-age=300";
 
 export const GET = withAuth<{ id: string }>(
-  async (req, { params }) => {
+  async (req, { auth, params }) => {
     await connection();
     if (!isUuid(params.id)) return apiError("NOT_FOUND");
-    const opened = await openFile(await currentPropertyId(), params.id, { ifNoneMatch: req.headers.get("if-none-match") });
+    const opened = await openFile(await currentPropertyId(), params.id, { userId: auth.userId, viewAll: can(auth, "request.view.all") }, { ifNoneMatch: req.headers.get("if-none-match") });
     if (!opened) return apiError("NOT_FOUND");
     if (opened.notModified) return new Response(null, { status: 304, headers: { ETag: opened.etag, "Cache-Control": CACHE } });
 

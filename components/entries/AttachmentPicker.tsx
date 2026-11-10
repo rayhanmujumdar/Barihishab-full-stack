@@ -14,9 +14,15 @@ type Item = { key: string; name: string; status: "uploading" | "done" | "error";
 export function AttachmentPicker({
   locale,
   existing = 0,
+  max = 5,
+  text,
   onChange,
 }: {
   locale: Locale;
+  /** File limit for the record (5 per entry, 3 per money request). */
+  max?: number;
+  /** Overrides for the box title, hint and too-many message (requests: 3 files). */
+  text?: { title: string; hint: string; tooMany: string };
   /** Files already on the entry (counts toward the 5-file limit). */
   existing?: number;
   /** Uploaded attachment ids + whether an upload is still running. */
@@ -40,9 +46,9 @@ export function AttachmentPicker({
   async function pick(files: FileList | null) {
     if (!files?.length) return;
     setError(null);
-    const room = 5 - existing - items.filter((i) => i.status !== "error").length;
+    const room = max - existing - items.filter((i) => i.status !== "error").length;
     const chosen = [...files].slice(0, Math.max(0, room));
-    if (chosen.length < files.length) setError(tr("entry.files.tooMany"));
+    if (chosen.length < files.length) setError(text?.tooMany ?? tr("entry.files.tooMany"));
     let current = [
       ...items,
       ...chosen.map((f, n) => ({
@@ -67,7 +73,7 @@ export function AttachmentPicker({
 
   return (
     <div className="drop-box">
-      <span className="text-xs font-semibold text-muted-foreground">{tr("entry.files")}</span>
+      <span className="text-xs font-semibold text-muted-foreground">{text?.title ?? tr("entry.files")}</span>
       {items.length ? (
         <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
           {items.map((i) => (
@@ -94,13 +100,13 @@ export function AttachmentPicker({
         </ul>
       ) : null}
       <div>
-        <Button type="button" variant="outline" onClick={() => input.current?.click()} disabled={existing + items.length >= 5}>
+        <Button type="button" variant="outline" onClick={() => input.current?.click()} disabled={existing + items.length >= max}>
           <CameraIcon data-icon="inline-start" />
           {tr("entry.files.add")}
         </Button>
         <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => pick(e.target.files)} data-testid="bill-input" />
       </div>
-      <p className="muted m-0">{tr("entry.files.hint")}</p>
+      <p className="muted m-0">{text?.hint ?? tr("entry.files.hint")}</p>
       {error ? (
         <p className="m-0 text-xs font-semibold text-destructive" role="alert">
           {error}

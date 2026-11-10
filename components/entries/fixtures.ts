@@ -32,6 +32,8 @@ export function txn(over: Partial<TxnDto> = {}): TxnDto {
     fromReserve: false,
     referencePeriod: null,
     source: "MANUAL",
+    beneficiaryOwnerId: null,
+    request: null,
     isCorrected: false,
     voidedAt: null,
     voidReason: null,
