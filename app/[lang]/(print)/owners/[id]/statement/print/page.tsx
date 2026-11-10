@@ -14,6 +14,7 @@ import { getOwnerItem } from "@/lib/owners/owner-service";
 import { parseRange } from "@/lib/owners/page-data";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
+import { StatementPrintSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "print.title") };
@@ -22,10 +23,11 @@ export async function generateMetadata(): Promise<Metadata> {
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 /** Statement print view → browser "Save as PDF" (Owners PRD F4). No app chrome. */
-export default function PrintPage(props: Props) {
+export default async function PrintPage(props: Props) {
+  const locale = await getLocale();
   return (
     <main className="print-page">
-      <Suspense fallback={null}>
+      <Suspense fallback={<StatementPrintSkeleton locale={locale} />}>
         <Print {...props} />
       </Suspense>
     </main>

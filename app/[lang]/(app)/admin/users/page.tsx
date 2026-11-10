@@ -7,14 +7,16 @@ import { requirePagePermission } from "@/lib/auth/server";
 import { getLocale } from "@/lib/i18n/server";
 import { countActiveSuperAdmins, listUsers } from "@/lib/users/admin-service";
 import { toPublicUser } from "@/lib/users/dto";
+import { UsersSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.users") };
 }
 
-export default function UsersPage() {
+export default async function UsersPage() {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<UsersSkeleton locale={locale} />}>
       <Users />
     </Suspense>
   );

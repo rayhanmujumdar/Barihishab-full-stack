@@ -6,7 +6,3 @@ export function AuthHeading({ kicker, title }: { kicker: string; title: string }
     </div>
   );
 }
-
-export function FormSkeleton() {
-  return <div aria-busy="true" style={{ minHeight: 320 }} />;
-}

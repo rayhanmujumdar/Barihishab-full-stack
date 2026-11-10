@@ -13,14 +13,16 @@ import { loadAdvanceLimit } from "@/lib/loans/settings-service";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
+import { SettingsSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.settings") };
 }
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SettingsSkeleton locale={locale} />}>
       <Settings />
     </Suspense>
   );

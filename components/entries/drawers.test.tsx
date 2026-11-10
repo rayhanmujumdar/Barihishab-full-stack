@@ -406,3 +406,37 @@ describe("required markers (form-required-indicator)", () => {
     expect(document.getElementById("rent-date-required")).toHaveTextContent("Required");
   });
 });
+
+describe("overlay loading skeletons (loading-skeletons spec)", () => {
+  const never = () => api.mockImplementation(() => new Promise(() => {}));
+
+  it("DetailDrawer shows a detail skeleton, not a 'Loading…' kicker, while the entry loads", async () => {
+    never();
+    render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog");
+    const region = within(dialog).getByLabelText("Loading the entry…");
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(region.querySelectorAll(".skeleton").length).toBeGreaterThanOrEqual(5);
+    // The title stays for assistive tech only; no visible loading text.
+    expect(within(dialog).queryByText("Loading…", { selector: "p" })).toBeNull();
+    expect(within(dialog).getByRole("heading", { name: "Loading…" })).toHaveClass("sr-only");
+  });
+
+  it("DetailDrawer drops the placeholders and names the failure when the entry can't load", async () => {
+    api.mockResolvedValue({ ok: false, status: 500, error: { code: "INTERNAL", message: "boom" } });
+    render(<DetailDrawer locale="en" id="x" perms={entriesData().perms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    expect(await screen.findByRole("dialog", { name: "Couldn't load this entry" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Loading the entry…")).toBeNull();
+    expect(document.querySelector(".skeleton")).toBeNull();
+  });
+
+  it("GenerateRentDialog shows unit-row placeholders while the preview loads", async () => {
+    never();
+    render(<GenerateRentDialog locale="en" data={entriesData()} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = await screen.findByRole("dialog");
+    const region = within(dialog).getByLabelText("Loading the rent preview…");
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(region.querySelectorAll("li.list-row").length).toBeGreaterThanOrEqual(3);
+    expect(within(dialog).queryByText("Loading…")).toBeNull();
+  });
+});

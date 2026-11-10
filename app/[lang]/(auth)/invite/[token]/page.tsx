@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { FormSkeleton, AuthHeading } from "@/components/auth/AuthHeading";
+import { AuthHeading } from "@/components/auth/AuthHeading";
+import { AuthFormSkeleton } from "@/components/skeletons/pages";
 import { AcceptInviteForm } from "@/components/auth/AcceptInviteForm";
 import { hoursLeft } from "@/lib/auth/invite-hours";
 import { InviteState } from "@/components/auth/InviteState";
@@ -16,9 +17,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.invite") };
 }
 
-export default function InvitePage({ params }: PageProps<"/[lang]/invite/[token]">) {
+export default async function InvitePage({ params }: PageProps<"/[lang]/invite/[token]">) {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={<FormSkeleton />}>
+    <Suspense fallback={<AuthFormSkeleton locale={locale} />}>
       <Invite params={params} />
     </Suspense>
   );

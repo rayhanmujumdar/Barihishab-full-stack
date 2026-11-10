@@ -16,6 +16,7 @@ import { ensureCurrentPeriod } from "@/lib/periods/period-service";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
+import { AdvancesSkeleton } from "@/components/skeletons/pages";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AdvancesPage({ searchParams }: { searchParams: Search }) {
   const locale = await getLocale();
   return (
-    <Suspense fallback={<p className="muted">{t(locale, "common.loading")}</p>}>
+    <Suspense fallback={<AdvancesSkeleton locale={locale} />}>
       <Advances searchParams={searchParams} />
     </Suspense>
   );

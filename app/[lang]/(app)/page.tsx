@@ -34,6 +34,7 @@ import { listUnits } from "@/lib/master-data/unit-service";
 import { listPeriods } from "@/lib/periods/period-service";
 import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
+import { HomeSkeleton } from "@/components/skeletons/pages";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: t(await getLocale(), "meta.home") };
@@ -43,9 +44,10 @@ export async function generateMetadata(): Promise<Metadata> {
 // Suspense + error boundary (F11, design D2); who sees which block is
 // decided here on the server (§3, Rule 6). Loaders are the same ones
 // GET /api/v1/dashboard uses, memoised per request.
-export default function HomePage() {
+export default async function HomePage() {
+  const locale = await getLocale();
   return (
-    <Suspense fallback={<div className="home" aria-busy="true" />}>
+    <Suspense fallback={<HomeSkeleton locale={locale} />}>
       <Home />
     </Suspense>
   );

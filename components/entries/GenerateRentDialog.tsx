@@ -18,6 +18,7 @@ import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
 import type { EntryFormData } from "./types";
 import { newIdempotencyKey } from "./upload";
+import { RentPreviewSkeleton } from "@/components/skeletons/overlays";
 
 type DraftRow = { unitId: string; unit: string; tenant: string | null; amountPaisa: number; fundAccountId: string | null };
 type Row = { unitId: string; unit: string; tenant: string | null; checked: boolean; amount: string; fundAccountId: string };
@@ -88,7 +89,7 @@ export function GenerateRentDialog({ locale, data, onClose, onSaved }: { locale:
           <DialogDescription>{rows && !rows.length && !error ? tr("rent.empty") : tr("rent.body")}</DialogDescription>
         </DialogHeader>
         <ErrorStrip message={error} />
-        {rows === null ? <p className="muted">{tr("common.loading")}</p> : null}
+        {rows === null ? <RentPreviewSkeleton locale={locale} /> : null}
         {rows?.length ? (
           <>
             <DateField id="rent-date" label={tr("rent.date")} placeholder={tr("entry.ph.date")} clearLabel={tr("common.clear")} locale={locale} disableFuture fromYear={2020} value={txnDate} onChange={setTxnDate} required requiredText={tr("common.required")} />

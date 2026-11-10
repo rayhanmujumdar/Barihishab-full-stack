@@ -15,6 +15,7 @@ import { monthLabel } from "@/lib/periods/month";
 import { num } from "@/components/owners/format";
 import { ChangesTable } from "./ChangesTable";
 import type { ClosePreviewDto } from "./types";
+import { ClosePreviewSkeleton } from "@/components/skeletons/overlays";
 
 type Check = ClosePreviewDto["mustPass"][number];
 type Warning = ClosePreviewDto["warnings"][number];
@@ -73,7 +74,7 @@ export function CloseMonthDialog({ locale, month, onClose, onDone }: { locale: L
         </DialogHeader>
         <ErrorStrip message={error ?? queryErrorMessage(preview.error, tr("common.network"))} />
         {!p ? (
-          <p className="muted">{tr("dist.close.loading")}</p>
+          preview.isPending ? <ClosePreviewSkeleton locale={locale} /> : null
         ) : (
           <div className="form-stack">
             <section aria-label={tr("dist.close.checks")}>
