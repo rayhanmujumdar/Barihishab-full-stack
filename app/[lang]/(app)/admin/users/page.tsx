@@ -5,6 +5,7 @@ import { Forbidden } from "@/components/app/Forbidden";
 import { UsersManager } from "@/components/users/UsersManager";
 import { requirePagePermission } from "@/lib/auth/server";
 import { getLocale } from "@/lib/i18n/server";
+import { outboxStatusJson } from "@/lib/email/status";
 import { countActiveSuperAdmins, listUsers } from "@/lib/users/admin-service";
 import { toPublicUser } from "@/lib/users/dto";
 import { UsersSkeleton } from "@/components/skeletons/pages";
@@ -27,12 +28,14 @@ async function Users() {
   // RBAC-01/04: the page loader checks the permission itself.
   const viewer = await requirePagePermission("user.list");
   if (!viewer) return <Forbidden locale={locale} />;
-  const [page, activeSuperAdminCount] = await Promise.all([listUsers({ limit: 50 }), countActiveSuperAdmins()]);
+  const [page, activeSuperAdminCount, outbox] = await Promise.all([listUsers({ limit: 50 }), countActiveSuperAdmins(), outboxStatusJson()]);
+  const items = page.items.map((u) => ({ ...toPublicUser(u), inviteEmail: page.inviteEmails.get(u.id) ?? null }));
   return (
     <UsersManager
       locale={locale}
       viewerId={viewer.id}
-      initial={{ items: page.items.map(toPublicUser), nextCursor: page.nextCursor, activeSuperAdminCount }}
+      initial={{ items, nextCursor: page.nextCursor, activeSuperAdminCount }}
+      outbox={outbox}
     />
   );
 }

@@ -59,6 +59,7 @@ import "./loans/[id]/write-off/schema";
 import "./settings/reserve/schema";
 import "./distribution/schema";
 import "./dashboard/schema";
+import "./email/outbox/status/schema";
 import "./requests/schema";
 import "./requests/form-context/schema";
 import "./requests/seen/schema";

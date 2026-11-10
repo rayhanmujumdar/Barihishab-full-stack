@@ -26,7 +26,7 @@ Lets the Super Admin (family bookkeeper) add, find, edit, deactivate and force-l
 - **THEN** the stored WhatsApp number equals the phone number
 
 ### Requirement: List and search users
-`GET /api/v1/users` (permission `user.list`) SHALL support `q` (matches name, username, email, phone, case-insensitive), `role`, `status`, `cursor` and `limit` (default 50, max 100), and respond `200 { items, nextCursor }` where each item includes id, names, username, email, roles, house responsibility, status and last login. `GET /api/v1/users/:id` SHALL respond `200 { user, roles, lastLoginAt }` or `404 NOT_FOUND`. Password hashes and tokens MUST never be returned. (USR-02)
+`GET /api/v1/users` (permission `user.list`) SHALL support `q` (matches name, username, email, phone, case-insensitive), `role`, `status`, `cursor` and `limit` (default 50, max 100), and respond `200 { items, nextCursor }` where each item includes id, names, username, email, roles, house responsibility, status, last login and `inviteEmail`. For an INVITED user, `inviteEmail` SHALL describe that user's most recent `INVITE` outbox row as `{ status: "QUEUED" | "SENT" | "FAILED", queuedAt, sentAt, failureCode }`, where `failureCode` is the stable code from the outbox error (`SENDER_NOT_VERIFIED`, `INVALID_ADDRESS`, `PROVIDER_REJECTED`, `RECIPIENT_INACTIVE`, `RETRIES_EXHAUSTED`) or `null`; for any other user, or an INVITED user with no invite row, it SHALL be `null`. A `SENDING` row SHALL be reported as `QUEUED`. The raw provider error text, payload and tokens MUST NOT be returned. `GET /api/v1/users/:id` SHALL respond `200 { user, roles, lastLoginAt }` or `404 NOT_FOUND`. Password hashes and tokens MUST never be returned. (USR-02, USR-04)
 
 #### Scenario: Search by phone fragment
 - **WHEN** a Super Admin calls `GET /api/v1/users?q=0171`
@@ -39,6 +39,14 @@ Lets the Super Admin (family bookkeeper) add, find, edit, deactivate and force-l
 #### Scenario: Pagination
 - **WHEN** 60 users exist and `limit=50`
 - **THEN** the first page has 50 items and a non-null `nextCursor`; the next page has 10 and `nextCursor = null`
+
+#### Scenario: Latest invite delivery state
+- **WHEN** an INVITED user has an older `SENT` invite and a newer `FAILED` invite whose error was an unverified sender
+- **THEN** their item has `inviteEmail = { status: "FAILED", failureCode: "SENDER_NOT_VERIFIED", … }` and no provider message text
+
+#### Scenario: Active user has no invite state
+- **WHEN** the list includes an ACTIVE user who was invited earlier
+- **THEN** that item has `inviteEmail = null`
 
 ### Requirement: Edit user
 `PATCH /api/v1/users/:id` (permission `user.update`) SHALL update any profile field including username and email, with the same validation and uniqueness rules, write `user.updated` with before/after, and respond `200 { user }`.
@@ -94,3 +102,14 @@ The shared birthday rule used by create user, admin edit and self-service edit S
 #### Scenario: Tomorrow rejected
 - **WHEN** at the same moment a user saves birthday `2026-11-10`
 - **THEN** the response is `422 VALIDATION_FAILED` with the birthday field error "Birthday can't be in the future"
+
+### Requirement: Invite delivery state on the Users screen
+The Users screen SHALL show, on each INVITED user's row, the delivery state of their latest invite: "Invite queued", "Invite sent" with the Asia/Dhaka send time, or "Invite not sent" with a plain-language reason for the failure code, in Bangla or English. A failed state MUST be visually distinct from sent (design-system negative tone) and MUST NOT rely on color alone. After a resend succeeds the list SHALL refetch so the state reflects the new invite.
+
+#### Scenario: Failed invite reason shown
+- **WHEN** an INVITED user's latest invite failed with `SENDER_NOT_VERIFIED`
+- **THEN** the row reads "Invite not sent — sender address not verified"
+
+#### Scenario: Resend refreshes state
+- **WHEN** a Super Admin confirms "Resend invite" for a user whose invite failed
+- **THEN** the row changes to "Invite queued"

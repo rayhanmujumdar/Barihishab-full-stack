@@ -14,7 +14,8 @@ export const GET = withAuth(
     const query = parse(ListUsersQuerySchema, searchParams(req));
     if (!query.ok) return query.response;
     const [page, activeSuperAdminCount] = await Promise.all([listUsers(query.data), countActiveSuperAdmins()]);
-    return ok({ items: page.items.map(toPublicUser), nextCursor: page.nextCursor, activeSuperAdminCount }, { headers: { "Cache-Control": "no-store" } });
+    const items = page.items.map((u) => ({ ...toPublicUser(u), inviteEmail: page.inviteEmails.get(u.id) ?? null }));
+    return ok({ items, nextCursor: page.nextCursor, activeSuperAdminCount }, { headers: { "Cache-Control": "no-store" } });
   },
   { permission: "user.list", strict: true },
 );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { EllipsisHorizontalIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,11 +16,16 @@ import { apiFetch } from "@/lib/api/client";
 import { apiGet, qk, queryErrorMessage, useApiMutation, useServerSeed, type UserListFilter } from "@/lib/api/query";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { formatDateTime, translator, type Locale, type MessageKey } from "@/lib/i18n";
+import type { OutboxStatusDto } from "@/app/api/v1/email/outbox/status/schema";
+import type { InviteEmailState } from "@/lib/email/status";
 import type { PublicUser } from "@/lib/users/dto";
+import { EmailDeliveryBanner, InviteEmailLine } from "./email-delivery";
 import { UserForm } from "./UserForm";
 import { UserAvatar } from "./UserAvatar";
 
-export type UserPage = { items: PublicUser[]; nextCursor: string | null; activeSuperAdminCount: number };
+/** List rows also carry the latest invite email state (null unless INVITED). */
+export type UserListItem = PublicUser & { inviteEmail?: InviteEmailState | null };
+export type UserPage = { items: UserListItem[]; nextCursor: string | null; activeSuperAdminCount: number };
 
 function usersPath(f: UserListFilter, cursor?: string | null) {
   const sp = new URLSearchParams();
@@ -58,7 +63,18 @@ function isLastActiveAdmin(u: PublicUser, activeSuperAdminCount: number) {
 }
 
 /** User management (Auth PRD §4 A6). Every action is re-checked by the API. */
-export function UsersManager({ locale, viewerId, initial }: { locale: Locale; viewerId: string; initial: UserPage }) {
+export function UsersManager({
+  locale,
+  viewerId,
+  initial,
+  outbox,
+}: {
+  locale: Locale;
+  viewerId: string;
+  initial: UserPage;
+  /** Server-rendered outbox health; omitted → no email banner. */
+  outbox?: OutboxStatusDto | null;
+}) {
   const tr = useMemo(() => translator(locale), [locale]);
   const qc = useQueryClient();
   const [q, setQ] = useState("");
@@ -96,6 +112,15 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
   };
   const shownError = error ?? queryErrorMessage(list.error, tr("common.network"));
 
+  // Seeded by the server render, then refreshed on focus / after invite actions.
+  const outboxQuery = useQuery({
+    queryKey: qk.email.outboxStatus,
+    queryFn: () => apiGet<OutboxStatusDto>("/email/outbox/status"),
+    initialData: outbox ?? undefined,
+    enabled: outbox !== undefined,
+    staleTime: 60_000,
+  });
+
   const rowAction = useApiMutation(["users", "row-action"], (v: { id: string; path: string; body?: { reason: string } }) =>
     apiFetch<{ user?: PublicUser } | null>(`/users/${v.id}/${v.path}`, { method: "POST", ...(v.body ? { body: v.body } : {}) }),
   );
@@ -103,20 +128,31 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
 
   /** Patch the cached list in place, then mark every user list stale for its next use. */
   function replaceUser(u: PublicUser) {
+    const cached = qc.getQueryData<InfiniteData<UserPage, string | null>>(listKey);
+    const before = cached?.pages.flatMap((p) => p.items).find((x) => x.id === u.id);
+    // The invite state no longer describes this user once they (re)enter INVITED
+    // with a new address or from another status (reactivation) — or leave INVITED.
+    const inviteChanged = u.status === "INVITED" && (before?.status !== "INVITED" || before.email !== u.email);
+    const keepInvite = u.status === "INVITED" && !inviteChanged;
     qc.setQueryData<InfiniteData<UserPage, string | null>>(listKey, (data) => {
       if (!data) return data;
-      const before = data.pages.flatMap((p) => p.items).find((x) => x.id === u.id);
       // The list may be filtered, so adjust the server's total by this one
       // user's change instead of recounting the visible rows.
       const activeSuperAdminCount = data.pages[0].activeSuperAdminCount - Number(isActiveAdmin(before)) + Number(isActiveAdmin(u));
       const pages = data.pages.map((p, i) => ({
         ...p,
         activeSuperAdminCount,
-        items: before ? p.items.map((x) => (x.id === u.id ? u : x)) : i === 0 ? [u, ...p.items] : p.items,
+        // Merge so list-only fields survive a profile save; drop a stale invite state.
+        items: before
+          ? p.items.map((x) => (x.id === u.id ? { ...x, ...u, inviteEmail: keepInvite ? x.inviteEmail : null } : x))
+          : i === 0
+            ? [u, ...p.items]
+            : p.items,
       }));
       return { ...data, pages };
     });
-    void qc.invalidateQueries({ queryKey: qk.users.all, refetchType: "none" });
+    // Refetch to show the real latest invite state when it changed for a listed user.
+    void qc.invalidateQueries({ queryKey: qk.users.all, refetchType: before && inviteChanged ? "active" : "none" });
     router.refresh(); // sidebar badge / names come from the server layout
   }
 
@@ -139,6 +175,11 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
     }
     if (res.data?.user) replaceUser(res.data.user);
     else router.refresh(); // no row changed (e.g. sessions revoked)
+    if (kind === "resendInvite") {
+      // A new invite row was queued: show its state and the outbox health now.
+      void qc.invalidateQueries({ queryKey: qk.users.all });
+      void qc.invalidateQueries({ queryKey: qk.email.all });
+    }
     toast(tr(spec.toast, { name: user.name }));
   }
 
@@ -158,6 +199,7 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
       </div>
 
       <ErrorStrip message={shownError} />
+      <EmailDeliveryBanner status={outboxQuery.data} tr={tr} />
 
       <div className="toolbar" role="search">
         <TextField id="users-q" type="search" label={tr("users.search")} placeholder={tr("ph.search")} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -225,6 +267,7 @@ export function UsersManager({ locale, viewerId, initial }: { locale: Locale; vi
                     <TableCell>{u.houseResponsibility ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[u.status]}>{tr(`users.status.${u.status}` as MessageKey)}</Badge>
+                      {u.status === "INVITED" ? <InviteEmailLine state={u.inviteEmail} locale={locale} tr={tr} /> : null}
                     </TableCell>
                     <TableCell className="muted">{formatDateTime(locale, u.lastLoginAt) ?? tr("common.never")}</TableCell>
                     <TableCell className="text-right">
