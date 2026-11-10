@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { translator, type Locale } from "@/lib/i18n";
 import { useMutation } from "@tanstack/react-query";
 import { ACCEPT, uploadBill } from "./upload";
+import Image from "next/image";
 
 type Item = { key: string; name: string; status: "uploading" | "done" | "error"; id?: string; preview?: string };
 
@@ -72,8 +73,8 @@ export function AttachmentPicker({
           {items.map((i) => (
             <li key={i.key} className="relative flex size-20 items-center justify-center border border-border bg-card" data-status={i.status}>
               {i.preview ? (
-                // eslint-disable-next-line @next/next/no-img-element -- local blob preview
-                <img src={i.preview} alt={i.name} className="size-full object-cover" />
+                // Local blob: preview (next/image serves blob:/data: unoptimized).
+                <Image src={i.preview} alt={i.name} width={80} height={80} className="size-full object-cover" />
               ) : (
                 <DocumentIcon className="size-8" aria-label={i.name} />
               )}

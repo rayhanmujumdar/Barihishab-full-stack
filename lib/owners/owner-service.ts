@@ -20,6 +20,7 @@ import { currentMonthKey, monthKey } from "@/lib/periods/month";
 import { prisma } from "@/lib/prisma";
 import { displayName, rolesOf } from "@/lib/users/dto";
 import { initials as initialsOf } from "@/lib/users/initials";
+import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import type { OwnerDetailDto, OwnerDto, OwnerListDto } from "./dto";
 import { activeLoans, loanOutstandingByOwner } from "@/lib/loans/loan-service";
 import { loadShareSets, type ShareSetRow } from "./share-service";
@@ -58,6 +59,7 @@ function toDto(row: OwnerRow, ctx: Ctx, balance: number, loan: number): OwnerDto
     userId: row.userId,
     displayName: row.displayName,
     initials: row.initials,
+    avatarUrl: row.user?.avatarAttachmentId ? attachmentFileUrl(row.user.avatarAttachmentId) : null,
     sortOrder: row.sortOrder,
     note: row.note,
     responsibility: row.user?.houseResponsibility ?? null,

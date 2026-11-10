@@ -21,6 +21,7 @@ import { PayDrawer } from "./PayDrawer";
 import { StatementTable } from "./StatementTable";
 import type { LoanDto } from "@/lib/loans/loan-service";
 import type { LedgerEntryDto, OwnerPageData } from "./types";
+import { OwnerAvatar } from "./OwnerAvatar";
 
 type Open = { kind: "pay" | "advance" | "adjust" | "edit" | "opening" } | { kind: "void"; entry: LedgerEntryDto } | { kind: "loan"; loan: LoanDto } | null;
 
@@ -55,9 +56,7 @@ export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageD
         </Button>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex items-start gap-3">
-            <span className="owner-avatar size-12! text-base!" aria-hidden="true">
-              {owner.initials}
-            </span>
+            <OwnerAvatar initials={owner.initials} avatarUrl={owner.avatarUrl} className="size-12! text-base!" />
             <div>
               <p className="kicker">{owner.responsibility ? tr("owner.kicker", { responsibility: owner.responsibility }) : tr("owner.kickerPlain")}</p>
               <h1 className="page-title">{owner.displayName}</h1>

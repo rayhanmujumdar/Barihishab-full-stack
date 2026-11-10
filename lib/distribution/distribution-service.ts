@@ -1,5 +1,6 @@
 // Distribution read model (Distribution PRD F1–F4, F7, F8, F15; DST-01, DST-05).
 // Open month → live preview; closed month → its snapshot only (Rule 6).
+import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import {
   boardRows,
   closeChecks,
@@ -28,6 +29,8 @@ export type BoardRowDto = {
   ownerId: string;
   displayName: string;
   initials: string;
+  /** Linked login's profile photo (same-origin URL), or null → show initials. */
+  avatarUrl: string | null;
   isViewer: boolean;
   units: number;
   sharePercent: number | null;
@@ -138,6 +141,7 @@ async function boardFor(propertyId: string, src: Source, owners: OwnerLite[], vi
       ...r,
       displayName: o.displayName,
       initials: o.initials,
+      avatarUrl: o.avatarAttachmentId ? attachmentFileUrl(o.avatarAttachmentId) : null,
       isViewer: viewerId !== null && o.userId === viewerId,
       sharePercent: r.units > 0 ? sharePercent(r.units, total) : null,
       balanceLabel: balanceLabel(r.balancePaisa),

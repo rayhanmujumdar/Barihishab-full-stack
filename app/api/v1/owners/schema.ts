@@ -17,6 +17,7 @@ export const OwnerSchema = z
     userId: z.uuid().nullable(),
     displayName: z.string(),
     initials: z.string(),
+    avatarUrl: z.string().nullable().meta({ description: "Linked login's profile photo (GET /attachments/{id}/file), or null to show initials" }),
     sortOrder: z.number().int(),
     note: z.string().nullable(),
     responsibility: z.string().nullable(),

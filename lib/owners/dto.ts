@@ -9,6 +9,8 @@ export type OwnerDto = {
   userId: string | null;
   displayName: string;
   initials: string;
+  /** Linked login's profile photo (same-origin URL), or null → show initials. */
+  avatarUrl: string | null;
   sortOrder: number;
   note: string | null;
   responsibility: string | null;

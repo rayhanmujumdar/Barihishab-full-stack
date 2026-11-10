@@ -15,6 +15,7 @@ import { ChangeSharesDialog } from "./ChangeSharesDialog";
 import { balanceText, balanceTone, ownerHref, percent } from "./format";
 import { OwnerFormDialog } from "./OwnerFormDialog";
 import type { OwnerDto, OwnersData } from "./types";
+import { OwnerAvatar } from "./OwnerAvatar";
 
 type Open = "shares" | "add" | "timeline" | null;
 
@@ -153,9 +154,7 @@ function OwnerCard({ locale, owner: o }: { locale: Locale; owner: OwnerDto }) {
   return (
     <Link href={ownerHref(locale, o.id)} className="owner-card">
       <span className="flex items-start gap-3">
-        <span className="owner-avatar" aria-hidden="true">
-          {o.initials}
-        </span>
+        <OwnerAvatar initials={o.initials} avatarUrl={o.avatarUrl} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h2 className="m-0 line-clamp-2 text-lg leading-tight font-extrabold tracking-[-0.015em] break-words">{o.displayName}</h2>
           {o.responsibility ? <span className="muted truncate">{o.responsibility}</span> : null}

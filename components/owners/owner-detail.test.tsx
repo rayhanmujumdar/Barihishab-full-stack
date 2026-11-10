@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OwnerDetail } from "./OwnerDetail";
 import { ownerPage, ownerPagePermsNone } from "./fixtures";
+import { waitFor } from "@testing-library/react";
+import { stubImageLoading } from "@/tests/helpers/image";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/en/owners/o-tanvir" }));
@@ -167,5 +169,15 @@ describe("OwnerDetail loans and instalment (Distribution F11)", () => {
     expect(screen.getByRole("region", { name: "Loans" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set instalment" })).toBeNull();
     expect(screen.getByRole("link", { name: "L2" })).toBeInTheDocument();
+  });
+});
+
+describe("OwnerDetail photo", () => {
+  it("shows the linked user's photo in the header", async () => {
+    stubImageLoading();
+    const data = ownerPage();
+    const { container } = render(<OwnerDetail locale="en" data={{ ...data, owner: { ...data.owner, avatarUrl: "/api/v1/attachments/t1/file" } }} />);
+    await waitFor(() => expect(container.querySelector('img[src="/api/v1/attachments/t1/file"]')).not.toBeNull());
+    vi.unstubAllGlobals();
   });
 });

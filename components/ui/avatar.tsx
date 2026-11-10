@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "cn"
+import Image from "next/image"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
 function Avatar({
@@ -24,19 +25,39 @@ function Avatar({
   )
 }
 
+/**
+ * Radix decides *whether* to show the photo (after it loads; initials on
+ * error); next/image renders it. Avatars here come from the authenticated
+ * same-origin file proxy (or local data:/blob: previews), which the image
+ * optimizer can't fetch without the user's cookies — so they are served
+ * `unoptimized` (Next docs: images that require authentication). Photos are
+ * already 512 px JPEGs; `size` is the intrinsic size used to reserve space.
+ */
 function AvatarImage({
   className,
-  ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  src,
+  alt = "",
+  size = 512,
+  unoptimized = true,
+}: {
+  src: string
+  alt?: string
+  size?: number
+  unoptimized?: boolean
+  className?: string
+}) {
   return (
-    <AvatarPrimitive.Image
-      data-slot="avatar-image"
-      className={cn(
-        "aspect-square size-full rounded-none object-cover",
-        className
-      )}
-      {...props}
-    />
+    <AvatarPrimitive.Image asChild src={src}>
+      <Image
+        data-slot="avatar-image"
+        src={src}
+        alt={alt}
+        width={size}
+        height={size}
+        unoptimized={unoptimized}
+        className={cn("aspect-square size-full rounded-none object-cover", className)}
+      />
+    </AvatarPrimitive.Image>
   )
 }
 

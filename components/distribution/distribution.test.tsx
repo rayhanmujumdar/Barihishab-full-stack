@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api/client";
 import { DistributionView } from "./DistributionView";
 import { ADMIN, closedOctober, october, OWNER, preview } from "./fixtures";
+import { stubImageLoading } from "@/tests/helpers/image";
 import type { DistPerms, DistributionResult } from "./types";
 
 const refresh = vi.fn();
@@ -284,5 +285,17 @@ describe("Reopen and reserve dialogs (F7, F9)", () => {
     await userEvent.click(within(table()).getByRole("button", { name: "Pay Tanvir Ahmed" }));
     const drawer = screen.getByRole("dialog", { name: "Pay Tanvir Ahmed" });
     expect(within(drawer).getByLabelText(/^Amount/)).toHaveValue("8055.85");
+  });
+});
+
+describe("DistributionView owner photos", () => {
+  it("shows the linked user's photo in the board table and cards, initials otherwise", async () => {
+    stubImageLoading();
+    const d = october();
+    show({ ...d, rows: d.rows.map((r) => (r.ownerId === "o-r" ? { ...r, avatarUrl: "/api/v1/attachments/ray/file" } : r)) } as never);
+    await waitFor(() => expect(document.querySelectorAll('img[src="/api/v1/attachments/ray/file"]').length).toBeGreaterThanOrEqual(1));
+    expect(within(table()).queryByText("RA")).toBeNull();
+    expect(within(table()).getByText("NA")).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });
