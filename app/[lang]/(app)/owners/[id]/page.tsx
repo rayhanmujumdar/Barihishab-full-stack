@@ -13,7 +13,11 @@ import { ownerStatement } from "@/lib/owners/ledger-service";
 import { getOwnerDetail } from "@/lib/owners/owner-service";
 import { linkableUsers, parseRange } from "@/lib/owners/page-data";
 import { ensureCurrentPeriod, listPeriods } from "@/lib/periods/period-service";
+import { advanceLimit } from "@/lib/accounting/owners";
+import { loadAdvanceLimit } from "@/lib/loans/settings-service";
+import { recentEntitlements } from "@/lib/owners/ledger-service";
 import { can } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { currentPropertyId } from "@/lib/property";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -59,6 +63,9 @@ async function Owner({ params, searchParams }: Props) {
     perms.manage ? linkableUsers(propertyId) : Promise.resolve([]),
   ]);
   const monthsAsc = periods.map((p) => p.month).sort();
+  const advanceLimitPaisa = perms.advance
+    ? advanceLimit(await recentEntitlements(prisma, propertyId, owner.id), (await loadAdvanceLimit(prisma, propertyId)).multiplierPct)
+    : null;
   const months = latestOpen ? monthsAsc.filter((m) => m <= latestOpen) : monthsAsc;
 
   return (
@@ -75,6 +82,7 @@ async function Owner({ params, searchParams }: Props) {
         linkableUsers: users,
         periodMonths: monthsAsc,
         perms,
+        advanceLimitPaisa,
       }}
     />
   );

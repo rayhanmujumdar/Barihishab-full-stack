@@ -51,9 +51,9 @@ describe("seed — Income & Expenses master data (EXP-02)", () => {
     await runSeed(env);
     await runSeed(env);
     const rows = await prisma.category.findMany();
-    expect(rows).toHaveLength(20);
-    expect(new Set(rows.map((r) => r.code)).size).toBe(20);
-    expect(rows.filter((r) => r.isSystem).map((r) => r.code).sort()).toEqual(["ADJUSTMENT_EXP", "ADJUSTMENT_INC", "ARREAR", "OWNER_GRANT", "RENT"]);
+    expect(rows).toHaveLength(21);
+    expect(new Set(rows.map((r) => r.code)).size).toBe(21);
+    expect(rows.filter((r) => r.isSystem).map((r) => r.code).sort()).toEqual(["ADJUSTMENT_EXP", "ADJUSTMENT_INC", "ARREAR", "LOAN_WRITTEN_OFF", "OWNER_GRANT", "RENT"]);
     expect(rows.every((r) => r.nameEn && r.nameBn)).toBe(true);
   });
 

@@ -73,6 +73,7 @@ describe("POST /api/v1/payouts (F11, PAY-01..04)", () => {
       ["ADVANCE", -494415],
     ]);
     expect(data.entries[1].note).toBe("Paid beyond balance");
+    expect(data.entries.map((e: { origin: string }) => e.origin)).toEqual(["DIRECT", "PAYOUT_SPLIT"]);
     expect(data.balancePaisa).toBe(-494415);
     expect(await prisma.auditLog.count({ where: { action: "ledger.advance_created", entityId: data.entries[1].id } })).toBe(1);
   });
@@ -82,7 +83,7 @@ describe("POST /api/v1/payouts (F11, PAY-01..04)", () => {
     const res = await pay(w.adminLogin, body(w, { ownerId: w.owners.tanvir.id, amountPaisa: 1300000, splitExcessAs: "LOAN", excessReason: "School fees" }));
     const { data } = await json(res);
     expect(data.entries.map((e: { type: string }) => e.type)).toEqual(["PAYOUT"]);
-    expect(data.loan).toMatchObject({ principalPaisa: 494415, status: "ACTIVE", reason: "School fees" });
+    expect(data.loan).toMatchObject({ principalPaisa: 494415, status: "ACTIVE", reason: "School fees", origin: "PAYOUT_SPLIT", number: 2 });
     expect(data.balancePaisa).toBe(0);
     expect(await prisma.auditLog.count({ where: { action: "loan.created", entityId: data.loan.id } })).toBe(1);
   });

@@ -80,6 +80,7 @@ model Property {
   transactions    HouseTransaction[]
   attachments     Attachment[]
   idempotencyKeys IdempotencyKey[]
+  loanMovements   LoanMovement[]
   owners          Owner[]
   shareSets       ShareSet[]
   ledgerEntries   OwnerLedgerEntry[]
@@ -142,6 +143,8 @@ model User {
   ledgerCreated  OwnerLedgerEntry[] @relation("LedgerCreatedBy")
   ledgerVoided   OwnerLedgerEntry[] @relation("LedgerVoidedBy")
   loansCreated   Loan[]             @relation("LoanCreatedBy")
+  loanMovesMade  LoanMovement[]     @relation("LoanMovementCreatedBy")
+  loanMovesVoid  LoanMovement[]     @relation("LoanMovementVoidedBy")
   periodReopens  PeriodReopen[]     @relation("PeriodReopenedBy")
 
   @@index([status])
@@ -343,6 +346,7 @@ enum TxnSource {
   MANUAL
   GENERATED_RENT
   ADJUSTMENT
+  LOAN_WRITE_OFF
 }
 
 // One accounting month. `month` is the 1st of the month.
@@ -366,6 +370,7 @@ model Period {
   transactions     HouseTransaction[] @relation("TxnPeriod")
   referencedBy     HouseTransaction[] @relation("TxnReferencePeriod")
   ledgerEntries    OwnerLedgerEntry[] @relation("LedgerPeriod")
+  loanMovements    LoanMovement[]
   ledgerReferenced OwnerLedgerEntry[] @relation("LedgerReferencePeriod")
   reopens          PeriodReopen[]
 
@@ -428,6 +433,7 @@ model FundAccount {
   transactions  HouseTransaction[]
   ledgerEntries OwnerLedgerEntry[]
   loans         Loan[]
+  loanMovements LoanMovement[]
 
   @@map("fund_accounts")
 }
@@ -558,6 +564,22 @@ enum LoanStatus {
   ACTIVE
   REPAID
   WRITTEN_OFF
+  CANCELLED
+}
+
+// Where an entry or loan came from (Advances & Loans design D2).
+enum EntryOrigin {
+  DIRECT
+  CLOSE
+  PAYOUT_SPLIT
+}
+
+// Cash-side loan events (design D1). Deductions stay in the owner ledger.
+enum LoanMovementType {
+  CASH_REPAYMENT
+  REVERSAL
+  CANCELLATION
+  WRITE_OFF
 }
 
 // A person or estate holding part of the house; may have no login. Never deleted.
@@ -616,27 +638,28 @@ model ShareSetItem {
 // The owner ledger (PRD §5.4). Signed paisa: + the house owes more, − less.
 // Balance = Σ amount (voided originals and their reversals cancel).
 model OwnerLedgerEntry {
-  id                String     @id @default(uuid()) @db.Uuid
-  propertyId        String     @map("property_id") @db.Uuid
-  ownerId           String     @map("owner_id") @db.Uuid
-  periodId          String     @map("period_id") @db.Uuid
+  id                String      @id @default(uuid()) @db.Uuid
+  propertyId        String      @map("property_id") @db.Uuid
+  ownerId           String      @map("owner_id") @db.Uuid
+  periodId          String      @map("period_id") @db.Uuid
   type              LedgerType
-  amountPaisa       BigInt     @map("amount_paisa")
-  entryDate         DateTime   @map("entry_date") @db.Date
-  fundAccountId     String?    @map("fund_account_id") @db.Uuid
+  amountPaisa       BigInt      @map("amount_paisa")
+  entryDate         DateTime    @map("entry_date") @db.Date
+  fundAccountId     String?     @map("fund_account_id") @db.Uuid
   method            PayMethod?
-  referenceNo       String?    @map("reference_no")
+  referenceNo       String?     @map("reference_no")
   note              String?
-  referencePeriodId String?    @map("reference_period_id") @db.Uuid
-  reversesId        String?    @unique @map("reverses_id") @db.Uuid
-  isSelf            Boolean    @default(false) @map("is_self")
-  flagged           Boolean    @default(false)
-  createdById       String     @map("created_by") @db.Uuid
-  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  voidedAt          DateTime?  @map("voided_at") @db.Timestamptz(6)
-  voidedById        String?    @map("voided_by") @db.Uuid
-  voidReason        String?    @map("void_reason")
-  loanId            String?    @map("loan_id") @db.Uuid
+  referencePeriodId String?     @map("reference_period_id") @db.Uuid
+  reversesId        String?     @unique @map("reverses_id") @db.Uuid
+  isSelf            Boolean     @default(false) @map("is_self")
+  flagged           Boolean     @default(false)
+  createdById       String      @map("created_by") @db.Uuid
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  voidedAt          DateTime?   @map("voided_at") @db.Timestamptz(6)
+  voidedById        String?     @map("voided_by") @db.Uuid
+  voidReason        String?     @map("void_reason")
+  loanId            String?     @map("loan_id") @db.Uuid
+  origin            EntryOrigin @default(DIRECT)
 
   property        Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   owner           Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
@@ -656,30 +679,73 @@ model OwnerLedgerEntry {
   @@map("owner_ledger_entries")
 }
 
-// Loan ledger (PRD §5.5) — disbursement only until the Loans section ships.
+// Loan ledger (PRD §5.5; Advances & Loans PRD). Outstanding is computed from
+// linked LOAN_DEDUCTIONs and loan_movements — never stored.
 model Loan {
-  id               String     @id @default(uuid()) @db.Uuid
-  propertyId       String     @map("property_id") @db.Uuid
-  ownerId          String     @map("owner_id") @db.Uuid
-  principalPaisa   BigInt     @map("principal_paisa")
-  disbursedOn      DateTime   @map("disbursed_on") @db.Date
-  fundAccountId    String     @map("fund_account_id") @db.Uuid
+  id               String      @id @default(uuid()) @db.Uuid
+  propertyId       String      @map("property_id") @db.Uuid
+  number           Int
+  origin           EntryOrigin @default(DIRECT)
+  isSelf           Boolean     @default(false) @map("is_self")
+  flagged          Boolean     @default(false)
+  ownerId          String      @map("owner_id") @db.Uuid
+  principalPaisa   BigInt      @map("principal_paisa")
+  disbursedOn      DateTime    @map("disbursed_on") @db.Date
+  fundAccountId    String      @map("fund_account_id") @db.Uuid
   method           PayMethod
-  referenceNo      String?    @map("reference_no")
+  referenceNo      String?     @map("reference_no")
   reason           String
-  installmentPaisa BigInt?    @map("installment_paisa")
-  status           LoanStatus @default(ACTIVE)
-  payoutEntryId    String?    @map("payout_entry_id") @db.Uuid
-  createdById      String     @map("created_by") @db.Uuid
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  installmentPaisa BigInt?     @map("installment_paisa")
+  status           LoanStatus  @default(ACTIVE)
+  payoutEntryId    String?     @map("payout_entry_id") @db.Uuid
+  createdById      String      @map("created_by") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
   property    Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   owner       Owner              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   fundAccount FundAccount        @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
   payoutEntry OwnerLedgerEntry?  @relation("LoanPayoutEntry", fields: [payoutEntryId], references: [id], onDelete: Restrict)
   deductions  OwnerLedgerEntry[] @relation("LoanDeductions")
+  movements   LoanMovement[]
   createdBy   User               @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
+  @@unique([propertyId, number])
   @@index([ownerId, status])
   @@map("loans")
+}
+
+// Cash repayments, their reversals, cancellations and write-offs (design D1).
+// amount_paisa is the signed effect on the loan outstanding; the fund account
+// moves by its negative. Never deleted; voided with a reason.
+model LoanMovement {
+  id            String           @id @default(uuid()) @db.Uuid
+  propertyId    String           @map("property_id") @db.Uuid
+  loanId        String           @map("loan_id") @db.Uuid
+  periodId      String           @map("period_id") @db.Uuid
+  type          LoanMovementType
+  amountPaisa   BigInt           @map("amount_paisa")
+  movementDate  DateTime         @map("movement_date") @db.Date
+  fundAccountId String           @map("fund_account_id") @db.Uuid
+  method        PayMethod?
+  referenceNo   String?          @map("reference_no")
+  note          String?
+  reversesId    String?          @unique @map("reverses_id") @db.Uuid
+  createdById   String           @map("created_by") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  voidedAt      DateTime?        @map("voided_at") @db.Timestamptz(6)
+  voidedById    String?          @map("voided_by") @db.Uuid
+  voidReason    String?          @map("void_reason")
+
+  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  loan        Loan          @relation(fields: [loanId], references: [id], onDelete: Restrict)
+  period      Period        @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  fundAccount FundAccount   @relation(fields: [fundAccountId], references: [id], onDelete: Restrict)
+  reverses    LoanMovement? @relation("LoanMovementReversal", fields: [reversesId], references: [id], onDelete: Restrict)
+  reversedBy  LoanMovement? @relation("LoanMovementReversal")
+  createdBy   User          @relation("LoanMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  voidedBy    User?         @relation("LoanMovementVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  @@index([loanId])
+  @@index([fundAccountId])
+  @@map("loan_movements")
 }

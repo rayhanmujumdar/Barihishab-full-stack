@@ -67,7 +67,8 @@ export function DetailDrawer({
   const detach = useApiMutation(["transactions", "remove-file"], (v: { id: string; attId: string }) => apiFetch(`/transactions/${v.id}/attachments/${v.attId}`, { method: "DELETE" }), { invalidate });
   const busy = voidEntry.isPending || detach.isPending;
 
-  const writable = !!detail && detail.periodStatus === "OPEN" && !detail.voidedAt;
+  // A loan write-off expense changes only with its loan (Advances & Loans F10).
+  const writable = !!detail && detail.periodStatus === "OPEN" && !detail.voidedAt && detail.source !== "LOAN_WRITE_OFF";
   const canFix = writable && perms.update;
   const canVoid = writable && perms.void;
 

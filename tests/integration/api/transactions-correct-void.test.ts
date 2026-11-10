@@ -171,3 +171,16 @@ describe("POST /api/v1/transactions/:id/void (VOD-01/02)", () => {
     expect((await prisma.houseTransaction.findUniqueOrThrow({ where: { id: w.elec.id } })).voidedAt).toBeNull();
   });
 });
+
+describe("loan write-off expenses are locked (Advances & Loans F10)", () => {
+  it("refuses correct and void with NOT_EDITABLE and keeps counting the expense", async () => {
+    const w = await setup();
+    const off = await createTxn({ propertyId: w.property.id, periodId: w.oct.id, categoryId: w.categories.LOAN_WRITTEN_OFF.id, fundAccountId: w.cash.id, createdById: w.admin.id, amountPaisa: 3000000 });
+    await prisma.houseTransaction.update({ where: { id: off.id }, data: { source: "LOAN_WRITE_OFF" } });
+    const v = await doVoid(w, "Duplicate entry", w.adminLogin, off.id);
+    expect(v.status).toBe(409);
+    expect((await json(v)).error).toMatchObject({ code: "NOT_EDITABLE", message: "This expense comes from a loan write-off and can't be changed here." });
+    expect((await json(await patch(w, { amountPaisa: 1, reason: "Fixing it" }, w.adminLogin, off.id))).error.code).toBe("NOT_EDITABLE");
+    expect((await prisma.houseTransaction.findUniqueOrThrow({ where: { id: off.id } })).voidedAt).toBeNull();
+  });
+});

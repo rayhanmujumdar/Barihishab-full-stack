@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createTxn } from "../../helpers/factory";
 import { boardData, byName, distributionWorld, postClose, postReopen } from "../../helpers/distribution";
 import { apiRequest, json, params } from "../../helpers/http";
+import { writeOff } from "../../helpers/loans";
 import { freezeDhaka } from "../../helpers/money";
 
 beforeEach(() => freezeDhaka(vi));
@@ -43,6 +44,31 @@ describe("POST /api/v1/periods/:month/reopen (F7, DST-04)", () => {
     expect(await prisma.auditLog.count({ where: { action: "period.reopened", entityId: w.oct.id, reason: "Plumber bill was missed" } })).toBe(1);
     // The reopened month's board nets the voided pairs out.
     expect(byName(board.rows).tanvir).toMatchObject({ entitlementPaisa: 1268535, receivedPaisa: 0, otherPaisa: 805585 });
+  });
+
+  it("keeps a manual loan deduction recorded before the close (Advances & Loans F6, Rule 12)", async () => {
+    const w = await distributionWorld();
+    const manual = await w.entry(w.owners.tanvir.id, "LOAN_DEDUCTION", -300000, { loanId: w.loan.id, origin: "DIRECT" });
+    await postClose(w.adminLogin, "2026-10");
+    await postReopen(w.adminLogin, "2026-10");
+    expect((await prisma.ownerLedgerEntry.findUniqueOrThrow({ where: { id: manual.id } })).voidedAt).toBeNull();
+    const closeRows = await prisma.ownerLedgerEntry.findMany({ where: { periodId: w.oct.id, origin: "CLOSE" } });
+    expect(closeRows.length).toBeGreaterThan(0);
+    expect(closeRows.every((e) => e.voidedAt !== null)).toBe(true);
+  });
+
+  it("refuses when a loan it took an instalment from was written off since (Advances & Loans F10)", async () => {
+    const w = await distributionWorld();
+    await postClose(w.adminLogin, "2026-10");
+    expect((await writeOff(w.adminLogin, w.loan.id)).status).toBe(200);
+    const res = await postReopen(w.adminLogin, "2026-10");
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toMatchObject({
+      code: "REOPEN_NOT_ALLOWED",
+      message: "L1 was written off after this month closed, so its instalments can't be reversed. Record an Adjustment in the open month instead.",
+    });
+    expect((await prisma.period.findUniqueOrThrow({ where: { id: w.oct.id } })).status).toBe("CLOSED");
+    expect(await prisma.ownerLedgerEntry.count({ where: { periodId: w.oct.id, type: "LOAN_DEDUCTION", voidedAt: { not: null } } })).toBe(0);
   });
 
   it("only reopens the latest closed month, needs a reason and an admin", async () => {

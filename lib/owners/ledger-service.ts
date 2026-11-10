@@ -3,10 +3,11 @@
 // latest open period → compute with the pure module → insert → audit →
 // idempotency row, all in one transaction.
 import type { Attachment, Prisma } from "@/lib/generated/prisma/client";
+import type { EntryOrigin } from "@/lib/accounting/loans";
 import { advanceLimit, splitPayout, statement, type LedgerType } from "@/lib/accounting/owners";
 import type { SaveIdempotent } from "@/lib/api/idempotency";
 import { Abort, inTransaction } from "@/lib/api/in-transaction";
-import { failWith, fieldFail, type Actor, type Fail, type Result } from "@/lib/api/result";
+import { failWith, fieldFail, isFail, type Actor, type Fail, type Result } from "@/lib/api/result";
 import { attachmentsFor, linkAttachments, prepareAttachments, type AttachmentDto } from "@/lib/attachments/attachment-service";
 import { audit, type AuditAction } from "@/lib/audit";
 import { now, todayIsoInDhaka } from "@/lib/clock";
@@ -16,7 +17,8 @@ import { ensureCurrentPeriod, lockPeriod } from "@/lib/periods/period-service";
 import { prisma } from "@/lib/prisma";
 import { isAfterTomorrow } from "@/lib/transactions/rules";
 import { displayName } from "@/lib/users/dto";
-import { createLoanInTx, type LoanDto } from "./loan-service";
+import { createLoanInTx, type LoanDto } from "@/lib/loans/loan-service";
+import { loadAdvanceLimit } from "@/lib/loans/settings-service";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -41,6 +43,7 @@ export type LedgerEntryDto = {
   voidReason: string | null;
   isSelf: boolean;
   flagged: boolean;
+  origin: EntryOrigin;
   recordedBy: string;
   recordedAt: string;
   attachments: Pick<AttachmentDto, "id" | "fileName" | "mime">[];
@@ -49,7 +52,8 @@ export type LedgerEntryDto = {
 export type LedgerWarning =
   | { code: "FUND_SHORT"; fundAccountId: string; balancePaisa: number }
   | { code: "HOUSE_FUND_SHORT"; balancePaisa: number }
-  | { code: "ADVANCE_OVER_LIMIT"; limitPaisa: number };
+  | { code: "ADVANCE_OVER_LIMIT"; limitPaisa: number }
+  | { code: "OWNER_OWED"; balancePaisa: number };
 
 const NAME = { select: { firstName: true, lastName: true, name: true, username: true } } as const;
 const ENTRY_INCLUDE = {
@@ -83,6 +87,7 @@ function toEntryDto(e: EntryRow, attachments: AttachmentDto[] = []): LedgerEntry
     voidReason: e.voidReason,
     isSelf: e.isSelf,
     flagged: e.flagged,
+    origin: e.origin,
     recordedBy: displayName(e.createdBy),
     recordedAt: e.createdAt.toISOString(),
     attachments: attachments.map(({ id, fileName, mime }) => ({ id, fileName, mime })),
@@ -97,29 +102,29 @@ async function entryDtos(db: Db, rows: EntryRow[]): Promise<LedgerEntryDto[]> {
 // ─── Guards ───
 
 /** Row lock on the owner: concurrent money moves for one owner run one at a time. */
-async function lockOwner(tx: Tx, propertyId: string, ownerId: string) {
+export async function lockOwner(tx: Tx, propertyId: string, ownerId: string) {
   const rows = await tx.$queryRaw<{ id: string; user_id: string | null }[]>`
     SELECT id, user_id FROM owners WHERE id = ${ownerId}::uuid AND property_id = ${propertyId}::uuid FOR UPDATE`;
   return rows[0] ?? null;
 }
 
 /** Rule 14: money moves post in the latest OPEN month (share-locked against a close). */
-async function latestOpenPeriod(tx: Tx, propertyId: string) {
+export async function latestOpenPeriod(tx: Tx, propertyId: string) {
   const p = await tx.period.findFirst({ where: { propertyId, status: "OPEN" }, orderBy: { month: "desc" }, select: { id: true } });
   const locked = p ? await lockPeriod(tx, p.id) : null;
   if (locked?.status !== "OPEN") throw new Abort(failWith("NO_OPEN_PERIOD"));
   return locked;
 }
 
-async function ownerBalance(db: Db, ownerId: string): Promise<number> {
+export async function ownerBalance(db: Db, ownerId: string): Promise<number> {
   const r = await db.ownerLedgerEntry.aggregate({ where: { ownerId }, _sum: { amountPaisa: true } });
   return Number(r._sum.amountPaisa ?? 0);
 }
 
-type CashOut = { ownerId: string; amountPaisa: number; date: string; fundAccountId: string; method: PayMethod; referenceNo?: string | null; attachmentIds?: string[] };
+export type CashOut = { ownerId: string; amountPaisa: number; date: string; fundAccountId: string; method: PayMethod; referenceNo?: string | null; attachmentIds?: string[] };
 
 /** Field checks shared by payouts and advances (outside the transaction). */
-async function checkCashOut(propertyId: string, input: CashOut): Promise<Attachment[] | Fail> {
+export async function checkCashOut(propertyId: string, input: CashOut): Promise<Attachment[] | Fail> {
   const fund = await prisma.fundAccount.findFirst({ where: { id: input.fundAccountId, propertyId, isActive: true }, select: { id: true } });
   if (!fund) return fieldFail("fundAccountId", "Pick an active fund account.");
   if (isAfterTomorrow(input.date, todayIsoInDhaka())) return fieldFail("date", "Date can't be in the future.");
@@ -128,9 +133,8 @@ async function checkCashOut(propertyId: string, input: CashOut): Promise<Attachm
   return prepareAttachments(propertyId, input.attachmentIds ?? [], 0);
 }
 
-const isFail = (v: unknown): v is Fail => !Array.isArray(v) && (v as Fail)?.ok === false;
 
-async function cashWarnings(tx: Tx, propertyId: string, fundAccountId: string, amountPaisa: number): Promise<LedgerWarning[]> {
+export async function cashWarnings(tx: Tx, propertyId: string, fundAccountId: string, amountPaisa: number): Promise<LedgerWarning[]> {
   const out: LedgerWarning[] = [];
   const fund = await balanceOf(tx, propertyId, fundAccountId);
   if (fund < 0) out.push({ code: "FUND_SHORT", fundAccountId, balancePaisa: fund });
@@ -151,9 +155,11 @@ type NewEntry = {
   reversesId?: string | null;
   isSelf?: boolean;
   flagged?: boolean;
+  origin?: EntryOrigin;
+  loanId?: string | null;
 };
 
-async function insertEntry(tx: Tx, propertyId: string, ownerId: string, periodId: string, e: NewEntry, actor: Actor, action: AuditAction, reason?: string | null) {
+export async function insertEntry(tx: Tx, propertyId: string, ownerId: string, periodId: string, e: NewEntry, actor: Actor, action: AuditAction, reason?: string | null) {
   const row = await tx.ownerLedgerEntry.create({
     data: {
       propertyId,
@@ -170,6 +176,8 @@ async function insertEntry(tx: Tx, propertyId: string, ownerId: string, periodId
       reversesId: e.reversesId ?? null,
       isSelf: e.isSelf ?? false,
       flagged: e.flagged ?? false,
+      origin: e.origin ?? "DIRECT",
+      loanId: e.loanId ?? null,
       createdById: actor.id,
     },
     include: ENTRY_INCLUDE,
@@ -249,7 +257,7 @@ export async function createPayout(propertyId: string, input: PayoutInput, actor
     let loan: LoanDto | null = null;
     if (excessPaisa > 0 && input.splitExcessAs === "ADVANCE") {
       const isSelf = owner!.user_id === actor.id;
-      rows.push(await insertEntry(tx, propertyId, input.ownerId, period.id, { ...cash, type: "ADVANCE", amountPaisa: -excessPaisa, note: excessReason, isSelf }, actor, "ledger.advance_created", excessReason));
+      rows.push(await insertEntry(tx, propertyId, input.ownerId, period.id, { ...cash, type: "ADVANCE", amountPaisa: -excessPaisa, note: excessReason, isSelf, origin: "PAYOUT_SPLIT" }, actor, "ledger.advance_created", excessReason));
     } else if (excessPaisa > 0) {
       loan = await createLoanInTx(
         tx,
@@ -276,17 +284,22 @@ export async function createPayout(propertyId: string, input: PayoutInput, actor
 export type AdvanceInput = CashOut & { reason: string };
 export type AdvanceResult = { entry: LedgerEntryDto; balancePaisa: number; warnings: LedgerWarning[] };
 
-/** Average per-month entitlement over the last 3 closed months (Rule 16). */
-async function advanceLimitFor(tx: Tx, propertyId: string, ownerId: string): Promise<number | null> {
-  const closed = await tx.period.findMany({ where: { propertyId, status: "CLOSED" }, orderBy: { month: "desc" }, take: 3, select: { id: true } });
-  if (!closed.length) return null;
-  const sums = await tx.ownerLedgerEntry.groupBy({
+/** Per-month non-voided entitlement totals of the last 3 closed months, newest first (Rule 16; §7.5). */
+export async function recentEntitlements(db: Db, propertyId: string, ownerId: string): Promise<number[]> {
+  const closed = await db.period.findMany({ where: { propertyId, status: "CLOSED" }, orderBy: { month: "desc" }, take: 3, select: { id: true } });
+  if (!closed.length) return [];
+  const sums = await db.ownerLedgerEntry.groupBy({
     by: ["periodId"],
-    where: { ownerId, type: "ENTITLEMENT", periodId: { in: closed.map((p) => p.id) } },
+    where: { ownerId, type: "ENTITLEMENT", voidedAt: null, periodId: { in: closed.map((p) => p.id) } },
     _sum: { amountPaisa: true },
   });
   const byPeriod = new Map(sums.map((s) => [s.periodId, Number(s._sum.amountPaisa ?? 0)]));
-  return advanceLimit(closed.map((p) => byPeriod.get(p.id) ?? 0));
+  return closed.map((p) => byPeriod.get(p.id) ?? 0);
+}
+
+/** Average monthly share over the last 3 closed months; null with none (F4 hint, F14). */
+export async function averageEntitlement(db: Db, propertyId: string, ownerId: string): Promise<number | null> {
+  return advanceLimit(await recentEntitlements(db, propertyId, ownerId));
 }
 
 export async function createAdvance(propertyId: string, input: AdvanceInput, actor: Actor, save?: SaveIdempotent): Promise<Result<AdvanceResult>> {
@@ -295,8 +308,11 @@ export async function createAdvance(propertyId: string, input: AdvanceInput, act
   return inTransaction(async (tx) => {
     const owner = await lockOwner(tx, propertyId, input.ownerId);
     const period = await latestOpenPeriod(tx, propertyId);
-    const limit = await advanceLimitFor(tx, propertyId, input.ownerId);
-    const flagged = limit !== null && input.amountPaisa > limit;
+    const { multiplierPct } = await loadAdvanceLimit(tx, propertyId);
+    const limit = advanceLimit(await recentEntitlements(tx, propertyId, input.ownerId), multiplierPct);
+    const before = await ownerBalance(tx, input.ownerId);
+    // §7.5: what is already advanced counts toward the limit.
+    const flagged = limit !== null && Math.max(0, -before) + input.amountPaisa > limit;
     const row = await insertEntry(
       tx,
       propertyId,
@@ -319,6 +335,7 @@ export async function createAdvance(propertyId: string, input: AdvanceInput, act
     );
     await linkAttachments(tx, propertyId, row.id, uploads, actor, "owner_ledger_entry");
     const warnings = await cashWarnings(tx, propertyId, input.fundAccountId, input.amountPaisa);
+    if (before > 0) warnings.unshift({ code: "OWNER_OWED", balancePaisa: before });
     if (flagged) warnings.unshift({ code: "ADVANCE_OVER_LIMIT", limitPaisa: limit! });
     const data: AdvanceResult = { entry: (await withFiles(tx, [row]))[0], balancePaisa: await ownerBalance(tx, input.ownerId), warnings };
     await save?.(tx, data);

@@ -50,6 +50,13 @@ export const AUDIT_ACTIONS = [
   "period.reserve_overridden",
   "period.reserve_reset",
   "settings.reserve_updated",
+  // Advances & Loans PRD §12 (financial)
+  "loan.repaid_cash",
+  "loan.repaid_deduction",
+  "loan.repayment_voided",
+  "loan.cancelled",
+  "loan.written_off",
+  "settings.advance_limit_updated",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

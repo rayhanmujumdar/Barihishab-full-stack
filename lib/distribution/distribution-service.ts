@@ -12,7 +12,7 @@ import {
   type WarningCode,
 } from "@/lib/accounting/distribution";
 import { balanceLabel, sharePercent, type BalanceLabel } from "@/lib/accounting/owners";
-import { activeLoans } from "@/lib/owners/loan-service";
+import { activeLoans } from "@/lib/loans/loan-service";
 import { balancesByOwner } from "@/lib/owners/owner-service";
 import { addMonths, currentMonthKey, monthDate } from "@/lib/periods/month";
 import { prisma } from "@/lib/prisma";

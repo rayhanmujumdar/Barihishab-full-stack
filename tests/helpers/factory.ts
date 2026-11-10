@@ -192,6 +192,7 @@ export async function createLedgerEntry(data: {
   voided?: string;
   method?: "CASH" | "BANK" | "BKASH" | "NAGAD" | null;
   loanId?: string | null;
+  origin?: "DIRECT" | "CLOSE" | "PAYOUT_SPLIT";
 }) {
   return prisma.ownerLedgerEntry.create({
     data: {
@@ -207,6 +208,8 @@ export async function createLedgerEntry(data: {
       reversesId: data.reversesId ?? null,
       referencePeriodId: data.referencePeriodId ?? null,
       loanId: data.loanId ?? null,
+      // Like the migration backfill: entitlements and deductions default to close-posted.
+      origin: data.origin ?? (data.type === "ENTITLEMENT" || data.type === "LOAN_DEDUCTION" ? "CLOSE" : "DIRECT"),
       ...(data.voided ? { voidedAt: new Date(), voidReason: data.voided, voidedById: data.createdById } : {}),
     },
   });
@@ -218,22 +221,54 @@ export async function createLoan(data: {
   fundAccountId: string;
   createdById: string;
   principalPaisa: number;
-  status?: "ACTIVE" | "REPAID";
+  status?: "ACTIVE" | "REPAID" | "CANCELLED" | "WRITTEN_OFF";
   installmentPaisa?: number | null;
   disbursedOn?: string;
+  origin?: "DIRECT" | "PAYOUT_SPLIT";
 }) {
+  const number = (await prisma.loan.count({ where: { propertyId: data.propertyId } })) + 1;
   return prisma.loan.create({
     data: {
       propertyId: data.propertyId,
+      number,
+      origin: data.origin ?? "DIRECT",
       ownerId: data.ownerId,
       fundAccountId: data.fundAccountId,
       createdById: data.createdById,
       principalPaisa: BigInt(data.principalPaisa),
-      disbursedOn: new Date(`${data.disbursedOn ?? "2026-10-10"}T00:00:00Z`),
+      // June: the first instalment is taken when July closes (Advances & Loans §7.3).
+      disbursedOn: new Date(`${data.disbursedOn ?? "2026-06-10"}T00:00:00Z`),
       method: "CASH",
       reason: "Loan",
       status: data.status ?? "ACTIVE",
       installmentPaisa: data.installmentPaisa ? BigInt(data.installmentPaisa) : null,
+    },
+  });
+}
+
+/** A raw loan movement (Advances & Loans design D1); signs are the outstanding effect. */
+export function createLoanMovement(data: {
+  propertyId: string;
+  loanId: string;
+  periodId: string;
+  createdById: string;
+  type: "CASH_REPAYMENT" | "REVERSAL" | "CANCELLATION" | "WRITE_OFF";
+  amountPaisa: number;
+  fundAccountId?: string;
+  reversesId?: string | null;
+  movementDate?: string;
+}) {
+  return prisma.loanMovement.create({
+    data: {
+      propertyId: data.propertyId,
+      loanId: data.loanId,
+      periodId: data.periodId,
+      createdById: data.createdById,
+      type: data.type,
+      amountPaisa: BigInt(data.amountPaisa),
+      fundAccountId: data.fundAccountId as string,
+      reversesId: data.reversesId ?? null,
+      movementDate: new Date(`${data.movementDate ?? "2026-10-12"}T00:00:00Z`),
     },
   });
 }

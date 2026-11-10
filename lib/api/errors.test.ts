@@ -47,6 +47,14 @@ describe("error catalogue", () => {
     expect(ERRORS.REOPEN_NOT_ALLOWED.en).toBe("Only the latest closed month can be reopened. For older months, record an Adjustment in the open month.");
   });
 
+  it("maps the Advances & Loans PRD §9 codes", () => {
+    for (const code of ["LOAN_HAS_REPAYMENTS", "NOT_EDITABLE"] as const) {
+      expect(ERRORS[code].status, code).toBe(409);
+    }
+    expect(ERRORS.LOAN_HAS_REPAYMENTS.en).toBe("This loan has repayments, so it can't be cancelled. Void the repayments first or write it off.");
+    expect(ERRORS.NOT_EDITABLE.en).toBe("This expense comes from a loan write-off and can't be changed here.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

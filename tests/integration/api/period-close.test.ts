@@ -4,7 +4,7 @@ import * as fundsRoute from "@/app/api/v1/fund-accounts/route";
 import * as openingRoute from "@/app/api/v1/owners/[id]/opening/route";
 import { POST as createTxnRoute } from "@/app/api/v1/transactions/route";
 import { prisma } from "@/lib/prisma";
-import { createPeriod, createShareSet, createTxn } from "../../helpers/factory";
+import { createLoan, createLoanMovement, createPeriod, createShareSet, createTxn } from "../../helpers/factory";
 import { boardData, byName, distributionWorld, postClose, type DistWorld } from "../../helpers/distribution";
 import { apiRequest, json, params, type Login } from "../../helpers/http";
 import { freezeDhaka, moneyPost } from "../../helpers/money";
@@ -93,6 +93,26 @@ describe("POST /api/v1/periods/:month/close (F5, F6, F11, DST-03)", () => {
     expect(r.tanvir).toMatchObject({ entitlementPaisa: 1268535, loanDeductionPaisa: 500000, balancePaisa: 1574120, loanOutstandingPaisa: 3000000 });
     expect(r.farzana).toMatchObject({ balancePaisa: 1716080, balanceLabel: "OWED" });
     expect(await cashBalance(w)).toBe(fundBefore); // entitlements and deductions move no cash
+  });
+
+  it("posts close entries with origin CLOSE and takes no instalment from a loan disbursed this month (Advances & Loans §7.3)", async () => {
+    const w = await distributionWorld();
+    const fresh = await createLoan({ propertyId: w.property.id, ownerId: w.owners.farzana.id, fundAccountId: w.cash.id, createdById: w.admin.id, principalPaisa: 1000000, installmentPaisa: 200000, disbursedOn: "2026-10-05" });
+    const p = (await json(await getPreview(w.adminLogin, "2026-10"))).data;
+    expect(JSON.stringify(p)).not.toContain(fresh.id);
+    await postClose(w.adminLogin, "2026-10");
+    const posted = await prisma.ownerLedgerEntry.findMany({ where: { periodId: w.oct.id, type: { in: ["ENTITLEMENT", "LOAN_DEDUCTION"] } } });
+    expect(posted.every((e) => e.origin === "CLOSE")).toBe(true);
+    expect(posted.filter((e) => e.type === "LOAN_DEDUCTION").map((e) => e.loanId)).toEqual([w.loan.id]);
+    expect(((await prisma.period.findUniqueOrThrow({ where: { id: w.oct.id } })).snapshot as { skippedLoans: unknown[] }).skippedLoans).toEqual([]);
+  });
+
+  it("caps the instalment at the outstanding left after a cash repayment", async () => {
+    const w = await distributionWorld();
+    await createLoanMovement({ propertyId: w.property.id, loanId: w.loan.id, periodId: w.oct.id, createdById: w.admin.id, fundAccountId: w.cash.id, type: "CASH_REPAYMENT", amountPaisa: -3300000 });
+    await postClose(w.adminLogin, "2026-10");
+    expect(await prisma.ownerLedgerEntry.findFirst({ where: { type: "LOAN_DEDUCTION", periodId: w.oct.id, amountPaisa: BigInt(-200000) } })).not.toBeNull();
+    expect((await prisma.loan.findUniqueOrThrow({ where: { id: w.loan.id } })).status).toBe("REPAID");
   });
 
   it("closes a zero-distributable month with no entitlements and records the deficit", async () => {

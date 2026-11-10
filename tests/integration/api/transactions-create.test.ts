@@ -132,7 +132,7 @@ describe("POST /api/v1/transactions", () => {
 
   it("EXP-05: Owner special grant and adjustment categories are not for manual entry", async () => {
     const w = await setup();
-    for (const code of ["OWNER_GRANT", "ADJUSTMENT_EXP"]) {
+    for (const code of ["OWNER_GRANT", "ADJUSTMENT_EXP", "LOAN_WRITTEN_OFF"]) {
       const res = await create(w.admin, expense(w, { categoryId: w.categories[code].id }));
       expect((await json(res)).error.details.fields.categoryId, code).toBe("Pick a category.");
     }

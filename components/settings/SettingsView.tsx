@@ -18,6 +18,7 @@ import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import type { CategoryDto, FundAccountDto, UnitDto } from "@/lib/master-data/dto";
 import { formatMoney, paisaToInput, parseAmount } from "@/lib/money";
 import type { ReserveSettings as ReserveRule } from "@/lib/distribution/reserve-service";
+import { AdvanceLimitSettings } from "./AdvanceLimitSettings";
 import { ReserveSettings } from "./ReserveSettings";
 
 type Can = { units: boolean; funds: boolean; categories: boolean };
@@ -54,6 +55,7 @@ export function SettingsView({
   categories,
   can,
   reserve = null,
+  advanceLimitPct = null,
 }: {
   locale: Locale;
   units: UnitDto[];
@@ -62,6 +64,8 @@ export function SettingsView({
   can: Can;
   /** Reserve rule + balance, for users with `settings.manage` (Distribution PRD F9). */
   reserve?: { rule: ReserveRule; balancePaisa: number } | null;
+  /** Advance-limit multiplier in %, for users with `settings.manage` (Advances & Loans F14). */
+  advanceLimitPct?: number | null;
 }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -113,6 +117,7 @@ export function SettingsView({
       <ErrorStrip message={error} />
 
       {reserve ? <ReserveSettings locale={locale} rule={reserve.rule} balancePaisa={reserve.balancePaisa} /> : null}
+      {advanceLimitPct ? <AdvanceLimitSettings locale={locale} multiplierPct={advanceLimitPct} /> : null}
 
       {can.units ? (
         <Section id="units" title={tr("settings.units")} addLabel={tr("settings.add")} onAdd={() => setEditing({ type: "unit", item: null })} empty={!units.length} emptyText={tr("settings.empty")}>

@@ -202,9 +202,20 @@ describe("advanceLimit", () => {
     expect(advanceLimit([1, 1, 2])).toBe(1);
   });
 
+  it("applies the Settings multiplier (F14): Nasrin's 1× limit is 3316253", () => {
+    expect(advanceLimit([2989440, 3477760, 3481560])).toBe(3316253);
+    expect(advanceLimit([2989440, 3477760, 3481560], 100)).toBe(3316253);
+    expect(advanceLimit([3000000, 3000000, 3000000], 50)).toBe(1500000);
+    expect(advanceLimit([3000000, 3000000, 3000000], 150)).toBe(4500000);
+    expect(advanceLimit([3000000], 200)).toBe(6000000);
+  });
+
   it("has no limit without entitlements", () => {
     expect(advanceLimit([])).toBeNull();
     expect(advanceLimit([0, 0, 0])).toBeNull();
+    // 0.5× of a 1-paisa average rounds to 0: that is no usable limit, not "everything is over it".
+    expect(advanceLimit([1, 0, 0], 50)).toBeNull();
+    expect(advanceLimit([2], 50)).toBe(1);
   });
 });
 

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowRightIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { AttachmentPicker } from "@/components/entries/AttachmentPicker";
+import { AdvanceLimitPanel } from "@/components/loans/AdvanceLimitPanel";
 import { newIdempotencyKey } from "@/components/entries/upload";
 import { ErrorStrip } from "@/components/forms/error-strip";
 import { DateField, RequiredLegend, requiredProps, SelectField, TextField } from "@/components/forms/fields";
@@ -183,6 +184,9 @@ export function PayDrawer({ locale, mode, data, onClose, onSaved }: { locale: Lo
               </Button>
             ) : null}
           </div>
+          {mode === "advance" ? (
+            <AdvanceLimitPanel locale={locale} owner={{ displayName: owner.displayName, balancePaisa: owner.balancePaisa, limitPaisa: data.advanceLimitPaisa ?? null }} amountPaisa={paisa} />
+          ) : null}
           {mode === "pay" && owed === 0 ? (
             <Alert variant="destructive">
               <ExclamationTriangleIcon className="size-4" />

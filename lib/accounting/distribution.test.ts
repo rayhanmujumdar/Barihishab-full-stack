@@ -156,6 +156,13 @@ describe("loanDeductions", () => {
     expect(r.skipped.map((s) => s.loanId)).toEqual(["same-a", "same-b"]);
     expect(deductionByOwner(r.deductions).get("t")).toBe(250000);
   });
+
+  it("takes no instalment from a loan disbursed in or after the month being closed (§7.3)", () => {
+    const r = loanDeductions([{ ownerId: "t", amountPaisa: 1600000 }], [loan({ id: "june", disbursedOn: "2026-06-10" }), loan({ id: "may", disbursedOn: "2026-05-31" })], "2026-06");
+    expect(r.deductions.map((d) => d.loanId)).toEqual(["may"]);
+    expect(r.skipped).toEqual([]);
+    expect(loanDeductions([{ ownerId: "t", amountPaisa: 1600000 }], [loan({ id: "june", disbursedOn: "2026-06-10" })], "2026-07").deductions).toHaveLength(1);
+  });
 });
 
 describe("boardRows", () => {

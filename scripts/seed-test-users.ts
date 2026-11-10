@@ -44,10 +44,10 @@ export const testEmail = (username: string) => `${username.replace(".", "+")}@ex
 
 export type TestSeedResult = { users: { username: string; email: string; roles: Role[]; created: boolean }[]; shareSetCreated: boolean; password: string };
 
-type Env = Record<string, string | undefined>;
+export type Env = Record<string, string | undefined>;
 
 /** Refuses production and any database not on this machine, unless explicitly allowed. */
-function assertLocalTarget(env: Env) {
+export function assertLocalTarget(env: Env) {
   if (env.NODE_ENV === "production") throw new Error("Refusing to seed test users when NODE_ENV=production");
   if (env.ALLOW_TEST_USERS_SEED === "true") return;
   const url = env.DATABASE_URL ?? process.env.DATABASE_URL ?? "";

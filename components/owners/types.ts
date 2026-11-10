@@ -33,9 +33,11 @@ export type OwnerPageData = {
   /** Existing period months (adjustment reference picker). */
   periodMonths: string[];
   perms: { pay: boolean; advance: boolean; void: boolean; adjust: boolean; manage: boolean; loan: boolean };
+  /** Advance limit for this owner (Advances & Loans F14); null = no closed months yet. */
+  advanceLimitPaisa?: number | null;
 };
 
 /** What the pay / advance drawer needs: the owner's id, name and balance plus the fund accounts (F11, F12; Distribution F12). */
-export type PayDrawerData = Pick<OwnerPageData, "funds" | "houseFundPaisa"> & {
+export type PayDrawerData = Pick<OwnerPageData, "funds" | "houseFundPaisa" | "advanceLimitPaisa"> & {
   owner: Pick<OwnerDetailDto, "id" | "displayName" | "balancePaisa" | "balanceLabel" | "oldestDueMonth">;
 };

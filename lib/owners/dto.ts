@@ -1,4 +1,4 @@
-import type { LoanDto } from "./loan-service";
+import type { LoanDto } from "@/lib/loans/loan-service";
 // Owner read models (Owners PRD F1, F2). Money is integer paisa as `number`.
 import type { BalanceLabel, OwnerStatus } from "@/lib/accounting/owners";
 

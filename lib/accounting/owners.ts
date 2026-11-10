@@ -111,9 +111,10 @@ export function statement<T extends StatementInput>(entries: readonly T[], from:
  * Advance limit = average monthly entitlement over the given (last 3 closed)
  * months, floored to paisa. No entitlements yet → no limit (F12, Rule 16).
  */
-export function advanceLimit(monthlyEntitlements: readonly number[]): number | null {
+export function advanceLimit(monthlyEntitlements: readonly number[], multiplierPct = 100): number | null {
   const sum = monthlyEntitlements.reduce((a, b) => a + b, 0);
-  return sum > 0 ? Math.floor(sum / monthlyEntitlements.length) : null;
+  const limit = sum > 0 ? Math.floor((sum * multiplierPct) / (monthlyEntitlements.length * 100)) : 0;
+  return limit > 0 ? limit : null;
 }
 
 type YearRow = { type: LedgerType; amountPaisa: number; date: string; month: string; voided: boolean };

@@ -4,9 +4,9 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 
 type Seed = { kind: "INCOME" | "EXPENSE"; code: string; nameEn: string; nameBn: string; isSystem?: boolean };
 
-export const SYSTEM_CODES = ["RENT", "ARREAR", "OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP"] as const;
+export const SYSTEM_CODES = ["RENT", "ARREAR", "OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP", "LOAN_WRITTEN_OFF"] as const;
 /** Codes the manual entry form never offers (EXP-05; adjustments have their own endpoint). */
-export const NON_MANUAL_CODES = ["OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP"] as const;
+export const NON_MANUAL_CODES = ["OWNER_GRANT", "ADJUSTMENT_INC", "ADJUSTMENT_EXP", "LOAN_WRITTEN_OFF"] as const;
 
 export const DEFAULT_CATEGORIES: readonly Seed[] = [
   // Income
@@ -31,6 +31,8 @@ export const DEFAULT_CATEGORIES: readonly Seed[] = [
   { kind: "EXPENSE", code: "OWNER_GRANT", nameEn: "Owner special grant", nameBn: "মালিকের বিশেষ অনুদান", isSystem: true },
   { kind: "EXPENSE", code: "OTHER_EXP", nameEn: "Other", nameBn: "অন্যান্য" },
   { kind: "EXPENSE", code: "ADJUSTMENT_EXP", nameEn: "Adjustment", nameBn: "সমন্বয়", isSystem: true },
+  // Advances & Loans PRD F10 (migration 20261110000100_loan_written_off_category)
+  { kind: "EXPENSE", code: "LOAN_WRITTEN_OFF", nameEn: "Loan written off", nameBn: "ঋণ মওকুফ", isSystem: true },
 ];
 
 type Db = Pick<Prisma.TransactionClient, "category">;

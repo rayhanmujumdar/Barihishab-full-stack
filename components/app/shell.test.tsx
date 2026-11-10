@@ -61,6 +61,16 @@ describe("ShellNav (RBAC-05)", () => {
     }
   });
 
+  it("shows Advances & loans after Owners to Owners and Super Admins (advances-loans-ui)", () => {
+    for (const roles of [["OWNER"], ["SUPER_ADMIN"]] as const) {
+      const { unmount } = render(<ShellNav locale="en" viewer={viewer([...roles])} pendingInvites={0} />);
+      expect(screen.getAllByRole("link", { name: /^Advances & loans/ })[0]).toHaveAttribute("href", "/en/advances");
+      const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+      expect(links.indexOf("/en/advances")).toBe(links.indexOf("/en/owners") + 1);
+      unmount();
+    }
+  });
+
   it("marks the current page", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(screen.getAllByRole("link", { name: /Home/ })[0]).toHaveAttribute("aria-current", "page");

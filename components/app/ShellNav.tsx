@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightStartOnRectangleIcon, BanknotesIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { ArrowRightStartOnRectangleIcon, BanknotesIcon, CreditCardIcon, Cog6ToothIcon, HomeIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,6 +36,7 @@ export function ShellNav({ locale, viewer, pendingInvites }: { locale: Locale; v
       { href: "/entries", label: "nav.entries", short: "nav.entriesShort", icon: BanknotesIcon, permission: "transaction.view" },
       { href: "/distribution", label: "nav.distribution", icon: ScaleIcon, permission: "distribution.view" },
       { href: "/owners", label: "nav.owners", icon: UserGroupIcon, permission: "owner.view" },
+      { href: "/advances", label: "nav.advances", short: "nav.advancesShort", icon: CreditCardIcon, permission: "loan.view" },
       { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: pendingInvites },
       { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
       { href: "/me", label: "nav.profile", icon: UserIcon },
