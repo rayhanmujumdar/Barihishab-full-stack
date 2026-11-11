@@ -18,6 +18,8 @@ const PRIVATE = [
   ["settings", "/settings"],
   ["distribution", "/distribution"],
   ["requests", "/requests"],
+  ["reports-monthly", "/reports/monthly"],
+  ["reports-yearly", "/reports/yearly"],
 ] as const;
 
 mkdirSync(".context/screens", { recursive: true });

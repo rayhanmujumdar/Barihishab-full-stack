@@ -73,6 +73,11 @@ import "./periods/[month]/reserve/schema";
 import "./periods/[month]/close-preview/schema";
 import "./periods/[month]/close/schema";
 import "./periods/[month]/reopen/schema";
+import "./reports/monthly/schema";
+import "./reports/yearly/schema";
+import "./reports/rent-roll/schema";
+import "./reports/expenses/schema";
+import "./reports/funds/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 

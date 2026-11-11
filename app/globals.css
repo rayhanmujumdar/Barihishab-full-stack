@@ -1486,3 +1486,525 @@ button.stair-cell {
 html:has(.home) {
   overscroll-behavior-y: contain;
 }
+
+/* ─── Reports (Reports PRD §2.1, F1–F11) ─── */
+.rpt-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 2px solid var(--color-text);
+  scrollbar-width: thin;
+}
+.rpt-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.rpt-tab:hover {
+  background: var(--color-neutral-200);
+}
+.rpt-tab-active,
+.rpt-tab-active:hover {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.rpt {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+}
+.rpt-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.rpt-title {
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 0;
+}
+.rpt-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 15px;
+}
+.rpt-compare,
+.rpt-notes,
+.rpt-links,
+.rpt-cats,
+.rpt-top {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rpt-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.rpt-empty {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-top: 2px solid var(--color-text);
+  font-weight: 600;
+}
+.rpt-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 32px;
+}
+.rpt-section {
+  min-width: 0;
+}
+.rpt-total {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.rpt-of-which {
+  margin: -8px 0 8px;
+}
+.rpt-cat {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+  cursor: default;
+}
+button.rpt-cat {
+  cursor: pointer;
+}
+button.rpt-cat:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+button.rpt-cat:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+.rpt-cat-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rpt-cat-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.rpt-cat-amount {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.rpt-cat-change {
+  margin: 4px 0 0;
+}
+.rpt-entries {
+  margin: 4px 0 12px;
+}
+.rpt-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rpt-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.rpt-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.rpt-top li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.rpt .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rpt-draft-note {
+  font-size: 13px;
+  font-weight: 600;
+}
+/* Wide tables scroll sideways with the first column fixed (§10 360px). */
+.rpt-scroll .rpt-table {
+  min-width: 720px;
+}
+.rpt-month-table {
+  min-width: 1100px;
+}
+.rpt-table .rpt-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  min-width: 132px;
+}
+.rpt-table tbody th,
+.rpt-table tfoot th {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-text);
+  text-align: left;
+}
+.rpt-th-draft {
+  display: block;
+  font-size: 10px;
+  color: var(--color-accent-800);
+}
+.rpt-table td[data-draft] {
+  background: color-mix(in srgb, var(--signal) 10%, transparent);
+}
+/* Year chart: income ink, expenses yellow, drafts hatched, 2px ink baseline. */
+.rpt-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+}
+.rpt-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background: var(--color-text);
+}
+.rpt-swatch[data-kind="EXPENSE"] {
+  background: var(--signal);
+}
+.rpt-swatch[data-draft] {
+  background: repeating-linear-gradient(135deg, var(--color-text) 0 2px, transparent 2px 5px);
+}
+.rpt-seg {
+  display: inline-flex;
+  border: 1px solid var(--color-divider);
+}
+.rpt-seg-opt {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.rpt-seg-opt + .rpt-seg-opt {
+  border-left: 1px solid var(--color-divider);
+}
+.rpt-seg-active {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+.rpt-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  padding: 16px;
+  background: var(--color-surface);
+}
+.rpt-filter .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rpt-cat-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  flex-basis: 100%;
+}
+.rpt-cat-pick legend {
+  margin-bottom: 4px;
+}
+.rpt-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+}
+.rpt-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-text);
+}
+
+/* Report print / PDF view (Reports PRD F4–F6): A4, black on white, header and
+   footer repeated by the layout table, watermark on every page of a draft. */
+.rpt-print-page {
+  max-width: 1100px;
+}
+.rpt-print {
+  position: relative;
+}
+.rpt-pdf-hint {
+  margin: 0 0 12px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-top: 2px solid var(--signal);
+  font-weight: 600;
+}
+.rpt-print-layout {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rpt-print-layout > thead > tr > td,
+.rpt-print-layout > tfoot > tr > td,
+.rpt-print-layout > tbody > tr > td {
+  padding: 0;
+  vertical-align: top;
+}
+.rpt-print-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--color-text);
+}
+.rpt-print-foot {
+  margin-top: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-divider);
+  font-size: 11px;
+  color: var(--color-neutral-700);
+}
+.rpt-watermark {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 5;
+}
+.rpt-watermark span {
+  transform: rotate(-30deg);
+  font-size: clamp(48px, 9vw, 96px);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 2px color-mix(in srgb, var(--color-text) 22%, transparent);
+}
+@media print {
+  .rpt-print-page {
+    max-width: none;
+  }
+  .rpt-print-body .rpt {
+    gap: 18px;
+  }
+  .rpt-print-body .rpt-scroll,
+  .rpt-print-body .st-wrap {
+    overflow: visible;
+  }
+  .rpt-print-body .rpt-table,
+  .rpt-print-body .rpt-month-table {
+    min-width: 0;
+    font-size: 8.5pt;
+  }
+  .rpt-print-body .rpt-table td,
+  .rpt-print-body .rpt-table th {
+    padding: 4px 4px 4px 0;
+  }
+  .rpt-print-body .rpt-sticky {
+    position: static;
+    min-width: 0;
+  }
+  .rpt-print-body thead {
+    display: table-header-group;
+  }
+  .rpt-print-body tr,
+  .rpt-print-body .rpt-cat,
+  .rpt-print-body .stat,
+  .rpt-print-body .section-head {
+    break-inside: avoid;
+  }
+  .rpt-print-body .section-head {
+    break-after: avoid;
+  }
+  .rpt-print-body .rpt-break {
+    break-before: page;
+  }
+  /* Black on white: the yellow signal prints grey. */
+  .rpt-print-body .stair-total,
+  .rpt-print-body .stat-signal,
+  .rpt-print-body .rpt-swatch[data-kind="EXPENSE"] {
+    background: #bdbdbd !important;
+  }
+  .rpt-print-body .rpt-figure {
+    break-inside: avoid;
+  }
+  .rpt-print-body,
+  .rpt-print-body * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .rpt-watermark span {
+    font-size: 72pt;
+    -webkit-text-stroke: 1.5pt #9b9b9b;
+  }
+}
+.rpt .stat,
+.rpt .stat + .stat {
+  padding: 14px 16px;
+}
+.rpt-table th[scope="row"] {
+  vertical-align: top;
+  padding: 10px 8px 10px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.rpt-table tr.st-edge th {
+  border-bottom: 2px solid var(--color-text);
+}
+.rpt-table .bal-tag {
+  white-space: nowrap;
+}
+@media print {
+  .rpt-print-body .stair {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr);
+  }
+  .rpt-print-body .stair-total {
+    grid-column: auto;
+  }
+}
+
+/* Recharts figures (design system §5 Charts): flat bars, no gridlines, 2px ink baseline. */
+.rpt-figure {
+  margin: 0 0 12px;
+  min-width: 0;
+}
+.rpt-figure svg {
+  overflow: visible;
+}
+.rpt-figure .recharts-surface:focus,
+.rpt-figure .recharts-wrapper:focus {
+  outline: none;
+}
+.rpt-figure .recharts-wrapper:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+.rpt-chart-months {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.rpt-chart-months li {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-neutral-700);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.rpt-chart-months a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 24px;
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rpt-chart-months a[data-draft] {
+  text-decoration-style: dashed;
+}
+.rpt-swatch-line {
+  display: inline-block;
+  width: 16px;
+  border-top: 2px dashed;
+}
+.rpt-swatch[data-kind="EXPENSE"] {
+  box-shadow: inset 0 0 0 1px var(--color-accent-800);
+}
+.rpt-tooltip {
+  min-width: 180px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border-top: 2px solid var(--color-text);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+}
+.rpt-tooltip-title {
+  margin: 0 0 6px;
+  font-weight: 800;
+}
+.rpt-tooltip ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rpt-tooltip li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 859.98px) {
+  .rpt-chart-months li {
+    font-size: 10px;
+  }
+}
+.rpt-m-narrow {
+  display: none;
+}
+@media (max-width: 859.98px) {
+  .rpt-m-short {
+    display: none;
+  }
+  .rpt-m-narrow {
+    display: inline;
+  }
+}
+@media print {
+  .rpt-print-body .rpt-table th[scope="row"] {
+    padding: 4px 4px 4px 0;
+  }
+}
+.section-head:has(.rpt-legend) {
+  flex-wrap: wrap;
+}
+.rpt-legend {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.rpt-legend > span {
+  white-space: nowrap;
+}

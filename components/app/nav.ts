@@ -1,6 +1,6 @@
 // The app's navigation items and how they split between the mobile bottom
 // bar and the More sheet (Home PRD §4; main PRD §8.1). Pure and client-safe.
-import { BanknotesIcon, CreditCardIcon, Cog6ToothIcon, HomeIcon, InboxArrowDownIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CreditCardIcon, Cog6ToothIcon, DocumentChartBarIcon, HomeIcon, InboxArrowDownIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import type { MessageKey } from "@/lib/i18n";
 import { can, type Permission } from "@/lib/permissions";
@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/distribution", label: "nav.distribution", icon: ScaleIcon, permission: "distribution.view" },
   { href: "/owners", label: "nav.owners", icon: UserGroupIcon, permission: "owner.view" },
   { href: "/advances", label: "nav.advances", short: "nav.advancesShort", icon: CreditCardIcon, permission: "loan.view" },
+  { href: "/reports", label: "nav.reports", icon: DocumentChartBarIcon, permission: "report.view" },
   { href: "/requests", label: "nav.requests", icon: InboxArrowDownIcon, permission: "request.view", badge: "requests" },
   { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: "invites" },
   { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
@@ -35,7 +36,7 @@ export const PLUS = "PLUS" as const;
 /**
  * Four bottom-bar slots + More (§4 Mobile). Bookkeepers: Home · Entries · [+] ·
  * Distribution. Everyone else: Home + the first three permitted of Accounts
- * (Owners) · Requests · Entries · Advances (Reports and Notices don't exist yet).
+ * (Reports) · Requests · Entries · Advances (Notices doesn't exist yet).
  */
 export function bottomNav(viewer: Viewer, opts: { monthOpen?: boolean } = {}): { slots: (NavItem | typeof PLUS)[]; more: NavItem[] } {
   const items = visibleItems(viewer);
@@ -46,12 +47,12 @@ export function bottomNav(viewer: Viewer, opts: { monthOpen?: boolean } = {}): {
     ? bookkeeper.filter((x): x is NavItem | typeof PLUS => x !== undefined)
     : [
         at("/")!,
-        ...["/owners", "/requests", "/entries", "/advances"]
+        ...["/reports", "/requests", "/entries", "/advances"]
           .map(at)
           .filter((x): x is NavItem => x !== undefined)
           .slice(0, 3)
-          // An owner's "Accounts" is the Owners list with their own statement one tap away.
-          .map((i) => (i.href === "/owners" ? { ...i, label: "shell.accounts" as const, short: undefined } : i)),
+          // An owner's "Accounts" (হিসাব) is Reports (Reports PRD G16; main PRD §8.1).
+          .map((i) => (i.href === "/reports" ? { ...i, label: "shell.accounts" as const, short: undefined } : i)),
       ];
   const used = new Set(picked.filter((s): s is NavItem => s !== PLUS).map((s) => s.href));
   return { slots: picked, more: items.filter((i) => !used.has(i.href)) };

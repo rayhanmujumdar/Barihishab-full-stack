@@ -8,7 +8,8 @@ import { stubImageLoading } from "@/tests/helpers/image";
 import { bottomNav } from "./nav";
 import { ShellNav, TopbarAction } from "./ShellNav";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ refresh: vi.fn() }) }));
+const pathname = { current: "/" };
+vi.mock("next/navigation", () => ({ usePathname: () => pathname.current, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/api/client", () => ({ apiFetch: vi.fn() }));
 vi.mock("@/components/auth/navigate", () => ({ hardNavigate: vi.fn() }));
 const toastError = vi.fn();
@@ -81,6 +82,23 @@ describe("ShellNav (RBAC-05)", () => {
       const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
       expect(links.indexOf("/en/advances")).toBe(links.indexOf("/en/owners") + 1);
       unmount();
+    }
+  });
+
+  it("shows Reports after Advances & loans and marks it current on any report tab (reports-ui)", () => {
+    pathname.current = "/en/reports/yearly";
+    try {
+      for (const roles of [["OWNER"], ["SUPER_ADMIN"]] as const) {
+        const { unmount } = render(<ShellNav locale="en" viewer={viewer([...roles])} pendingInvites={0} />);
+        const reports = screen.getAllByRole("link", { name: /^Reports/ })[0];
+        expect(reports).toHaveAttribute("href", "/en/reports");
+        expect(reports).toHaveAttribute("aria-current", "page");
+        const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+        expect(links.indexOf("/en/reports")).toBe(links.indexOf("/en/advances") + 1);
+        unmount();
+      }
+    } finally {
+      pathname.current = "/";
     }
   });
 
@@ -204,7 +222,7 @@ describe("App shell (Home PRD §4)", () => {
   it("gives an Owner Home · Accounts · Requests · Income & expenses · More", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
     expect(labels()).toEqual(["Home", "Accounts", "Requests", "Income & expenses", "More"]);
-    expect(within(bottom()).getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/en/owners");
+    expect(within(bottom()).getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/en/reports");
   });
 
   it("puts the rest, with badges, in the More sheet and closes it on navigation", async () => {
@@ -212,7 +230,7 @@ describe("App shell (Home PRD §4)", () => {
     await userEvent.click(within(bottom()).getByRole("button", { name: "More" }));
     const sheet = await screen.findByRole("dialog", { name: "All sections" });
     const links = within(sheet).getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/en/owners", "/en/advances", "/en/requests", "/en/admin/users", "/en/settings", "/en/me"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/en/owners", "/en/advances", "/en/reports", "/en/requests", "/en/admin/users", "/en/settings", "/en/me"]);
     expect(within(sheet).getByRole("link", { name: /Users/ })).toHaveTextContent("3");
     expect(within(sheet).getByRole("link", { name: /Requests/ })).toHaveTextContent("2");
     await userEvent.click(within(sheet).getByRole("link", { name: /Settings/ }));
@@ -227,8 +245,8 @@ describe("App shell (Home PRD §4)", () => {
 
   it("splits permitted items into bottom slots and More (pure)", () => {
     const owner = bottomNav({ permissions: permissionsFor(["OWNER"]) });
-    expect(owner.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/owners", "/requests", "/entries"]);
-    expect(owner.more.map((m) => m.href)).toEqual(["/distribution", "/advances", "/me"]);
+    expect(owner.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/reports", "/requests", "/entries"]);
+    expect(owner.more.map((m) => m.href)).toEqual(["/distribution", "/owners", "/advances", "/me"]);
     const admin = bottomNav({ permissions: permissionsFor(["SUPER_ADMIN"]) });
     expect(admin.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/entries", "PLUS", "/distribution"]);
   });

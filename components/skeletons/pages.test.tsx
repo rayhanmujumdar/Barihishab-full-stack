@@ -10,6 +10,8 @@ import {
   OwnerDetailSkeleton,
   OwnersSkeleton,
   PageSkeleton,
+  ReportPrintSkeleton,
+  ReportsSkeleton,
   ProfileSkeleton,
   RequestsSkeleton,
   SettingsSkeleton,
@@ -33,7 +35,17 @@ const PAGES: [string, (locale: Locale) => ReactElement, string, string][] = [
   ["profile", (l) => <ProfileSkeleton locale={l} />, "Loading your profile…", "আপনার প্রোফাইল লোড হচ্ছে…"],
   ["auth form", (l) => <AuthFormSkeleton locale={l} />, "Loading the form…", "ফর্ম লোড হচ্ছে…"],
   ["print statement", (l) => <StatementPrintSkeleton locale={l} />, "Loading the statement…", "হিসাব বিবরণী লোড হচ্ছে…"],
+  ["reports", (l) => <ReportsSkeleton locale={l} />, "Loading report…", "রিপোর্ট লোড হচ্ছে…"],
 ];
+
+describe("report print skeleton (Reports F6)", () => {
+  it("says Preparing PDF… while staying a busy, inert region", () => {
+    const { container } = render(<ReportPrintSkeleton locale="en" />);
+    expect(screen.getByRole("status", { name: "Preparing PDF…" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Preparing PDF…")).toBeInTheDocument();
+    expect(container.querySelector(FOCUSABLE)).toBeNull();
+  });
+});
 
 describe("page skeletons are busy, labelled and inert (spec: accessible and bilingual)", () => {
   it.each(PAGES)("%s", (_name, make, enLabel, bnLabel) => {
