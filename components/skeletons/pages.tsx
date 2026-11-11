@@ -263,3 +263,46 @@ export function StatementPrintSkeleton({ locale }: Props) {
     </SkeletonRegion>
   );
 }
+
+/** Reports: head + actions, tab row, picker, two category columns, owner table. */
+export function ReportsSkeleton({ locale }: Props) {
+  return (
+    <Page locale={locale} label="rpt.loading">
+      <SkeletonPageHead action />
+      <SkeletonTabs tabs={5} />
+      <div className="flex flex-wrap items-center gap-3">
+        <SkeletonMonthPicker />
+        <Skeleton className="h-11 w-36" />
+      </div>
+      <div className="rpt-columns">
+        {[0, 1].map((i) => (
+          <section key={i}>
+            <SkeletonSectionHead />
+            <SkeletonRows rows={4} />
+          </section>
+        ))}
+      </div>
+      <section className="flex flex-col">
+        <SkeletonSectionHead />
+        <SkeletonTable cols={7} rows={4} minWidth={720} />
+      </section>
+    </Page>
+  );
+}
+
+/** Report print / PDF view while the report loads: says "Preparing PDF…" (Reports F6). */
+export function ReportPrintSkeleton({ locale }: Props) {
+  const label = translator(locale)("rpt.pdf.preparing");
+  return (
+    <SkeletonRegion label={label} className="flex flex-col gap-6">
+      <p className="font-semibold" aria-hidden>
+        {label}
+      </p>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-8 w-72 max-w-full" />
+      </div>
+      <SkeletonTable cols={5} rows={8} />
+    </SkeletonRegion>
+  );
+}

@@ -258,3 +258,19 @@ describe("GET /api/v1/openapi.json — Email delivery (fix-email-delivery)", () 
     expect(invite.properties).not.toHaveProperty("lastError");
   });
 });
+
+describe("GET /api/v1/openapi.json — Reports (Reports PRD; main PRD §10 GET /reports/*)", () => {
+  it("documents every report under the Reports tag, with CSV where offered", async () => {
+    const doc = await (await GET()).json();
+    for (const path of ["/reports/monthly", "/reports/yearly", "/reports/rent-roll", "/reports/expenses", "/reports/funds"]) {
+      const op = doc.paths[path]?.get;
+      expect(op?.tags, path).toEqual(["Reports"]);
+      expect(Object.keys(op.responses), path).toEqual(expect.arrayContaining(["200", "401", "403", "422"]));
+    }
+    expect(Object.keys(doc.paths["/reports/monthly"].get.responses["200"].content)).toEqual(expect.arrayContaining(["application/json", "text/csv"]));
+    expect(Object.keys(doc.paths["/reports/yearly"].get.responses["200"].content)).toEqual(expect.arrayContaining(["application/json", "text/csv"]));
+    for (const name of ["MonthlyReport", "YearlyReport", "RentRoll", "ExpenseAnalysis", "FundsReport", "ReportCategory", "ReportMonthFigure"]) {
+      expect(doc.components.schemas, name).toHaveProperty(name);
+    }
+  });
+});

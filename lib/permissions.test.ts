@@ -13,6 +13,7 @@ const OWNER_KEYS = [
   "loan.view",
   "request.create",
   "request.view",
+  "report.view",
 ];
 
 const MONEY_WRITE_KEYS = [
@@ -46,12 +47,12 @@ const MONEY_WRITE_KEYS = [
 ] as const;
 
 describe("ROLE_PERMISSIONS", () => {
-  it("gives SUPER_ADMIN all 44 v1 permission keys", () => {
-    expect(ROLE_PERMISSIONS.SUPER_ADMIN).toHaveLength(44);
+  it("gives SUPER_ADMIN all 45 v1 permission keys", () => {
+    expect(ROLE_PERMISSIONS.SUPER_ADMIN).toHaveLength(45);
     expect(new Set(ROLE_PERMISSIONS.SUPER_ADMIN)).toEqual(new Set(ALL_PERMISSIONS));
   });
 
-  it("gives OWNER exactly the eleven self-service and read-only money keys", () => {
+  it("gives OWNER exactly the twelve self-service and read-only money keys", () => {
     expect([...ROLE_PERMISSIONS.OWNER].sort()).toEqual([...OWNER_KEYS].sort());
   });
 
@@ -71,7 +72,7 @@ describe("ROLE_PERMISSIONS", () => {
 describe("permissionsFor", () => {
   it("returns the union across roles without duplicates", () => {
     const perms = permissionsFor(["OWNER", "SUPER_ADMIN"]);
-    expect(perms).toHaveLength(44);
+    expect(perms).toHaveLength(45);
     expect(new Set(perms).size).toBe(perms.length);
   });
 
