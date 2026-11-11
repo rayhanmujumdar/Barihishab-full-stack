@@ -1,0 +1,15 @@
+{
+  "_comment": "Keyword triggers for .agents/skills. Each value is a case-insensitive regex tested against the user's prompt. Skills in .agents/skills without an entry here still trigger when the prompt names them directly.",
+  "barihisab-design-system": "\\b(ui|ux|screens?|pages?|components?|layouts?|design|styl(e|es|ing)|css|tailwind|colou?rs?|fonts?|typography|buttons?|modals?|dialogs?|drawers?|sheets?|forms?|cards?|tables?|responsive|mobile|shadcn|icons?|avatar|badge|empty state|visual)\\b",
+  "tdd": "\\b(tdd|tests?|testing|red.green|bug|fix(es|ing)?|regression|implement(ing|ation)?|feature|vitest|integration test)\\b",
+  "tanstack-query-best-practices": "\\b(tanstack|react.query|use(Query|Mutation|InfiniteQuery|SuspenseQuery)|query.?keys?|invalidat\\w*|mutations?|optimistic|refetch\\w*|stale.?time|prefetch\\w*|data fetching|cache)\\b",
+  "nextjs-app-router-patterns": "\\b(next(\\.?js)?|app router|routes?|routing|server components?|rsc|server actions?|page\\.tsx|layout\\.tsx|route\\.ts|proxy\\.ts|middleware|ssr|ssg|streaming|suspense|metadata|next/image)\\b",
+  "better-auth-best-practices": "\\b(better.?auth|auth(entication)?|log.?in|log.?out|sessions?|sign.?(in|up|out)|oauth|passwords?|2fa|otp|magic link)\\b",
+  "playwright-cli": "\\b(playwright|e2e|end.to.end|browser|screenshots?|visual (test|check|regression))\\b",
+  "openspec-propose": "\\b(opsx propose|openspec propose|propos(e|al)|new (change|feature)|prd)\\b",
+  "openspec-apply-change": "\\b(opsx apply|openspec (apply|implement)|implement (the )?(change|tasks)|continue (the )?(implementation|tasks)|tasks\\.md)\\b",
+  "openspec-explore": "\\b(opsx explore|openspec explore|explore|think (it )?through|brainstorm|clarify (the )?requirements)\\b",
+  "openspec-archive-change": "\\b(opsx archive|openspec archive|archive (the )?change)\\b",
+  "openspec-sync-specs": "\\b(opsx sync|openspec sync|sync (the )?(delta )?specs)\\b",
+  "openspec-update-change": "\\b(opsx update|openspec update change|update (the )?(change|plan|proposal|design|tasks))\\b"
+}
