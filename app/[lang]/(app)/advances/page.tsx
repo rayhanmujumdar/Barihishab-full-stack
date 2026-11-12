@@ -1,3 +1,4 @@
+import { questionedFor } from "@/lib/complaints/questioned";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Forbidden } from "@/components/app/Forbidden";
@@ -70,6 +71,13 @@ async function Advances({ searchParams }: { searchParams: Search }) {
   const detail = isUuid(loanId) ? await loanDetail(propertyId, loanId) : null;
   const funds = writer ? (await listFunds(propertyId)).filter((f) => f.isActive) : [];
   const openMonth = await earliestOpenMonth(prisma, propertyId);
+  const complaints =
+    detail && can(viewer, "complaint.view")
+      ? {
+          questionedId: (await questionedFor(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, "LOAN", [detail.loan.id]))[detail.loan.id] ?? null,
+          complain: can(viewer, "complaint.create"),
+        }
+      : undefined;
 
   return (
     <AdvancesLoansView
@@ -87,6 +95,7 @@ async function Advances({ searchParams }: { searchParams: Search }) {
         houseFundPaisa: funds.reduce((s, f) => s + f.balancePaisa, 0),
         openMonth,
         perms,
+        complaints,
       }}
     />
   );

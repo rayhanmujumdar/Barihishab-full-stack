@@ -11,7 +11,7 @@ export const GET = withAuth<{ id: string }>(
   async (_req, { auth, params }) => {
     await connection();
     if (!isUuid(params.id)) return apiError("NOT_FOUND");
-    const meta = await fileMeta(await currentPropertyId(), params.id, { userId: auth.userId, viewAll: can(auth, "request.view.all") });
+    const meta = await fileMeta(await currentPropertyId(), params.id, { userId: auth.userId, viewAll: can(auth, "request.view.all"), complaintViewAll: can(auth, "complaint.view.all") });
     return meta ? ok(meta, { headers: { "Cache-Control": "no-store" } }) : apiError("NOT_FOUND");
   },
   { permission: "attachment.view" },

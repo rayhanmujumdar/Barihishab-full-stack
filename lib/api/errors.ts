@@ -174,6 +174,42 @@ export const ERRORS = {
     en: "Your account isn't linked to an owner, so you can't request money for yourself.",
     bn: "আপনার অ্যাকাউন্ট কোনো মালিকের সাথে যুক্ত নয়, তাই নিজের জন্য টাকা চাইতে পারবেন না।",
   },
+  // Notices & Complaints PRD §10
+  NOTICE_ARCHIVED: {
+    status: 409,
+    en: "This notice is archived and can't be changed.",
+    bn: "এই নোটিশ আর্কাইভ করা হয়েছে, বদলানো যাবে না।",
+  },
+  REMINDER_ALREADY_SENT: {
+    status: 409,
+    en: "A reminder for this notice was already sent today.",
+    bn: "এই নোটিশের রিমাইন্ডার আজ আগেই পাঠানো হয়েছে।",
+  },
+  NOT_URGENT: {
+    status: 409,
+    en: "Reminders are only for urgent notices.",
+    bn: "রিমাইন্ডার শুধু জরুরি নোটিশের জন্য।",
+  },
+  INVALID_COMPLAINT_STATUS: {
+    status: 409,
+    en: "This complaint has already moved on — reload to see its current status.",
+    bn: "এই অভিযোগের অবস্থা আগেই বদলেছে — বর্তমান অবস্থা দেখতে রিলোড করুন।",
+  },
+  COMPLAINT_CLOSED: {
+    status: 409,
+    en: "This complaint is closed. Reopen it first.",
+    bn: "এই অভিযোগ বন্ধ হয়ে গেছে। আগে আবার খুলুন।",
+  },
+  REOPEN_WINDOW_PASSED: {
+    status: 409,
+    en: "This complaint closed more than 14 days ago — raise a new one instead.",
+    bn: "এই অভিযোগ ১৪ দিনেরও আগে বন্ধ হয়েছে — নতুন একটি করুন।",
+  },
+  EDIT_WINDOW_PASSED: {
+    status: 409,
+    en: "Comments can be edited for 15 minutes.",
+    bn: "মন্তব্য ১৫ মিনিট পর্যন্ত সম্পাদনা করা যায়।",
+  },
   INTERNAL_ERROR: {
     status: 500,
     en: "Something went wrong. Please try again.",

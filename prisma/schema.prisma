@@ -54,6 +54,8 @@ enum EmailTemplate {
   RESET
   PASSWORD_CHANGED
   REQUEST_UPDATE
+  NOTICE
+  COMPLAINT_UPDATE
 }
 
 enum EmailStatus {
@@ -88,6 +90,8 @@ model Property {
   loans           Loan[]
   periodReopens   PeriodReopen[]
   moneyRequests   MoneyRequest[]
+  notices         Notice[]
+  complaints      Complaint[]
 
   @@map("properties")
 }
@@ -120,6 +124,8 @@ model User {
   tokenVersion        Int        @default(0) @map("token_version")
   /// Current profile photo (add-profile-photo D2); an `attachments` row with entity_type 'user_avatar'.
   avatarAttachmentId  String?    @unique @map("avatar_attachment_id") @db.Uuid
+  /// Notices & complaints emails that may be turned off (Notices & Complaints PRD §11).
+  emailNotices        Boolean    @default(true) @map("email_notices")
   createdById         String?    @map("created_by") @db.Uuid
   createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -153,6 +159,15 @@ model User {
   periodReopens   PeriodReopen[]     @relation("PeriodReopenedBy")
   requestsMade    MoneyRequest[]     @relation("RequestCreatedBy")
   requestsDecided MoneyRequest[]     @relation("RequestDecidedBy")
+
+  noticesCreated     Notice[]           @relation("NoticeCreatedBy")
+  noticesArchived    Notice[]           @relation("NoticeArchivedBy")
+  noticeReads        NoticeRead[]
+  complaintsCreated  Complaint[]        @relation("ComplaintCreatedBy")
+  complaintsResolved Complaint[]        @relation("ComplaintResolvedBy")
+  complaintComments  ComplaintComment[] @relation("ComplaintCommentAuthor")
+  commentsHidden     ComplaintComment[] @relation("ComplaintCommentHiddenBy")
+  complaintViews     ComplaintView[]
 
   @@index([status])
   @@map("users")
@@ -381,6 +396,7 @@ model Period {
   loanMovements    LoanMovement[]
   ledgerReferenced OwnerLedgerEntry[] @relation("LedgerReferencePeriod")
   reopens          PeriodReopen[]
+  complaints       Complaint[]
 
   @@unique([propertyId, month])
   @@map("periods")
@@ -834,4 +850,146 @@ model MoneyRequest {
   @@index([propertyId, status])
   @@index([ownerId])
   @@map("money_requests")
+}
+
+// ─── Notices & Complaints (docs/notices_and_complaints_PRD.md; design D1) ───
+// The notices_complaints migration adds the link/fix pair CHECKs and the
+// no-delete triggers by hand; keep them if `migrate dev` proposes dropping them.
+
+enum NoticePriority {
+  NORMAL
+  URGENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ComplaintVisibility {
+  ALL
+  ADMIN
+}
+
+/// What a complaint questions (G9): entry, month, owner payment/advance, loan, request, share change.
+enum ComplaintLinkType {
+  ENTRY
+  MONTH
+  LEDGER
+  LOAN
+  REQUEST
+  SHARE_SET
+}
+
+model Notice {
+  id             String         @id @default(uuid()) @db.Uuid
+  propertyId     String         @map("property_id") @db.Uuid
+  title          String
+  body           String
+  priority       NoticePriority @default(NORMAL)
+  pinned         Boolean        @default(false)
+  /// Asia/Dhaka date; the notice stops being pinned the day after (G2).
+  pinUntil       DateTime?      @map("pin_until") @db.Date
+  publishedAt    DateTime       @default(now()) @map("published_at") @db.Timestamptz(6)
+  createdById    String         @map("created_by") @db.Uuid
+  editedAt       DateTime?      @map("edited_at") @db.Timestamptz(6)
+  archivedAt     DateTime?      @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?        @map("archived_by") @db.Uuid
+  /// Asia/Dhaka day of the last "Remind unread" (once per notice per day).
+  lastRemindedOn DateTime?      @map("last_reminded_on") @db.Date
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property   Property     @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  createdBy  User         @relation("NoticeCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  archivedBy User?        @relation("NoticeArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict)
+  reads      NoticeRead[]
+
+  @@index([propertyId, archivedAt, publishedAt(sort: Desc)])
+  @@map("notices")
+}
+
+model NoticeRead {
+  noticeId String   @map("notice_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  readAt   DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
+
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([noticeId, userId])
+  @@index([userId])
+  @@map("notice_reads")
+}
+
+model Complaint {
+  id             String              @id @default(uuid()) @db.Uuid
+  propertyId     String              @map("property_id") @db.Uuid
+  title          String
+  body           String
+  visibility     ComplaintVisibility @default(ALL)
+  status         ComplaintStatus     @default(OPEN)
+  linkType       ComplaintLinkType?  @map("link_type")
+  linkId         String?             @map("link_id") @db.Uuid
+  /// The linked month (MONTH itself, an entry's or payment's period); drives month filters and notes.
+  periodId       String?             @map("period_id") @db.Uuid
+  /// The linked money concerns an owner whose user is a Super Admin (G14).
+  aboutAdmin     Boolean             @default(false) @map("about_admin")
+  reopened       Boolean             @default(false)
+  closedAt       DateTime?           @map("closed_at") @db.Timestamptz(6)
+  resolutionNote String?             @map("resolution_note")
+  resolvedById   String?             @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime?           @map("resolved_at") @db.Timestamptz(6)
+  /// "Link the fix" on Resolve (C4).
+  fixType        ComplaintLinkType?  @map("fix_type")
+  fixId          String?             @map("fix_id") @db.Uuid
+  createdById    String              @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  property   Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  period     Period?            @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  createdBy  User               @relation("ComplaintCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  resolvedBy User?              @relation("ComplaintResolvedBy", fields: [resolvedById], references: [id], onDelete: Restrict)
+  comments   ComplaintComment[]
+  views      ComplaintView[]
+
+  @@index([propertyId, status])
+  @@index([propertyId, periodId])
+  @@index([linkType, linkId])
+  @@map("complaints")
+}
+
+model ComplaintComment {
+  id           String    @id @default(uuid()) @db.Uuid
+  complaintId  String    @map("complaint_id") @db.Uuid
+  authorId     String    @map("author_id") @db.Uuid
+  body         String
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  editedAt     DateTime? @map("edited_at") @db.Timestamptz(6)
+  hiddenAt     DateTime? @map("hidden_at") @db.Timestamptz(6)
+  hiddenById   String?   @map("hidden_by") @db.Uuid
+  hiddenReason String?   @map("hidden_reason")
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  author    User      @relation("ComplaintCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  hiddenBy  User?     @relation("ComplaintCommentHiddenBy", fields: [hiddenById], references: [id], onDelete: Restrict)
+
+  @@index([complaintId, createdAt])
+  @@map("complaint_comments")
+}
+
+/// When a member last saw a complaint's thread (unread dot, nav badge; design D8).
+model ComplaintView {
+  complaintId String   @map("complaint_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  seenAt      DateTime @default(now()) @map("seen_at") @db.Timestamptz(6)
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Restrict)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([complaintId, userId])
+  @@map("complaint_views")
 }

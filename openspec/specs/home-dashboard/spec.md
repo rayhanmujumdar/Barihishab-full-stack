@@ -63,7 +63,7 @@ For a viewer linked to an owner, `myRequest` SHALL be their newest request in PE
 - **THEN** `myRequest` is `null`
 
 ### Requirement: Bookkeeper's desk figures
-For `dashboard.admin`, `desk` SHALL contain: House fund total and each **active** fund account (name, type, balance) where the total equals the sum of those balances; pending requests (count of PENDING, equal to the Requests "Needs your decision" count) and how many have waited over 3 days; open complaints (count of Open + In review from the notices provider); invites waiting (users with status INVITED) and how many of their latest invite links have expired; and the reconciliation result. (F5, G9, Rule 10, PAY-04)
+For `dashboard.admin`, `desk` SHALL contain: House fund total and each **active** fund account (name, type, balance) where the total equals the sum of those balances; pending requests (count of PENDING, equal to the Requests "Needs your decision" count) and how many have waited over 3 days; open complaints (count of complaints in OPEN or IN_REVIEW, all visibilities, from the notices provider); invites waiting (users with status INVITED) and how many of their latest invite links have expired; and the reconciliation result. (F5, G9, Rule 10, PAY-04; Notices & Complaints PRD §13)
 
 #### Scenario: Fund total
 - **WHEN** active accounts are Cash 3100000 and DBBL savings 9350875 paisa and an inactive account holds 0
@@ -73,9 +73,9 @@ For `dashboard.admin`, `desk` SHALL contain: House fund total and each **active*
 - **WHEN** two users are INVITED and one's newest invite token expired yesterday
 - **THEN** `desk.invites` is `{ waiting: 2, expired: 1 }`
 
-#### Scenario: Complaints before Notices exists
-- **WHEN** the Notices & Complaints section is not installed
-- **THEN** `desk.openComplaints` is 0
+#### Scenario: Open complaints counted
+- **WHEN** one complaint is OPEN, one IN_REVIEW (Admin only) and one RESOLVED
+- **THEN** `desk.openComplaints` is 2
 
 ### Requirement: Fund reconciliation
 The system SHALL compute `FundBalance = Σ OwnerBalance + ReserveBalance + OpenPeriodNet − DeficitCarried − LoanOutstanding` (main PRD §5.7) in paisa where: House fund is the active-account total; Σ OwnerBalance is every owner's ledger balance; ReserveBalance is the Distribution reserve balance; OpenPeriodNet is, over every OPEN period, income minus expenses not paid from the reserve; DeficitCarried is the deficit carried out of the latest CLOSED month; LoanOutstanding is the outstanding of all active loans. The result SHALL be `BALANCED` only when both sides are equal to the paisa, else `CHECK` with `mismatchPaisa = fund − expected`. The breakdown MUST list each part's value. The formula MUST live in the pure accounting module. (F5, G8, Rule 8)
@@ -138,11 +138,15 @@ For `dashboard.admin`, `reminders` SHALL list at most two items, most urgent fir
 - **THEN** the first item has kind `ADVANCE`, owner "Nasrin Ahmed", sub-line data method BANK and reference TX4134, and amountPaisa −500000
 
 ### Requirement: Pinned notices seam
-`notices` SHALL hold up to 3 pinned notices newest first (id, title, body, urgent, date, unread) and `noticesMore` whether more exist, read through a single notices provider. Until the Notices & Complaints section exists the provider MUST return an empty list and zero open complaints, with no database tables added for it. (F9, NTC-01)
+`notices` SHALL hold up to 3 effectively pinned, non-archived notices newest first (id, title, body, urgent, date, unread for the viewer) and `noticesMore` whether more exist, read through a single notices provider shared with the Notices section; a notice whose pin-until date has passed (Asia/Dhaka) or that was unpinned or archived MUST NOT be returned. (F9, NTC-01; Notices & Complaints PRD N5)
 
-#### Scenario: No notices section yet
-- **WHEN** any user calls the endpoint
+#### Scenario: No pinned notices
+- **WHEN** no notice is pinned
 - **THEN** `notices` is an empty array and `noticesMore` is false
+
+#### Scenario: Pinned urgent unread
+- **WHEN** an urgent notice is pinned and the viewer has not read it
+- **THEN** it is in `notices` with `urgent: true` and `unread: true`
 
 ### Requirement: Setup checklist
 For `dashboard.admin`, `setup` SHALL list six steps — House info, Fund accounts, Owners & shares, Opening balances, First month, Invite owners — each `done` true/false, and `complete` when all are done; `setup` MUST be `null` once complete. A step is done when: the property has a name; at least one active fund account exists; a share set with units exists; at least one OPENING ledger entry exists or a month has been closed; at least one period exists; at least one owner other than the viewer's own owner record is linked to a login (ACTIVE or INVITED). (F12)

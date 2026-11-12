@@ -68,6 +68,21 @@ export const AUDIT_ACTIONS = [
   "request.rejected",
   "request.withdrawn",
   "request.disbursed",
+  // Notices & Complaints PRD Rule 16 (non-financial)
+  "notice.published",
+  "notice.edited",
+  "notice.pinned",
+  "notice.unpinned",
+  "notice.archived",
+  "notice.reminded",
+  "complaint.raised",
+  "complaint.status_changed",
+  "complaint.withdrawn",
+  "complaint.reopened",
+  "complaint.published",
+  "complaint.comment_added",
+  "complaint.comment_edited",
+  "complaint.comment_hidden",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

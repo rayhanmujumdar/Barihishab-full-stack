@@ -82,6 +82,8 @@ async function Entries({ searchParams }: { searchParams: Search }) {
       void: can(viewer, "transaction.void"),
       adjust: can(viewer, "transaction.adjust"),
       superAdmin: viewer.roles.includes("SUPER_ADMIN"),
+      complaints: can(viewer, "complaint.view"),
+      complain: can(viewer, "complaint.create"),
     },
   };
   return <EntriesView locale={locale} data={data} autoOpen={{ create, entry: entry && /^[0-9a-f-]{36}$/i.test(entry) ? entry : null }} />;

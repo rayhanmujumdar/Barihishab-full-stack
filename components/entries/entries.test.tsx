@@ -49,6 +49,22 @@ describe("EntriesView deep links (Home PRD §4 + New entry, F8 activity rows)", 
   });
 });
 
+describe("EntriesView Questioned rows (Notices & Complaints C8)", () => {
+  it("asks which visible entries are questioned and tags those rows", async () => {
+    const { apiFetch } = await import("@/lib/api/client");
+    const data = entriesData();
+    const first = data.items[0];
+    vi.mocked(apiFetch).mockImplementation(async (path: string) =>
+      path.startsWith("/complaints/questioned") ? { ok: true, status: 200, data: { items: { [first.id]: "c-1" } } } : { ok: true, status: 200, data: { period: "2026-10", rows: [] } },
+    );
+    render(<EntriesView locale="en" data={{ ...data, perms: { ...data.perms, complaints: true } }} />);
+    const row = await screen.findByText("Questioned");
+    expect(row.closest("button")).toHaveTextContent(first.vendor ?? "");
+    expect(vi.mocked(apiFetch)).toHaveBeenCalledWith(expect.stringMatching(/^\/complaints\/questioned\?type=ENTRY&ids=/), undefined);
+    expect(screen.getAllByText("Questioned")).toHaveLength(1);
+  });
+});
+
 describe("EntriesView (LST-01..05)", () => {
   it("shows both tabs with counts and totals; the active one is pressed", () => {
     render(<EntriesView locale="en" data={entriesData()} />);

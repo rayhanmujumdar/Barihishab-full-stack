@@ -45,6 +45,16 @@ describe("GET /api/v1/periods/:month/close-preview (F5, G1, G2, DST-02)", () => 
     expect(d.changes).toBeNull();
   });
 
+  it("warns, never blocks, about open complaints on the month (Notices & Complaints C8, Rule 15)", async () => {
+    const w = await distributionWorld();
+    const base = { propertyId: w.property.id, title: "Bill looks high", body: "Was the reading checked?", createdById: w.owner.id, linkType: "ENTRY" as const, linkId: w.txns.elec.id, periodId: w.oct.id };
+    await prisma.complaint.create({ data: { ...base, status: "IN_REVIEW", visibility: "ADMIN" } });
+    await prisma.complaint.create({ data: { ...base, status: "RESOLVED" } });
+    const d = (await json(await getPreview(w.adminLogin, "2026-10"))).data;
+    expect(d.warnings).toContainEqual({ code: "OPEN_COMPLAINTS", count: 1 });
+    expect(d.canClose).toBe(true);
+  });
+
   it("fails the shares check without shares, warns about no income, skipped instalments and a negative reserve", async () => {
     const w = await distributionWorld();
     const nov = await createPeriod(w.property.id, "2026-11");

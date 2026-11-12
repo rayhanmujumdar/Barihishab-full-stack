@@ -1,3 +1,4 @@
+import { questionedFor } from "@/lib/complaints/questioned";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -68,6 +69,12 @@ async function Owner({ params, searchParams }: Props) {
     ? advanceLimit(await recentEntitlements(prisma, propertyId, owner.id), (await loadAdvanceLimit(prisma, propertyId)).multiplierPct)
     : null;
   const months = latestOpen ? monthsAsc.filter((m) => m <= latestOpen) : monthsAsc;
+  const complaints = can(viewer, "complaint.view")
+    ? {
+        questioned: await questionedFor(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, "LEDGER", statement.rows.map((r) => r.id)),
+        complain: can(viewer, "complaint.create"),
+      }
+    : undefined;
 
   return (
     <OwnerDetail
@@ -84,6 +91,7 @@ async function Owner({ params, searchParams }: Props) {
         periodMonths: monthsAsc,
         perms,
         advanceLimitPaisa,
+        complaints,
       }}
     />
   );

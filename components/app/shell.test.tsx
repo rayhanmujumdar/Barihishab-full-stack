@@ -40,6 +40,16 @@ describe("ShellNav (RBAC-05)", () => {
     expect(links[0]).toHaveTextContent("১২");
   });
 
+  it("shows Notices after Requests with the unread badge, hidden at zero (Notices & Complaints §11)", () => {
+    const { unmount } = render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} noticeBadge={3} />);
+    const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(links.indexOf("/en/notices")).toBe(links.indexOf("/en/requests") + 1);
+    expect(screen.getAllByRole("link", { name: /Notices/ })[0]).toHaveTextContent("3");
+    unmount();
+    render(<ShellNav locale="bn" viewer={viewer(["OWNER"])} pendingInvites={0} noticeBadge={0} />);
+    expect(screen.getAllByRole("link", { name: /নোটিশ/ })[0]).toHaveTextContent(/^নোটিশ$/);
+  });
+
   it("hides the Requests badge at zero", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} requestBadge={0} />);
     expect(screen.getAllByRole("link", { name: /Requests/ })[0]).toHaveTextContent(/^Requests$/);
@@ -219,9 +229,10 @@ describe("App shell (Home PRD §4)", () => {
     expect(within(bottom()).getByRole("link", { name: "Add expense" })).toHaveAttribute("href", "/en/entries?new=EXPENSE");
   });
 
-  it("gives an Owner Home · Accounts · Requests · Income & expenses · More", () => {
+  it("gives an Owner Home · Accounts · Requests · Notices · More (Home PRD §4)", () => {
     render(<ShellNav locale="en" viewer={viewer(["OWNER"])} pendingInvites={0} />);
-    expect(labels()).toEqual(["Home", "Accounts", "Requests", "Income & expenses", "More"]);
+    expect(labels()).toEqual(["Home", "Accounts", "Requests", "Notices", "More"]);
+    expect(within(bottom()).getByRole("link", { name: "Notices" })).toHaveAttribute("href", "/en/notices");
     expect(within(bottom()).getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/en/reports");
   });
 
@@ -230,7 +241,7 @@ describe("App shell (Home PRD §4)", () => {
     await userEvent.click(within(bottom()).getByRole("button", { name: "More" }));
     const sheet = await screen.findByRole("dialog", { name: "All sections" });
     const links = within(sheet).getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/en/owners", "/en/advances", "/en/reports", "/en/requests", "/en/admin/users", "/en/settings", "/en/me"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/en/owners", "/en/advances", "/en/reports", "/en/requests", "/en/notices", "/en/admin/users", "/en/settings", "/en/me"]);
     expect(within(sheet).getByRole("link", { name: /Users/ })).toHaveTextContent("3");
     expect(within(sheet).getByRole("link", { name: /Requests/ })).toHaveTextContent("2");
     await userEvent.click(within(sheet).getByRole("link", { name: /Settings/ }));
@@ -245,8 +256,8 @@ describe("App shell (Home PRD §4)", () => {
 
   it("splits permitted items into bottom slots and More (pure)", () => {
     const owner = bottomNav({ permissions: permissionsFor(["OWNER"]) });
-    expect(owner.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/reports", "/requests", "/entries"]);
-    expect(owner.more.map((m) => m.href)).toEqual(["/distribution", "/owners", "/advances", "/me"]);
+    expect(owner.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/reports", "/requests", "/notices"]);
+    expect(owner.more.map((m) => m.href)).toEqual(["/entries", "/distribution", "/owners", "/advances", "/me"]);
     const admin = bottomNav({ permissions: permissionsFor(["SUPER_ADMIN"]) });
     expect(admin.slots.map((s) => (s === "PLUS" ? s : s.href))).toEqual(["/", "/entries", "PLUS", "/distribution"]);
   });

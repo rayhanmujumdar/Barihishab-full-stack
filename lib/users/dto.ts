@@ -21,6 +21,7 @@ export type PublicUser = {
   /** Same-origin URL of the current profile photo, or null (add-profile-photo). */
   avatarUrl: string | null;
   locale: "bn" | "en";
+  emailNotices: boolean;
   status: "INVITED" | "ACTIVE" | "INACTIVE";
   roles: Role[];
   lastLoginAt: string | null;
@@ -48,6 +49,7 @@ export function toPublicUser(user: User & { roles: Pick<UserRole, "role">[] }): 
     houseResponsibility: user.houseResponsibility,
     avatarUrl: user.avatarAttachmentId ? attachmentFileUrl(user.avatarAttachmentId) : null,
     locale: user.locale,
+    emailNotices: user.emailNotices,
     status: user.status,
     roles: rolesOf(user),
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,

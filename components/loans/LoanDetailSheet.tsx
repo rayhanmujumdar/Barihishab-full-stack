@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemComplaintActions, type ItemComplaints } from "@/components/complaints/ComplaintLinks";
 import { PrinterIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -27,12 +28,14 @@ export function LoanDetailSheet({
   locale,
   detail,
   perms,
+  complaints,
   onClose,
   onAction,
 }: {
   locale: Locale;
   detail: LoanDetailDto;
   perms: LoansPerms;
+  complaints?: ItemComplaints;
   onClose: () => void;
   onAction: (o: Open) => void;
 }) {
@@ -55,6 +58,7 @@ export function LoanDetailSheet({
             <StatusTag locale={locale} status={loan.status} />
             {loan.isSelf ? <span className="font-semibold">{tr("al.self")}</span> : null}
           </div>
+          <ItemComplaintActions locale={locale} type="LOAN" id={loan.id} complaints={complaints} />
           <dl className="kv">
             <dt>{tr("al.detail.reason")}</dt>
             <dd>{loan.reason}</dd>

@@ -151,7 +151,7 @@ export function AdvancesLoansView({ locale, data }: { locale: Locale; data: Adva
       {tab === "owners" ? <ByOwnerTable locale={locale} rows={data.standing} /> : null}
 
       {data.detail ? (
-        <LoanDetailSheet locale={locale} detail={data.detail} perms={perms} onClose={() => go({ loan: null })} onAction={setOpen} />
+        <LoanDetailSheet locale={locale} detail={data.detail} perms={perms} complaints={data.complaints} onClose={() => go({ loan: null })} onAction={setOpen} />
       ) : null}
 
       {open?.kind === "loan" || open?.kind === "advance" ? (

@@ -206,6 +206,48 @@ describe("GET /api/v1/openapi.json — requests", () => {
   });
 });
 
+describe("GET /api/v1/openapi.json — notices & complaints", () => {
+  it("documents every Notices and Complaints endpoint (Notices & Complaints PRD)", async () => {
+    const doc = await (await GET()).json();
+    const NOTICES: [string, string][] = [
+      ["get", "/notices"],
+      ["post", "/notices"],
+      ["patch", "/notices/{id}"],
+      ["post", "/notices/{id}/archive"],
+      ["post", "/notices/{id}/read"],
+      ["post", "/notices/read-all"],
+      ["get", "/notices/{id}/reads"],
+      ["post", "/notices/{id}/remind"],
+    ];
+    const COMPLAINTS: [string, string][] = [
+      ["get", "/complaints"],
+      ["post", "/complaints"],
+      ["get", "/complaints/{id}"],
+      ["patch", "/complaints/{id}/status"],
+      ["post", "/complaints/{id}/withdraw"],
+      ["post", "/complaints/{id}/reopen"],
+      ["post", "/complaints/{id}/publish"],
+      ["post", "/complaints/{id}/seen"],
+      ["post", "/complaints/{id}/comments"],
+      ["patch", "/complaints/{id}/comments/{commentId}"],
+      ["post", "/complaints/{id}/comments/{commentId}/hide"],
+      ["get", "/complaints/links"],
+      ["get", "/complaints/links/{type}/{id}"],
+      ["get", "/complaints/questioned"],
+    ];
+    for (const [list, tag] of [[NOTICES, "Notices"], [COMPLAINTS, "Complaints"]] as const) {
+      for (const [method, path] of list) {
+        expect(doc.paths[path]?.[method], `${method.toUpperCase()} ${path}`).toBeDefined();
+        expect(doc.paths[path][method].tags, path).toEqual([tag]);
+      }
+    }
+    for (const name of ["Notice", "PublishNoticeBody", "EditNoticeBody", "Complaint", "ComplaintDetail", "RaiseComplaintBody", "SetComplaintStatusBody", "ComplaintLinkOption"]) {
+      expect(doc.components.schemas, name).toHaveProperty(name);
+    }
+    expect(doc.components.schemas.ComplaintLinkType.enum).toEqual(["ENTRY", "MONTH", "LEDGER", "LOAN", "REQUEST", "SHARE_SET"]);
+  });
+});
+
 describe("GET /api/v1/openapi.json — attachment viewing", () => {
   it("documents the same-origin file proxy and a metadata response without a signed URL", async () => {
     const doc = await (await GET()).json();

@@ -14,6 +14,8 @@ import { displayName } from "./dto";
 type Tx = Prisma.TransactionClient;
 
 export type ProfilePatch = {
+  /** Notices & complaints emails that may be turned off (Notices & Complaints PRD §11). */
+  emailNotices?: boolean;
   username?: string;
   email?: string;
   firstName?: string | null;
@@ -59,7 +61,7 @@ export function conflictFromError(err: unknown): Conflict | null {
 
 function toData(patch: ProfilePatch, current: User): Prisma.UserUpdateInput {
   const data: Prisma.UserUpdateInput = {};
-  for (const key of ["firstName", "lastName", "surname", "profession", "houseResponsibility", "locale", "phone", "whatsapp", "whatsappSameAsPhone"] as const) {
+  for (const key of ["firstName", "lastName", "surname", "profession", "houseResponsibility", "locale", "phone", "whatsapp", "whatsappSameAsPhone", "emailNotices"] as const) {
     if (patch[key] !== undefined) (data as Record<string, unknown>)[key] = patch[key];
   }
   if (patch.birthday !== undefined) data.birthday = patch.birthday ? new Date(`${patch.birthday}T00:00:00Z`) : null;
@@ -82,7 +84,7 @@ function toData(patch: ProfilePatch, current: User): Prisma.UserUpdateInput {
 function diff(before: User, after: User) {
   const b: Record<string, unknown> = {};
   const a: Record<string, unknown> = {};
-  const keys = ["username", "email", "firstName", "lastName", "surname", "birthday", "profession", "phone", "whatsapp", "whatsappSameAsPhone", "houseResponsibility", "locale"] as const;
+  const keys = ["username", "email", "firstName", "lastName", "surname", "birthday", "profession", "phone", "whatsapp", "whatsappSameAsPhone", "houseResponsibility", "locale", "emailNotices"] as const;
   for (const k of keys) {
     const bv = before[k] instanceof Date ? (before[k] as Date).toISOString().slice(0, 10) : before[k];
     const av = after[k] instanceof Date ? (after[k] as Date).toISOString().slice(0, 10) : after[k];

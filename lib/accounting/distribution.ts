@@ -245,7 +245,7 @@ export function unpaidUnits<T extends UnitLike>(units: readonly T[], paidUnitIds
 }
 
 export type MustPassCode = "SHARES" | "PREVIOUS_CLOSED" | "BALANCED" | "STILL_OPEN";
-export type WarningCode = "NO_INCOME" | "UNPAID_RENT" | "MISSING_BILLS" | "MONTH_NOT_OVER" | "RESERVE_NEGATIVE";
+export type WarningCode = "NO_INCOME" | "UNPAID_RENT" | "MISSING_BILLS" | "MONTH_NOT_OVER" | "RESERVE_NEGATIVE" | "OPEN_COMPLAINTS";
 
 export type CloseCheckInput = {
   totalUnits: number;
@@ -259,6 +259,8 @@ export type CloseCheckInput = {
   expensesWithoutBill: number;
   monthOver: boolean;
   reserveAfterClosePaisa: number;
+  /** Open / In review complaints about this month (Notices & Complaints C8, Rule 15): a warning, never a block. */
+  openComplaints: number;
 };
 
 export function closeChecks(i: CloseCheckInput): {
@@ -280,6 +282,7 @@ export function closeChecks(i: CloseCheckInput): {
   if (i.expensesWithoutBill > 0) warnings.push("MISSING_BILLS");
   if (!i.monthOver) warnings.push("MONTH_NOT_OVER");
   if (i.reserveAfterClosePaisa < 0) warnings.push("RESERVE_NEGATIVE");
+  if (i.openComplaints > 0) warnings.push("OPEN_COMPLAINTS");
   return { mustPass, warnings, canClose: mustPass.every((c) => c.ok) };
 }
 

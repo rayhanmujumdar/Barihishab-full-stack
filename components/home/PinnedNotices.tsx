@@ -8,8 +8,8 @@ import { localePath } from "@/lib/i18n/paths";
 import { NoticeBody } from "./NoticeBody";
 import type { NoticeDto } from "./types";
 
-/** Up to 3 pinned notices, newest first (F9, G6). */
-export function PinnedNotices({ locale, notices, more }: { locale: Locale; notices: NoticeDto[]; more: boolean }) {
+/** Up to 3 pinned notices, newest first, then All notices → (F9, G6; Notices & Complaints N5). */
+export function PinnedNotices({ locale, notices }: { locale: Locale; notices: NoticeDto[]; more?: boolean }) {
   const tr = translator(locale);
   return (
     <section aria-labelledby="notices-title">
@@ -18,14 +18,12 @@ export function PinnedNotices({ locale, notices, more }: { locale: Locale; notic
           <MapPinIcon className="size-5" aria-hidden />
           {tr("home.notices.title")}
         </h2>
-        {more ? (
-          <Button asChild variant="ghost" className="pr-0">
-            <Link href={localePath(locale, "/notices")}>
-              {tr("home.notices.all")}
-              <ArrowRightIcon data-icon="inline-end" />
-            </Link>
-          </Button>
-        ) : null}
+        <Button asChild variant="ghost" className="pr-0">
+          <Link href={localePath(locale, "/notices")}>
+            {tr("home.notices.all")}
+            <ArrowRightIcon data-icon="inline-end" />
+          </Link>
+        </Button>
       </div>
       {notices.length ? (
         <ul className="m-0 flex list-none flex-col p-0">
@@ -36,8 +34,10 @@ export function PinnedNotices({ locale, notices, more }: { locale: Locale; notic
                 {n.urgent ? <Badge className="bg-signal text-foreground">{tr("home.notices.urgent")}</Badge> : null}
                 <span className="muted">{formatDay(locale, n.date)}</span>
               </p>
-              <p className="m-0 font-bold">{n.title}</p>
-              <NoticeBody locale={locale} text={n.body} />
+              <Link href={localePath(locale, `/notices?notice=${n.id}`)} className="m-0 font-bold text-foreground no-underline hover:underline">
+                {n.title}
+              </Link>
+              <NoticeBody locale={locale} id={n.id} text={n.body} unread={n.unread} />
             </li>
           ))}
         </ul>

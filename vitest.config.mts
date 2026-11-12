@@ -36,6 +36,9 @@ export default defineConfig({
         // Accounting core (project rule): 100 %.
         "lib/money.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
         "lib/accounting/**/*.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        // Notices & Complaints pure rules (design D3): 100 %.
+        "lib/notices/{rules,markup}.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
+        "lib/complaints/rules.ts": { statements: 100, branches: 100, functions: 100, lines: 100 },
       },
     },
     projects: [

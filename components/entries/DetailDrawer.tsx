@@ -1,5 +1,6 @@
 "use client";
 
+import { QuestionedBadge, RaiseObjectionButton } from "@/components/complaints/ComplaintLinks";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LockClosedIcon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -35,6 +36,7 @@ export function DetailDrawer({
   locale,
   id,
   perms,
+  questionedId,
   onClose,
   onChanged,
   onCorrect,
@@ -42,6 +44,8 @@ export function DetailDrawer({
   locale: Locale;
   id: string | null;
   perms: EntriesPerms;
+  /** Live complaint about this entry (Notices & Complaints C8). */
+  questionedId?: string;
   onClose: () => void;
   onChanged: () => void;
   onCorrect: (entry: TxnDto) => void;
@@ -165,6 +169,7 @@ export function DetailDrawer({
                 {detail.voidedAt ? <Badge variant="neutral">{tr("detail.voidTag", { reason: detail.voidReason ?? "" })}</Badge> : null}
                 {detail.isCorrected ? <Badge variant="outline">{tr("entries.tag.corrected")}</Badge> : null}
                 {detail.fromReserve ? <Badge variant="accent">{tr("entries.tag.reserve")}</Badge> : null}
+                <QuestionedBadge locale={locale} complaintId={questionedId} />
                 {detail.periodStatus === "CLOSED" ? (
                   <Badge variant="neutral">
                     <LockClosedIcon />
@@ -183,6 +188,7 @@ export function DetailDrawer({
                   ))}
               </dl>
               {detail.request ? <RequestTag locale={locale} request={detail.request} /> : null}
+              {perms.complain ? <RaiseObjectionButton locale={locale} type="ENTRY" id={detail.id} /> : null}
 
               <section className="flex flex-col gap-3">
                 <div className="section-head">

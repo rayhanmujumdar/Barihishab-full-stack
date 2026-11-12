@@ -15,6 +15,24 @@ beforeEach(() => replace.mockReset());
 
 const strip = () => screen.getByRole("region", { name: "Summary" });
 
+describe("OwnerDetail Questioned payments (Notices & Complaints C8, G9)", () => {
+  it("tags a questioned payment row and offers Raise an objection in its detail", async () => {
+    render(<OwnerDetail locale="en" data={ownerPage({ complaints: { questioned: { "e-3": "c-4" }, complain: true } })} />);
+    expect(screen.getByRole("link", { name: "Questioned" })).toHaveAttribute("href", "/en/notices?complaint=c-4");
+    const rowButtons = screen.getAllByRole("button", { name: /^Details of/ });
+    await userEvent.click(rowButtons[rowButtons.length - 1]);
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", "/en/notices?raise=1&link=LEDGER%3Ae-3");
+  });
+
+  it("offers no objection on an opening balance", async () => {
+    render(<OwnerDetail locale="en" data={ownerPage({ complaints: { questioned: {}, complain: true } })} />);
+    await userEvent.click(screen.getAllByRole("button", { name: /^Details of/ })[0]);
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByRole("link", { name: "Raise an objection" })).toBeNull();
+  });
+});
+
 describe("OwnerDetail summary (F2)", () => {
   it("shows header, five figures and the share history", () => {
     render(<OwnerDetail locale="en" data={ownerPage()} />);

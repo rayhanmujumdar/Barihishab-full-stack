@@ -8,7 +8,17 @@ export type Kind = "INCOME" | "EXPENSE";
 
 export type SummaryChip = { id: string; kind: Kind; code: string; nameEn: string; nameBn: string; count: number; totalPaisa: number };
 
-export type EntriesPerms = { create: boolean; update: boolean; void: boolean; adjust: boolean; superAdmin: boolean };
+export type EntriesPerms = {
+  create: boolean;
+  update: boolean;
+  void: boolean;
+  adjust: boolean;
+  superAdmin: boolean;
+  /** `complaint.view`: show Questioned tags (Notices & Complaints C8). */
+  complaints?: boolean;
+  /** `complaint.create`: offer Raise an objection. */
+  complain?: boolean;
+};
 
 export type EntriesData = {
   month: string;

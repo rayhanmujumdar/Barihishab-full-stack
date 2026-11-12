@@ -1,5 +1,6 @@
 "use client";
 
+import { ItemComplaintActions, type ItemComplaints } from "@/components/complaints/ComplaintLinks";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { AttachmentGallery } from "@/components/attachments/AttachmentGallery";
@@ -34,7 +35,7 @@ function timelineText(locale: Locale, t: TimelineItem): string {
 }
 
 /** F9: every field, files, the linked entry and the timeline of who did what. */
-export function RequestDetailSheet({ locale, detail, onClose }: { locale: Locale; detail: RequestDetailDto; onClose: () => void }) {
+export function RequestDetailSheet({ locale, detail, complaints, onClose }: { locale: Locale; detail: RequestDetailDto; complaints?: ItemComplaints; onClose: () => void }) {
   const tr = translator(locale);
   const r = detail.request;
   const link = r.linkedEntry ? entryLink(locale, r.linkedEntry, r.ownerName) : null;
@@ -55,6 +56,7 @@ export function RequestDetailSheet({ locale, detail, onClose }: { locale: Locale
             {r.isSelf && r.status !== "PENDING" ? <Badge variant="outline" className="rounded-none">{tr("req.tag.selfApproved")}</Badge> : null}
             {r.overdue ? <Badge variant="destructive" className="rounded-none">{tr("req.tag.overdue")}</Badge> : null}
           </div>
+          <ItemComplaintActions locale={locale} type="REQUEST" id={r.id} complaints={complaints} />
           <dl className="kv m-0">
             <dt>{tr("req.form.type")}</dt>
             <dd>{typeLabel(locale, r.type)}</dd>

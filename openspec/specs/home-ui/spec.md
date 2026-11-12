@@ -86,11 +86,15 @@ Everyone SHALL see "Latest activity" listing the activity items as rows: date ·
 - **THEN** the block shows "Nothing recorded yet this month."
 
 ### Requirement: Pinned notices block
-Everyone SHALL see "Pinned notices" with a pin icon, up to 3 notices (Urgent yellow tag, date, bold title, body clamped to 3 lines with **Read more**, unread dot) and **All notices →** when more exist; empty: "No pinned notices." (F9, G6)
+Everyone SHALL see "Pinned notices" with a pin icon, up to 3 notices (Urgent yellow tag, date, bold title, formatted body clamped to 3 lines with **Read more**, unread dot) and **All notices →** linking to `/notices`; tapping **Read more** on an unread notice MUST record it as read and clear its dot. Empty: "No pinned notices." (F9, G6; Notices & Complaints PRD N4, N5)
 
-#### Scenario: No notices yet
-- **WHEN** Home loads before the Notices section exists
+#### Scenario: No pinned notices
+- **WHEN** Home loads and no notice is pinned
 - **THEN** the block shows "No pinned notices."
+
+#### Scenario: Read more marks read
+- **WHEN** Nasrin taps **Read more** on the unread pinned "Water tank cleaning" notice
+- **THEN** the body expands and after refresh the unread dot is gone
 
 ### Requirement: Setup checklist
 When `setup` is present, the Super Admin SHALL see a checklist above the desk with the six steps, each with ✓ when done or a **Continue** link to the page that completes it (Settings, Owners, Distribution, Users). (F12)

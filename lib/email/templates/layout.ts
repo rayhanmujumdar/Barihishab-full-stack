@@ -10,6 +10,8 @@ export function layout(opts: {
   lang: "bn" | "en";
   heading: string;
   paragraphs: string[];
+  /** Already-escaped HTML placed after the paragraphs (notice bodies, see lib/notices/markup). */
+  bodyHtml?: string;
   cta?: { label: string; url: string };
   footnote: string;
 }): string {
@@ -23,7 +25,7 @@ export function layout(opts: {
 <tr><td style="padding:28px">
 <p style="margin:0 0 24px;font-size:20px;font-weight:800;color:#1a1818">BariHisab</p>
 <h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;color:#1a1818">${escapeHtml(opts.heading)}</h1>
-${p}${cta}
+${p}${opts.bodyHtml ? `<div style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#1a1818">${opts.bodyHtml}</div>` : ""}${cta}
 <p style="margin:24px 0 0;padding-top:16px;border-top:2px solid #1a1818;font-size:13px;color:#444141">${escapeHtml(opts.footnote)}</p>
 </td></tr></table></td></tr></table></body></html>`;
 }

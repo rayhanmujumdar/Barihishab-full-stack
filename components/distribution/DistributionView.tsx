@@ -1,5 +1,6 @@
 "use client";
 
+import { MonthComplaintsNote, RaiseObjectionButton } from "@/components/complaints/ComplaintLinks";
 import { ChevronLeftIcon, ChevronRightIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,11 +21,13 @@ import { ReserveDialog } from "./ReserveDialog";
 import { Staircase } from "./Staircase";
 import type { BoardRow, DistPerms, DistributionDto, DistributionResult, FundLite } from "./types";
 
-type Props = { locale: Locale; data: DistributionResult; perms: DistPerms; funds: FundLite[]; houseFundPaisa: number };
+/** The month's period id, its visible open complaints and whether the viewer may raise one (Notices & Complaints C8). */
+export type MonthComplaints = { periodId: string; openCount: number; complain: boolean };
+type Props = { locale: Locale; data: DistributionResult; perms: DistPerms; funds: FundLite[]; houseFundPaisa: number; complaints?: MonthComplaints };
 type Open = { kind: "close" } | { kind: "reopen" } | { kind: "reserve" } | { kind: "pay"; row: BoardRow } | null;
 
 /** Distribution board page (Distribution PRD F1–F5, F7–F9, F12, F15). */
-export function DistributionView({ locale, data, perms, funds, houseFundPaisa }: Props) {
+export function DistributionView({ locale, data, perms, funds, houseFundPaisa, complaints }: Props) {
   const tr = translator(locale);
   if (data.month === null) {
     return (
@@ -41,10 +44,10 @@ export function DistributionView({ locale, data, perms, funds, houseFundPaisa }:
       </div>
     );
   }
-  return <Board locale={locale} data={data as DistributionDto} perms={perms} funds={funds} houseFundPaisa={houseFundPaisa} />;
+  return <Board locale={locale} data={data as DistributionDto} perms={perms} funds={funds} houseFundPaisa={houseFundPaisa} complaints={complaints} />;
 }
 
-function Board({ locale, data, perms, funds, houseFundPaisa }: Omit<Props, "data"> & { data: DistributionDto }) {
+function Board({ locale, data, perms, funds, houseFundPaisa, complaints }: Omit<Props, "data"> & { data: DistributionDto }) {
   const tr = translator(locale);
   const router = useRouter();
   const [open, setOpen] = useState<Open>(null);
@@ -110,8 +113,10 @@ function Board({ locale, data, perms, funds, houseFundPaisa }: Omit<Props, "data
               {tr("dist.reopen")}
             </Button>
           ) : null}
+          {complaints?.complain ? <RaiseObjectionButton locale={locale} type="MONTH" id={complaints.periodId} className="" /> : null}
         </div>
       </div>
+      {complaints ? <MonthComplaintsNote locale={locale} month={m.key} count={complaints.openCount} /> : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <nav className="month-picker" aria-label={tr("dist.pickMonth")}>

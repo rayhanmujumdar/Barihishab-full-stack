@@ -1,13 +1,13 @@
 // The app's navigation items and how they split between the mobile bottom
 // bar and the More sheet (Home PRD §4; main PRD §8.1). Pure and client-safe.
-import { BanknotesIcon, CreditCardIcon, Cog6ToothIcon, DocumentChartBarIcon, HomeIcon, InboxArrowDownIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
+import { BanknotesIcon, CreditCardIcon, Cog6ToothIcon, DocumentChartBarIcon, HomeIcon, InboxArrowDownIcon, MegaphoneIcon, ScaleIcon, UserGroupIcon, UserIcon, UsersIcon } from "@heroicons/react/24/outline";
 import type { ComponentType, SVGProps } from "react";
 import type { MessageKey } from "@/lib/i18n";
 import { can, type Permission } from "@/lib/permissions";
 
 type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
-export type BadgeKey = "requests" | "invites";
+export type BadgeKey = "requests" | "invites" | "notices";
 
 export type NavItem = { href: string; label: MessageKey; short?: MessageKey; icon: HeroIcon; permission?: Permission; anyOf?: Permission[]; badge?: BadgeKey };
 
@@ -20,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/advances", label: "nav.advances", short: "nav.advancesShort", icon: CreditCardIcon, permission: "loan.view" },
   { href: "/reports", label: "nav.reports", icon: DocumentChartBarIcon, permission: "report.view" },
   { href: "/requests", label: "nav.requests", icon: InboxArrowDownIcon, permission: "request.view", badge: "requests" },
+  { href: "/notices", label: "nav.notices", icon: MegaphoneIcon, permission: "notice.view", badge: "notices" },
   { href: "/admin/users", label: "nav.users", icon: UsersIcon, permission: "user.list", badge: "invites" },
   { href: "/settings", label: "nav.settings", icon: Cog6ToothIcon, anyOf: ["unit.manage", "fund.manage", "category.manage", "settings.manage"] },
   { href: "/me", label: "nav.profile", icon: UserIcon },
@@ -36,7 +37,7 @@ export const PLUS = "PLUS" as const;
 /**
  * Four bottom-bar slots + More (§4 Mobile). Bookkeepers: Home · Entries · [+] ·
  * Distribution. Everyone else: Home + the first three permitted of Accounts
- * (Reports) · Requests · Entries · Advances (Notices doesn't exist yet).
+ * (Reports) · Requests · Notices · Entries · Advances.
  */
 export function bottomNav(viewer: Viewer, opts: { monthOpen?: boolean } = {}): { slots: (NavItem | typeof PLUS)[]; more: NavItem[] } {
   const items = visibleItems(viewer);
@@ -47,7 +48,7 @@ export function bottomNav(viewer: Viewer, opts: { monthOpen?: boolean } = {}): {
     ? bookkeeper.filter((x): x is NavItem | typeof PLUS => x !== undefined)
     : [
         at("/")!,
-        ...["/reports", "/requests", "/entries", "/advances"]
+        ...["/reports", "/requests", "/notices", "/entries", "/advances"]
           .map(at)
           .filter((x): x is NavItem => x !== undefined)
           .slice(0, 3)

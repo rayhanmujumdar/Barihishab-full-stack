@@ -1,5 +1,6 @@
 "use client";
 
+import { QuestionedBadge, RaiseObjectionButton } from "@/components/complaints/ComplaintLinks";
 import { useState } from "react";
 import { ArrowRightIcon, ClockIcon, PlusIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -103,9 +104,10 @@ export function OwnersView({ locale, data }: { locale: Locale; data: OwnersData 
             {data.timeline.length === 0 ? <p className="m-0">{tr("owners.timeline.empty")}</p> : null}
             {data.timeline.map((s) => (
               <section key={s.id} className="flex flex-col gap-2 border-t-2 border-foreground pt-3" data-replaced={s.replaced ? "true" : undefined}>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="m-0 text-lg font-extrabold">{tr("owners.timeline.from", { month: monthLabel(locale, s.effectiveMonth) })}</h3>
                   {s.replaced ? <Badge variant="neutral">{tr("owners.timeline.replaced")}</Badge> : null}
+                  <QuestionedBadge locale={locale} complaintId={data.complaints?.questioned[s.id]} />
                 </div>
                 <p className="muted m-0">{tr("owners.timeline.by", { reason: s.reason, name: s.savedBy })}</p>
                 <ul className="m-0 list-none p-0">
@@ -118,6 +120,7 @@ export function OwnersView({ locale, data }: { locale: Locale; data: OwnersData 
                     </li>
                   ))}
                 </ul>
+                {data.complaints?.complain ? <RaiseObjectionButton locale={locale} type="SHARE_SET" id={s.id} /> : null}
               </section>
             ))}
           </div>

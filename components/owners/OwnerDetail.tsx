@@ -178,7 +178,7 @@ export function OwnerDetail({ locale, data }: { locale: Locale; data: OwnerPageD
             </a>
           </Button>
         </div>
-        <StatementTable locale={locale} statement={statement} onVoid={perms.void && canMove ? (entry) => setOpen({ kind: "void", entry }) : undefined} />
+        <StatementTable locale={locale} statement={statement} complaints={data.complaints} onVoid={perms.void && canMove ? (entry) => setOpen({ kind: "void", entry }) : undefined} />
       </section>
 
       {owner.loans.length ? (

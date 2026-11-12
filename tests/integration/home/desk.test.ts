@@ -96,8 +96,13 @@ describe("deskFigures — counts (F5, G9, Rule 10)", () => {
     expect((await deskFigures(w.property.id)).invites).toEqual({ waiting: 2, expired: 0 });
   });
 
-  it("has no open complaints before the Notices section exists", async () => {
+  it("counts Open + In review complaints of every visibility (Notices & Complaints §13)", async () => {
     const w = await distributionWorld();
     expect((await deskFigures(w.property.id)).openComplaints).toBe(0);
+    const base = { propertyId: w.property.id, title: "Bill", body: "Looks high to me.", createdById: w.owner.id };
+    await prisma.complaint.create({ data: { ...base, status: "OPEN" } });
+    await prisma.complaint.create({ data: { ...base, status: "IN_REVIEW", visibility: "ADMIN" } });
+    await prisma.complaint.create({ data: { ...base, status: "RESOLVED" } });
+    expect((await deskFigures(w.property.id)).openComplaints).toBe(2);
   });
 });

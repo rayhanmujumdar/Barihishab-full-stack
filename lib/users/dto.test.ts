@@ -27,6 +27,7 @@ const base = {
   passwordChangedAt: null,
   tokenVersion: 0,
   avatarAttachmentId: null,
+  emailNotices: true,
   createdById: null,
   createdAt: new Date("2026-11-01T00:00:00Z"),
   updatedAt: new Date("2026-11-01T00:00:00Z"),

@@ -18,6 +18,7 @@ const PRIVATE = [
   ["settings", "/settings"],
   ["distribution", "/distribution"],
   ["requests", "/requests"],
+  ["notices", "/notices"],
   ["reports-monthly", "/reports/monthly"],
   ["reports-yearly", "/reports/yearly"],
 ] as const;

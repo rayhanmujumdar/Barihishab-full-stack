@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 // audit_logs is append-only (DB trigger), so it is never truncated; tests
 // assert on audit rows by the fresh ids they create instead.
 const RESETTABLE_TABLES = [
+  "complaint_views",
+  "complaint_comments",
+  "complaints",
+  "notice_reads",
+  "notices",
   "period_reopens",
   "money_requests",
   "loan_movements",

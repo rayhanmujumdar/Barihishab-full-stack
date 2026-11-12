@@ -196,6 +196,19 @@ describe("DetailDrawer + Void dialog (DET-01, VOD-01)", () => {
     expect(screen.getByRole("button", { name: "Correct" })).toBeInTheDocument();
   });
 
+  it("shows Questioned linking to the live complaint and Raise an objection (Notices & Complaints C8, flow E)", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: detail() });
+    const { unmount } = render(<DetailDrawer locale="en" id="x" perms={{ ...ownerPerms, complain: true }} questionedId="c-9" onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    await screen.findByText("৳6,300", { selector: "p" });
+    expect(screen.getByRole("link", { name: "Questioned" })).toHaveAttribute("href", "/en/notices?complaint=c-9");
+    expect(screen.getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", expect.stringMatching(/^\/en\/notices\?raise=1&link=ENTRY%3A/));
+    unmount();
+    render(<DetailDrawer locale="en" id="x" perms={ownerPerms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);
+    await screen.findByText("৳6,300", { selector: "p" });
+    expect(screen.queryByRole("link", { name: "Questioned" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Raise an objection" })).toBeNull();
+  });
+
   it("offers no Correct / Void to owners, on Closed months or voided entries", async () => {
     api.mockResolvedValue({ ok: true, status: 200, data: detail() });
     const { unmount } = render(<DetailDrawer locale="en" id="x" perms={ownerPerms} onClose={vi.fn()} onChanged={vi.fn()} onCorrect={vi.fn()} />);

@@ -1,15 +1,17 @@
-// Notices & Complaints seam (Home PRD F5, F9; main PRD NTC-01; design D9).
-// That section isn't built yet: Home reads pinned notices and the open
-// complaints count only through here, so wiring it later is a body swap.
+// Notices & Complaints for Home (Home PRD F5, F9; Notices & Complaints PRD
+// N5, §13). Home reads pinned notices and the open-complaint count only
+// through here, so Home and the Notices page share one source.
+import { openComplaintTotal } from "@/lib/complaints/questioned";
+import { pinnedForHome, type PinnedNotice } from "@/lib/notices/notice-read";
 
-export type NoticeDto = { id: string; title: string; body: string; urgent: boolean; date: string; unread: boolean };
+export type NoticeDto = PinnedNotice;
 
-/** Up to 3 pinned notices, newest first, and whether more exist. */
-export async function pinnedNotices(_propertyId: string, _userId: string): Promise<{ items: NoticeDto[]; more: boolean }> {
-  return { items: [], more: false };
+/** Up to 3 effectively pinned notices, newest first, and whether more exist. */
+export function pinnedNotices(propertyId: string, userId: string): Promise<{ items: NoticeDto[]; more: boolean }> {
+  return pinnedForHome(propertyId, userId);
 }
 
-/** Complaints in Open or In review. */
-export async function openComplaintsCount(_propertyId: string): Promise<number> {
-  return 0;
+/** Complaints in Open or In review (every visibility; the desk is Super Admin only). */
+export function openComplaintsCount(propertyId: string): Promise<number> {
+  return openComplaintTotal(propertyId);
 }

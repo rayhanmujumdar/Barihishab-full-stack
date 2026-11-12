@@ -47,6 +47,7 @@ export function CloseMonthDialog({ locale, month, onClose, onDone }: { locale: L
     if (w.code === "MISSING_BILLS") return tr("dist.warn.MISSING_BILLS", { n: num(locale, w.count ?? 0) });
     if (w.code === "MONTH_NOT_OVER") return tr("dist.warn.MONTH_NOT_OVER", { month: label, next: monthLabel(locale, w.nextMonth ?? month) });
     if (w.code === "RESERVE_NEGATIVE") return tr("dist.warn.RESERVE_NEGATIVE", { amount: money(w.reserveAfterClosePaisa ?? 0) });
+    if (w.code === "OPEN_COMPLAINTS") return tr("dist.warn.OPEN_COMPLAINTS", { n: num(locale, w.count ?? 0), month: label });
     return tr("dist.warn.NO_INCOME");
   }
 

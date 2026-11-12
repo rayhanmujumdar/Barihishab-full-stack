@@ -62,6 +62,14 @@ describe("error catalogue", () => {
     expect(ERRORS.NO_OWNER_PROFILE.en).toBe("Your account isn't linked to an owner, so you can't request money for yourself.");
   });
 
+  it("maps the Notices & Complaints PRD codes", () => {
+    for (const code of ["NOTICE_ARCHIVED", "REMINDER_ALREADY_SENT", "NOT_URGENT", "INVALID_COMPLAINT_STATUS", "COMPLAINT_CLOSED", "REOPEN_WINDOW_PASSED", "EDIT_WINDOW_PASSED"] as const) {
+      expect(ERRORS[code].status, code).toBe(409);
+    }
+    expect(ERRORS.REOPEN_WINDOW_PASSED.en).toBe("This complaint closed more than 14 days ago — raise a new one instead.");
+    expect(ERRORS.EDIT_WINDOW_PASSED.en).toBe("Comments can be edited for 15 minutes.");
+  });
+
   it("has an English and a Bangla message for every code", () => {
     for (const [code, e] of Object.entries(ERRORS)) {
       expect(e.en, code).toBeTruthy();

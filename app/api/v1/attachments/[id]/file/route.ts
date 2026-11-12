@@ -19,7 +19,7 @@ export const GET = withAuth<{ id: string }>(
   async (req, { auth, params }) => {
     await connection();
     if (!isUuid(params.id)) return apiError("NOT_FOUND");
-    const opened = await openFile(await currentPropertyId(), params.id, { userId: auth.userId, viewAll: can(auth, "request.view.all") }, { ifNoneMatch: req.headers.get("if-none-match") });
+    const opened = await openFile(await currentPropertyId(), params.id, { userId: auth.userId, viewAll: can(auth, "request.view.all"), complaintViewAll: can(auth, "complaint.view.all") }, { ifNoneMatch: req.headers.get("if-none-match") });
     if (!opened) return apiError("NOT_FOUND");
     if (opened.notModified) return new Response(null, { status: 304, headers: { ETag: opened.etag, "Cache-Control": CACHE } });
 

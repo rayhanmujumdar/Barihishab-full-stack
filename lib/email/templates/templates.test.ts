@@ -109,3 +109,74 @@ describe("request email template (Requests PRD §10)", () => {
     expect(due.text).toMatch(/approved but not paid/);
   });
 });
+
+describe("notice email template (Notices & Complaints PRD §11)", () => {
+  const base = {
+    event: "PUBLISHED" as const,
+    noticeId: "11111111-1111-4111-8111-111111111111",
+    title: "Water tank cleaning — Sunday 26 Oct",
+    body: "Supply off **10 am to 2 pm**.\n- Store water\n<img src=x onerror=alert(1)>",
+    urgent: true,
+    authorName: "Rayhan Ahmed",
+  };
+
+  it("starts urgent subjects with [Urgent] and links to the notice", () => {
+    const m = renderEmail("NOTICE", "en", base, APP);
+    expect(m.subject).toBe("[Urgent] Water tank cleaning — Sunday 26 Oct");
+    expect(m.html).toContain(`${APP}/en/notices?notice=${base.noticeId}`);
+    expect(m.text).toContain(`${APP}/en/notices?notice=${base.noticeId}`);
+    expect(m.html).toContain("<strong>10 am to 2 pm</strong>");
+    expect(m.html).toContain("<li>Store water</li>");
+  });
+
+  it("escapes HTML in the notice body", () => {
+    const m = renderEmail("NOTICE", "en", base, APP);
+    expect(m.html).not.toContain("<img");
+    expect(m.html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("has a plain subject for normal notices and Bangla copy for edits and reminders", () => {
+    expect(renderEmail("NOTICE", "en", { ...base, urgent: false }, APP).subject).toBe("Water tank cleaning — Sunday 26 Oct");
+    expect(renderEmail("NOTICE", "bn", base, APP).subject).toBe("[জরুরি] Water tank cleaning — Sunday 26 Oct");
+    expect(renderEmail("NOTICE", "en", { ...base, event: "EDITED", urgent: false }, APP).subject).toBe("Updated: Water tank cleaning — Sunday 26 Oct");
+    expect(renderEmail("NOTICE", "en", { ...base, event: "REMINDER" }, APP).subject).toBe("[Urgent] Reminder: Water tank cleaning — Sunday 26 Oct");
+    expect(renderEmail("NOTICE", "bn", { ...base, event: "REMINDER", urgent: false }, APP).html).toContain("নোটিশ");
+  });
+});
+
+describe("complaint email template (Notices & Complaints PRD §11)", () => {
+  const base = {
+    event: "NEW" as const,
+    complaintId: "22222222-2222-4222-8222-222222222222",
+    title: "September electricity bill looks high",
+    complainantName: "Farzana Haque",
+    actorName: "Farzana Haque",
+    explanation: null,
+    link: true,
+  };
+  const events = ["NEW", "NEW_PRIVATE", "IN_REVIEW", "RESOLVED", "REJECTED", "WITHDRAWN", "REOPENED"] as const;
+
+  it("renders every event in both languages with title and link", () => {
+    for (const locale of ["en", "bn"] as const) {
+      for (const event of events) {
+        const m = renderEmail("COMPLAINT_UPDATE", locale, { ...base, event }, APP);
+        expect(m.subject, `${locale} ${event}`).toContain(base.title);
+        expect(m.html, `${locale} ${event}`).toContain(`${APP}/${locale}/complaints/${base.complaintId}`);
+      }
+    }
+  });
+
+  it("names the complainant on a new complaint and never carries its description", () => {
+    const m = renderEmail("COMPLAINT_UPDATE", "en", base, APP);
+    expect(m.text).toContain("Farzana Haque");
+    expect(m.text).not.toContain("In March");
+  });
+
+  it("shows the explanation on a resolution, without a link when the reader can't open it", () => {
+    const m = renderEmail("COMPLAINT_UPDATE", "en", { ...base, event: "RESOLVED", actorName: "Rayhan Ahmed", explanation: "Caretaker AC ran all month.", link: false }, APP);
+    expect(m.subject).toBe("Resolved: September electricity bill looks high");
+    expect(m.text).toContain("Caretaker AC ran all month.");
+    expect(m.html).not.toContain("/complaints/");
+    expect(m.text).not.toContain("/complaints/");
+  });
+});
