@@ -54,6 +54,7 @@ export const detail = (over: Partial<ComplaintDetailDto> = {}): ComplaintDetailD
 
 export const page = (over: Partial<NoticesPageData> = {}): NoticesPageData => ({
   houseName: "Ahmed Villa",
+  tab: "notices",
   perms: { manage: false, create: true, decide: false },
   notices: { items: [notice(), notice({ id: "n-tax", title: "Holding tax — next instalment due 15 Jan", priority: "NORMAL", pinUntil: null, read: true, body: "Around ৳18,500." })], more: false, activeMembers: 4, unread: 1, reachEmail: null },
   archived: false,

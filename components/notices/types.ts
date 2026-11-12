@@ -4,11 +4,16 @@ import type { NoticeDto, NoticeListDto } from "@/lib/notices/notice-read";
 
 export type { ComplaintDetailDto, ComplaintDto, ComplaintFilter, ComplaintListDto, LinkItem, LinkOption, LinkType, NoticeDto, NoticeListDto, ThreadItem };
 
+/** Which half of `/notices` is showing. */
+export type NoticesTab = "notices" | "complaints";
+
 export type NoticesPerms = { manage: boolean; create: boolean; decide: boolean };
 
 /** Everything `/notices` renders, loaded on the server (design D11). */
 export type NoticesPageData = {
   houseName: string | null;
+  /** `?tab=` — or inferred from complaint deep links (see `noticesTab`). */
+  tab: NoticesTab;
   perms: NoticesPerms;
   notices: NoticeListDto;
   archived: boolean;

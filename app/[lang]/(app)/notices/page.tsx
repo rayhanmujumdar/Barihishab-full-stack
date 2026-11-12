@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Forbidden } from "@/components/app/Forbidden";
+import { noticesTab } from "@/components/notices/format";
 import { NoticesView } from "@/components/notices/NoticesView";
 import type { NoticesPageData } from "@/components/notices/types";
 import { NoticesSkeleton } from "@/components/skeletons/pages";
@@ -47,6 +48,7 @@ async function Notices({ searchParams }: { searchParams: Search }) {
   const perms = { manage: can(viewer, "notice.manage"), create: can(viewer, "complaint.create"), decide: can(viewer, "complaint.decide") };
   const reader = complaintViewer({ userId: viewer.id, permissions: viewer.permissions }, locale);
 
+  const tab = noticesTab({ tab: one(sp.tab), complaint: one(sp.complaint), raise: one(sp.raise), filter: one(sp.filter), month: one(sp.month), climit: one(sp.climit) });
   const archived = one(sp.archived) === "1";
   const asked = one(sp.filter) ?? "all";
   const filter: ComplaintFilter = (COMPLAINT_FILTERS as readonly string[]).includes(asked) ? (asked as ComplaintFilter) : "all";
@@ -59,8 +61,10 @@ async function Notices({ searchParams }: { searchParams: Search }) {
 
   // Sequential reads keep the pool small; each is a handful of queries on one house.
   const notices = await listNotices(propertyId, { userId: viewer.id, manage: perms.manage }, { archived, limit: limitOf(one(sp.nlimit)) });
-  const complaints = await listComplaints(propertyId, reader, { filter, month: month || undefined, limit: limitOf(one(sp.climit)) });
-  const months = (await prisma.period.findMany({ where: { propertyId }, select: { month: true }, orderBy: { month: "desc" } })).map((p) => monthKey(p.month));
+  // The Notices tab still needs its list (unread badge, New notice reach); complaints load only on their tab.
+  const onComplaints = tab === "complaints";
+  const complaints = onComplaints ? await listComplaints(propertyId, reader, { filter, month: month || undefined, limit: limitOf(one(sp.climit)) }) : { items: [], more: false };
+  const months = onComplaints ? (await prisma.period.findMany({ where: { propertyId }, select: { month: true }, orderBy: { month: "desc" } })).map((p) => monthKey(p.month)) : [];
   const detail = isUuid(complaintId) ? await complaintDetail(prisma, propertyId, complaintId!, reader) : null;
   const link =
     raise && perms.create && isUuid(linkId) && (LINK_TYPES as readonly string[]).includes(linkType)
@@ -70,6 +74,7 @@ async function Notices({ searchParams }: { searchParams: Search }) {
 
   const data: NoticesPageData = {
     houseName: property?.name ?? null,
+    tab,
     perms,
     notices,
     archived,

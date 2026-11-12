@@ -1430,6 +1430,8 @@ export const en = {
   "nc.title": "Notices & complaints",
   "nc.raise": "Raise a complaint",
   "nc.newNotice": "New notice",
+  "nc.tabs": "Sections",
+  "nc.tabs.unread": "{label}, {n} unread",
   "nc.notices.title": "Notices",
   "nc.notices.empty": "No notices yet.",
   "nc.notices.markAll": "Mark all as read",

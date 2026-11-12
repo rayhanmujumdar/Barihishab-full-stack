@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { SelectField } from "@/components/forms/fields";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
-import { translator, type Locale } from "@/lib/i18n";
+import { toBanglaDigits, translator, type Locale } from "@/lib/i18n";
 import { monthLabel } from "@/lib/periods/month";
 import { cn } from "@/lib/utils";
 import { ComplaintCard } from "./ComplaintCard";
@@ -18,13 +19,17 @@ import { ComplaintFormDialog } from "./ComplaintFormDialog";
 import { noticesHref } from "./format";
 import { NoticeCard, type NoticeAction } from "./NoticeCard";
 import { NoticeDialog } from "./NoticeDialog";
-import type { ComplaintFilter, NoticeDto, NoticesPageData } from "./types";
+import type { ComplaintFilter, NoticeDto, NoticesPageData, NoticesTab } from "./types";
 import { WhoReadSheet } from "./WhoReadSheet";
 
 const FILTERS: ComplaintFilter[] = ["all", "open", "in_review", "closed", "mine"];
+const TABS: { tab: NoticesTab; label: "nc.notices.title" | "nc.c.title"; href: { tab: NoticesTab | null } }[] = [
+  { tab: "notices", label: "nc.notices.title", href: { tab: null } },
+  { tab: "complaints", label: "nc.c.title", href: { tab: "complaints" } },
+];
 type Open = { kind: "new" } | { kind: "edit" | "reads" | "archive"; notice: NoticeDto } | null;
 
-/** S10 Notices & complaints: notices left, complaints right (stacked on phones). */
+/** S10 Notices & complaints: Notices and Complaints as two URL tabs (`?tab=`), one section at a time. */
 export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPageData }) {
   const tr = translator(locale);
   const router = useRouter();
@@ -32,7 +37,9 @@ export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPag
   const [open, setOpen] = useState<Open>(() => (data.newNotice && perms.manage ? { kind: "new" } : null));
   const [raising, setRaising] = useState(data.raise.open && perms.create);
   const [busy, setBusy] = useState(false);
-  const base = { archived: data.archived ? 1 : null, filter: data.filter, month: data.month };
+  const tab = data.tab;
+  // Complaint links always carry the tab: "All" with no month would otherwise land on Notices.
+  const base = tab === "complaints" ? { tab, filter: data.filter, month: data.month } : { archived: data.archived ? 1 : null };
   const go = (q: Record<string, string | number | null>, push = false) => {
     const href = noticesHref(locale, { ...base, ...q });
     if (push) router.push(href, { scroll: false });
@@ -125,16 +132,43 @@ export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPag
         </div>
       </div>
 
-      <div className="grid gap-10 min-[860px]:grid-cols-2">
+      <nav className="rpt-tabs" aria-label={tr("nc.tabs")}>
+        {TABS.map((t) => {
+          const unread = t.tab === "notices" ? notices.unread : 0;
+          const label = tr(t.label);
+          return (
+            <Link
+              key={t.tab}
+              href={noticesHref(locale, t.href)}
+              scroll={false}
+              aria-current={t.tab === tab ? "page" : undefined}
+              aria-label={unread > 0 ? tr("nc.tabs.unread", { label, n: unread }) : undefined}
+              className={cn("rpt-tab gap-2", t.tab === tab && "rpt-tab-active")}
+            >
+              {label}
+              {unread > 0 ? <Badge className="bg-signal font-extrabold text-foreground">{locale === "bn" ? toBanglaDigits(String(unread)) : String(unread)}</Badge> : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {tab === "notices" ? (
         <section aria-labelledby="notices-col" className="flex min-w-0 flex-col">
-          <div className="section-head">
-            <h2 id="notices-col">{tr(data.archived ? "nc.notices.archivedLink" : "nc.notices.title")}</h2>
-            {!data.archived && notices.unread > 0 ? (
-              <Button variant="ghost" className="pr-0" disabled={busy} onClick={readAll}>
-                {tr("nc.notices.markAll")}
-              </Button>
-            ) : null}
-          </div>
+          {/* The tab already names the section; only the archive view needs a visible heading. */}
+          {data.archived ? (
+            <div className="section-head">
+              <h2 id="notices-col">{tr("nc.notices.archivedLink")}</h2>
+            </div>
+          ) : (
+            <h2 id="notices-col" className="sr-only">
+              {tr("nc.notices.title")}
+            </h2>
+          )}
+          {!data.archived && notices.unread > 0 ? (
+            <Button variant="ghost" className="self-start pl-0" disabled={busy} onClick={readAll}>
+              {tr("nc.notices.markAll")}
+            </Button>
+          ) : null}
           {notices.items.length ? (
             <div className="flex flex-col">
               {notices.items.map((n) => (
@@ -161,11 +195,11 @@ export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPag
             {tr(data.archived ? "nc.notices.back" : "nc.notices.archivedLink")}
           </Link>
         </section>
-
+      ) : (
         <section aria-labelledby="complaints-col" className="flex min-w-0 flex-col gap-3">
-          <div className="section-head">
-            <h2 id="complaints-col">{tr("nc.c.title")}</h2>
-          </div>
+          <h2 id="complaints-col" className="sr-only">
+            {tr("nc.c.title")}
+          </h2>
           <nav aria-label={tr("nc.c.filters")} className="flex flex-wrap gap-1">
             {FILTERS.map((f) => (
               <Link
@@ -206,7 +240,7 @@ export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPag
             </Button>
           ) : null}
         </section>
-      </div>
+      )}
 
       {open?.kind === "new" || open?.kind === "edit" ? (
         <NoticeDialog
@@ -240,7 +274,7 @@ export function NoticesView({ locale, data }: { locale: Locale; data: NoticesPag
           onClose={closeRaise}
           onDone={(id) => {
             setRaising(false);
-            go({ raise: null, link: null, complaint: id });
+            go({ tab: "complaints", archived: null, raise: null, link: null, complaint: id });
           }}
         />
       ) : null}
