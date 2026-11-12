@@ -1432,6 +1432,8 @@ export const bn: Record<MessageKey, string> = {
   "nc.title": "নোটিশ ও অভিযোগ",
   "nc.raise": "অভিযোগ করুন",
   "nc.newNotice": "নতুন নোটিশ",
+  "nc.tabs": "বিভাগ",
+  "nc.tabs.unread": "{label}, {n}টি পড়া হয়নি",
   "nc.notices.title": "নোটিশ",
   "nc.notices.empty": "এখনো কোনো নোটিশ নেই।",
   "nc.notices.markAll": "সব পড়া হয়েছে",

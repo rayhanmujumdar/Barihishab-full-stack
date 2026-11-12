@@ -3,13 +3,26 @@ import { translator, type Locale, type MessageKey } from "@/lib/i18n";
 import { localePath } from "@/lib/i18n/paths";
 import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
-import type { LinkItem } from "./types";
+import type { LinkItem, NoticesTab } from "./types";
 
 /** Builds /{lang}/notices?… keeping only non-empty params. */
 export function noticesHref(locale: Locale, q: Record<string, string | number | null | undefined>): string {
   const sp = new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== "all").map(([k, v]) => [k, String(v)]));
   const qs = sp.toString();
   return localePath(locale, `/notices${qs ? `?${qs}` : ""}`);
+}
+
+const COMPLAINT_PARAMS = ["complaint", "raise", "month", "climit"] as const;
+
+/**
+ * The tab `/notices` opens on: `?tab=` when valid, else Complaints for
+ * complaint deep links (emails, Raise an objection, Questioned markers) and
+ * Notices otherwise.
+ */
+export function noticesTab(q: Record<string, string | undefined>): NoticesTab {
+  if (q.tab === "notices" || q.tab === "complaints") return q.tab;
+  if (COMPLAINT_PARAMS.some((k) => q[k]) || (q.filter && q.filter !== "all")) return "complaints";
+  return "notices";
 }
 
 /** Chip: "Electricity · Oct 2026" (type only when the viewer can't open it). */

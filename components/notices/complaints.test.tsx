@@ -34,7 +34,7 @@ const questionedRefreshed = () => expect(invalidated).toHaveBeenCalledWith({ que
 
 describe("complaint list (C1)", () => {
   it("shows the card with tags, chip, comment count and unread dot, and opens the drawer", async () => {
-    render(<NoticesView locale="en" data={page({ complaints: { items: [complaint({ unseen: true }), complaint({ id: "c-loan", title: "Can the loan instalment be lowered?", status: "RESOLVED", visibility: "ADMIN", link: null, commentCount: 0 })], more: false } })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", complaints: { items: [complaint({ unseen: true }), complaint({ id: "c-loan", title: "Can the loan instalment be lowered?", status: "RESOLVED", visibility: "ADMIN", link: null, commentCount: 0 })], more: false } })} />);
     const col = screen.getByRole("region", { name: "Complaints & objections" });
     const card = within(col).getByRole("button", { name: /September electricity bill/ });
     expect(within(card).getByText("In review")).toBeInTheDocument();
@@ -45,18 +45,18 @@ describe("complaint list (C1)", () => {
     expect(within(loan).getByText("Admin only")).toBeInTheDocument();
     expect(within(loan).getByText("Resolved")).toBeInTheDocument();
     await userEvent.click(card);
-    expect(push).toHaveBeenCalledWith("/en/notices?complaint=c-elec", { scroll: false });
+    expect(push).toHaveBeenCalledWith("/en/notices?tab=complaints&complaint=c-elec", { scroll: false });
   });
 
   it("filters by status chips and month, with the filtered empty text", async () => {
-    render(<NoticesView locale="en" data={page({ filter: "open", complaints: { items: [], more: false } })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", filter: "open", complaints: { items: [], more: false } })} />);
     const nav = screen.getByRole("navigation", { name: "Complaint filters" });
     expect(within(nav).getAllByRole("link").map((l) => l.textContent)).toEqual(["All", "Open", "In review", "Closed", "Mine"]);
     expect(within(nav).getByRole("link", { name: "Open" })).toHaveAttribute("aria-current", "page");
-    expect(within(nav).getByRole("link", { name: "Mine" })).toHaveAttribute("href", "/en/notices?filter=mine");
+    expect(within(nav).getByRole("link", { name: "Mine" })).toHaveAttribute("href", "/en/notices?tab=complaints&filter=mine");
     expect(screen.getByText("No complaints match this filter.")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Month"), "2026-09");
-    expect(replace).toHaveBeenCalledWith("/en/notices?filter=open&month=2026-09", { scroll: false });
+    expect(replace).toHaveBeenCalledWith("/en/notices?tab=complaints&filter=open&month=2026-09", { scroll: false });
   });
 });
 
@@ -85,7 +85,7 @@ describe("raise a complaint (C2)", () => {
     );
     expect(toast).toHaveBeenCalledWith("Posted · all owners get a short email");
     questionedRefreshed();
-    expect(replace).toHaveBeenCalledWith("/en/notices?complaint=c-new", { scroll: false });
+    expect(replace).toHaveBeenCalledWith("/en/notices?tab=complaints&complaint=c-new", { scroll: false });
   });
 
   it("shows that link search is running", async () => {
@@ -116,7 +116,7 @@ describe("raise a complaint (C2)", () => {
 
 describe("complaint drawer (C3–C7)", () => {
   it("shows the link card, In review note and thread with the Admin tag and status lines", () => {
-    render(<NoticesView locale="en" data={page({ detail: detail() })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", detail: detail() })} />);
     const d = screen.getByRole("dialog", { name: "September electricity bill looks high" });
     expect(within(d).getByRole("link", { name: /28 Sept 2026 · Electricity · ৳7,100/ })).toHaveAttribute("href", "/en/entries?period=2026-09&entry=t-elec");
     expect(within(d).getByText("Admin is looking into it")).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("complaint drawer (C3–C7)", () => {
   });
 
   it("sends a comment", async () => {
-    render(<NoticesView locale="en" data={page({ detail: detail() })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", detail: detail() })} />);
     const d = screen.getByRole("dialog", { name: /electricity/ });
     await userEvent.type(within(d).getByLabelText("Add a comment"), "Thanks for checking.");
     await userEvent.click(within(d).getByRole("button", { name: "Send" }));
@@ -135,7 +135,7 @@ describe("complaint drawer (C3–C7)", () => {
   });
 
   it("refuses Resolve without an explanation, then resolves", async () => {
-    render(<NoticesView locale="en" data={adminPage({ detail: detail({ actions: { comment: true, withdraw: false, reopen: false, publish: false, decide: true, hide: true } }) })} />);
+    render(<NoticesView locale="en" data={adminPage({ tab: "complaints", detail: detail({ actions: { comment: true, withdraw: false, reopen: false, publish: false, decide: true, hide: true } }) })} />);
     const d = screen.getByRole("dialog", { name: /electricity/ });
     await userEvent.click(within(d).getByRole("button", { name: "Resolve" }));
     expect(within(d).getByText("Write the explanation first — the complainant receives it.")).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe("complaint drawer (C3–C7)", () => {
   });
 
   it("asks before withdrawing and requires a reason to reopen", async () => {
-    const { unmount } = render(<NoticesView locale="en" data={page({ detail: detail({ mine: true, actions: { comment: true, withdraw: true, reopen: false, publish: false, decide: false, hide: false } }) })} />);
+    const { unmount } = render(<NoticesView locale="en" data={page({ tab: "complaints", detail: detail({ mine: true, actions: { comment: true, withdraw: true, reopen: false, publish: false, decide: false, hide: false } }) })} />);
     await userEvent.click(screen.getByRole("button", { name: "Withdraw my complaint" }));
     const confirm = await screen.findByRole("alertdialog", { name: "Withdraw this complaint?" });
     expect(within(confirm).getByText("It closes and stays visible as Withdrawn.")).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe("complaint drawer (C3–C7)", () => {
     render(
       <NoticesView
         locale="en"
-        data={page({ detail: detail({ status: "RESOLVED", mine: true, resolution: { note: "Kept as is.", byName: "Rayhan Ahmed", at: "2026-10-06T06:00:00.000Z", fix: null }, actions: { comment: false, withdraw: false, reopen: true, publish: false, decide: false, hide: false } }) })}
+        data={page({ tab: "complaints", detail: detail({ status: "RESOLVED", mine: true, resolution: { note: "Kept as is.", byName: "Rayhan Ahmed", at: "2026-10-06T06:00:00.000Z", fix: null }, actions: { comment: false, withdraw: false, reopen: true, publish: false, decide: false, hide: false } }) })}
       />,
     );
     const d = screen.getByRole("dialog", { name: /electricity/ });
@@ -178,7 +178,7 @@ describe("complaint drawer (C3–C7)", () => {
       unseen: true,
       thread: [{ kind: "comment", id: "cm-9", authorId: "u-x", authorName: "Tanvir Ahmed", isAdmin: false, body: null, hiddenReason: "Personal remark", createdAt: "2026-10-05T06:00:00.000Z", editedAt: null, attachments: [], editableUntil: null }],
     });
-    render(<NoticesView locale="en" data={page({ detail: hidden })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", detail: hidden })} />);
     await waitFor(() => expect(api).toHaveBeenCalledWith("/complaints/c-elec/seen", { method: "POST" }));
     expect(screen.getByText("Hidden by Admin: Personal remark")).toBeInTheDocument();
   });
@@ -186,7 +186,7 @@ describe("complaint drawer (C3–C7)", () => {
   it("offers Edit on own fresh comments only", () => {
     const fresh = new Date(Date.now() + 10 * 60_000).toISOString();
     const d = detail({ thread: [{ kind: "comment", id: "cm-5", authorId: "me", authorName: "Me", isAdmin: false, body: "Typo heer", hiddenReason: null, createdAt: new Date().toISOString(), editedAt: null, attachments: [], editableUntil: fresh }] });
-    render(<NoticesView locale="en" data={page({ detail: d })} />);
+    render(<NoticesView locale="en" data={page({ tab: "complaints", detail: d })} />);
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 });

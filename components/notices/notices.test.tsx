@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api/client";
 import { adminPage, notice, page } from "./fixtures";
 import { NoticeText } from "./NoticeText";
+import { noticesTab } from "./format";
 import { NoticesView } from "./NoticesView";
 
 const replace = vi.fn();
@@ -33,6 +34,51 @@ describe("NoticeText (G4)", () => {
     expect(screen.queryByRole("link", { name: "bad" })).toBeNull();
     expect(container.querySelector("b")).toBeNull();
     expect(container).toHaveTextContent("[bad](javascript:alert(1)) <b>raw</b>");
+  });
+});
+
+describe("notices / complaints tabs", () => {
+  it("shows one section at a time, Notices first, with the unread count on its tab", () => {
+    render(<NoticesView locale="en" data={page()} />);
+    const tabs = screen.getByRole("navigation", { name: "Sections" });
+    const links = within(tabs).getAllByRole("link");
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/en/notices", "/en/notices?tab=complaints"]);
+    expect(links[0]).toHaveAttribute("aria-current", "page");
+    expect(links[0]).toHaveAccessibleName("Notices, 1 unread");
+    expect(links[1]).not.toHaveAttribute("aria-current");
+    expect(links[1]).toHaveAccessibleName("Complaints & objections");
+    expect(screen.getByRole("region", { name: "Notices" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Complaints & objections" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Complaint filters" })).toBeNull();
+  });
+
+  it("shows only complaints on the Complaints tab and keeps the tab in its links", () => {
+    render(<NoticesView locale="en" data={page({ tab: "complaints", notices: { ...page().notices, unread: 0 } })} />);
+    const tabs = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(tabs).getByRole("link", { name: "Complaints & objections" })).toHaveAttribute("aria-current", "page");
+    expect(within(tabs).getByRole("link", { name: "Notices" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("region", { name: "Complaints & objections" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: /Water tank/ })).toBeNull();
+    expect(within(screen.getByRole("navigation", { name: "Complaint filters" })).getByRole("link", { name: "All" })).toHaveAttribute("href", "/en/notices?tab=complaints");
+    expect(screen.getByRole("button", { name: "Raise a complaint" })).toBeInTheDocument();
+  });
+
+  it("labels the tabs in Bangla", () => {
+    render(<NoticesView locale="bn" data={page()} />);
+    const tabs = screen.getByRole("navigation", { name: "বিভাগ" });
+    expect(within(tabs).getAllByRole("link").map((l) => l.textContent)).toEqual(["নোটিশ১", "অভিযোগ ও আপত্তি"]);
+  });
+});
+
+describe("noticesTab", () => {
+  it("honours an explicit tab", () => {
+    expect(noticesTab({ tab: "complaints" })).toBe("complaints");
+    expect(noticesTab({ tab: "notices", complaint: "c1" })).toBe("notices");
+  });
+
+  it("opens Complaints for complaint deep links and Notices otherwise", () => {
+    for (const q of [{ complaint: "c1" }, { raise: "1" }, { filter: "mine" }, { month: "2026-09" }, { climit: "100" }]) expect(noticesTab(q)).toBe("complaints");
+    for (const q of [{}, { notice: "n1" }, { archived: "1" }, { new: "1" }, { tab: "bogus" }, { filter: "all" }]) expect(noticesTab(q)).toBe("notices");
   });
 });
 
@@ -89,8 +135,10 @@ describe("notice list (N1, N4)", () => {
     const empty = { items: [], more: false, activeMembers: 4, unread: 0, reachEmail: 4 };
     const { unmount } = render(<NoticesView locale="en" data={page({ notices: { ...empty, reachEmail: null }, complaints: { items: [], more: false } })} />);
     expect(screen.getByText("No notices yet.")).toBeInTheDocument();
-    expect(screen.getByText("No complaints. Tap 'Raise an objection' on any entry to question it.")).toBeInTheDocument();
     unmount();
+    const other = render(<NoticesView locale="en" data={page({ tab: "complaints", complaints: { items: [], more: false } })} />);
+    expect(screen.getByText("No complaints. Tap 'Raise an objection' on any entry to question it.")).toBeInTheDocument();
+    other.unmount();
     render(<NoticesView locale="en" data={adminPage({ notices: empty })} />);
     expect(screen.getAllByRole("button", { name: "New notice" })).toHaveLength(2);
   });

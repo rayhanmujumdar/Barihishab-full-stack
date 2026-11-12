@@ -215,7 +215,8 @@ test("an Admin-only complaint is invisible to other owners until its author make
   const id = await complaintId(admin);
   complaintIds.push(id);
 
-  await owner.goto("/en/notices");
+  await owner.goto("/en/notices?tab=complaints");
+  await expect(owner.getByRole("region", { name: "Complaints & objections" })).toBeVisible();
   await expect(owner.getByRole("button", { name: /Lift contract renewal/ })).toHaveCount(0);
   await owner.goto(`/en/complaints/${id}`);
   await expect(owner).toHaveURL(/\/en\/notices\?complaint=/);
@@ -226,7 +227,7 @@ test("an Admin-only complaint is invisible to other owners until its author make
   await d.getByRole("button", { name: "Make visible to everyone" }).click();
   await admin.getByRole("alertdialog", { name: "Make this visible to everyone?" }).getByRole("button", { name: "Make visible" }).click();
   await expect(admin.getByText("Visible to everyone", { exact: true })).toBeVisible();
-  await owner.goto("/en/notices");
+  await owner.goto("/en/notices?tab=complaints");
   await expect(owner.getByRole("button", { name: /Lift contract renewal/ })).toBeVisible();
 
   await d.getByRole("button", { name: "Withdraw my complaint" }).click();
@@ -236,16 +237,23 @@ test("an Admin-only complaint is invisible to other owners until its author make
   await expect(admin.getByText("Withdrawn", { exact: true }).first()).toBeVisible();
 });
 
-test("works at 360px and in Bangla: columns stack, the drawer fills the screen (§13 General)", async () => {
+test("Notices and Complaints are separate tabs; at 360px in Bangla the drawer fills the screen (§13 General)", async () => {
   await owner.setViewportSize({ width: 360, height: 780 });
   await owner.goto("/bn/notices");
   await expect(owner.getByRole("heading", { level: 1, name: "নোটিশ ও অভিযোগ" })).toBeVisible();
-  const notices = owner.getByRole("region", { name: "নোটিশ" });
+  const tabs = owner.getByRole("navigation", { name: "বিভাগ" });
+  await expect(tabs.getByRole("link", { name: /^নোটিশ/ })).toHaveAttribute("aria-current", "page");
+  await expect(owner.getByRole("region", { name: "নোটিশ" })).toBeVisible();
+  await expect(owner.getByRole("region", { name: "অভিযোগ ও আপত্তি" })).toHaveCount(0);
+
+  await tabs.getByRole("link", { name: "অভিযোগ ও আপত্তি" }).click();
+  await expect(owner).toHaveURL(/\/bn\/notices\?tab=complaints$/);
   const complaints = owner.getByRole("region", { name: "অভিযোগ ও আপত্তি" });
-  const [a, b] = [await notices.boundingBox(), await complaints.boundingBox()];
-  expect(b!.y).toBeGreaterThan(a!.y);
+  await expect(complaints).toBeVisible();
+  await expect(owner.getByRole("region", { name: "নোটিশ" })).toHaveCount(0);
   expect(await owner.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   await complaints.getByRole("button").first().click();
+  await expect(owner).toHaveURL(/tab=complaints&complaint=/);
   const d = owner.getByRole("dialog").first();
   await expect(d).toBeVisible();
   expect((await d.boundingBox())!.width).toBeGreaterThanOrEqual(359);
