@@ -14,7 +14,7 @@ Lets every logged-in user view and edit their own profile and see and end their 
 - **THEN** the response contains their names, phone, locale, roles and permissions and no password hash
 
 ### Requirement: Update own profile
-`PATCH /api/v1/me` (permission `profile.update.self`) SHALL update first/last/surname, birthday, profession, phone, WhatsApp, `whatsappSameAsPhone` and locale with the shared validation rules, write `user.updated`, and respond `200`. Changing `email` or `username` additionally requires `profile.identity.self`; without it the request MUST respond `403 FORBIDDEN` and change nothing. (USR-06)
+`PATCH /api/v1/me` (permission `profile.update.self`) SHALL update first/last/surname, birthday, profession, phone, WhatsApp, `whatsappSameAsPhone`, locale and `emailNotices` (the notices & complaints email setting, boolean) with the shared validation rules, write `user.updated`, and respond `200`; `GET /api/v1/me` SHALL include `emailNotices`. Changing `email` or `username` additionally requires `profile.identity.self`; without it the request MUST respond `403 FORBIDDEN` and change nothing. (USR-06; Notices & Complaints PRD §11)
 
 #### Scenario: Owner updates phone
 - **WHEN** an Owner patches phone `01812345678`
@@ -27,6 +27,10 @@ Lets every logged-in user view and edit their own profile and see and end their 
 #### Scenario: Super Admin changes own username
 - **WHEN** a Super Admin patches their username to a free valid value
 - **THEN** the response is `200`
+
+#### Scenario: Turn off notices emails
+- **WHEN** an Owner patches `emailNotices: false`
+- **THEN** the response is `200`, `profile.emailNotices` is false, and the `/me` screen's "Notices & complaints emails" switch shows off
 
 ### Requirement: Own session list and single revoke
 `GET /api/v1/me/sessions` (permission `session.manage.self`) SHALL respond `200` with the caller's active refresh sessions as `{ id, device, browser, ip, createdAt, lastSeenAt, current }`. `DELETE /api/v1/me/sessions/:id` SHALL revoke that session if it belongs to the caller and respond `204`; a session of another user MUST respond `404 NOT_FOUND`. Revoking the current session MUST also clear the caller's cookies. (AUTH-07 subset)
