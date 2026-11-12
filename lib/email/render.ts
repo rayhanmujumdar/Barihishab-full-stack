@@ -1,7 +1,9 @@
 import type { EmailTemplate } from "@/lib/generated/prisma/client";
 import type { OutboxPayload } from "./outbox";
+import { complaintUpdateEmail } from "./templates/complaint-update";
 import { inviteEmail } from "./templates/invite";
 import type { RenderedEmail } from "./templates/layout";
+import { noticeEmail } from "./templates/notice";
 import { passwordChangedEmail } from "./templates/password-changed";
 import { requestUpdateEmail } from "./templates/request-update";
 import { resetEmail } from "./templates/reset";
@@ -22,6 +24,10 @@ export function renderEmail<T extends EmailTemplate>(
       return passwordChangedEmail(locale, payload as OutboxPayload["PASSWORD_CHANGED"], base);
     case "REQUEST_UPDATE":
       return requestUpdateEmail(locale, payload as OutboxPayload["REQUEST_UPDATE"], base);
+    case "NOTICE":
+      return noticeEmail(locale, payload as OutboxPayload["NOTICE"], base);
+    case "COMPLAINT_UPDATE":
+      return complaintUpdateEmail(locale, payload as OutboxPayload["COMPLAINT_UPDATE"], base);
     default:
       throw new Error(`Unknown email template: ${template satisfies never}`);
   }

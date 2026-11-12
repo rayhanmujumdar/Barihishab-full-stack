@@ -122,6 +122,22 @@ describe("owner board and footer (F3, F4)", () => {
     expect(within(tanvir).getByRole("button", { name: "Pay ৳8,055.85" })).toBeInTheDocument();
   });
 
+  it("notes open complaints about the month and offers Raise an objection (Notices & Complaints C8)", () => {
+    render(
+      <DistributionView
+        locale="en"
+        data={october()}
+        perms={ADMIN}
+        funds={[]}
+        houseFundPaisa={0}
+        complaints={{ periodId: "p-oct", openCount: 1, complain: true }}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole("link", { name: "1 open complaint(s) about October 2026." })).toHaveAttribute("href", "/en/notices?month=2026-10");
+    expect(screen.getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", "/en/notices?raise=1&link=MONTH%3Ap-oct");
+  });
+
   it("states the accuracy footer, or a red warning when it doesn't add up", () => {
     const { unmount } = show(october());
     expect(screen.getByText("Σ entitlements ৳84,569 = distributable ৳84,569")).toBeInTheDocument();
@@ -208,6 +224,15 @@ describe("Close month dialog (F5, G2, G12)", () => {
     expect(toast).toHaveBeenCalledWith("October 2026 closed · entitlements posted");
     expect(replace).toHaveBeenCalledWith("/en/distribution?month=2026-10");
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("warns, without blocking, about open complaints on the month (Notices & Complaints C8)", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: preview({ warnings: [{ code: "OPEN_COMPLAINTS", count: 2 }] }) });
+    show(october());
+    await userEvent.click(screen.getByRole("button", { name: /Close month/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Close month · October 2026" });
+    await waitFor(() => expect(dialog).toHaveTextContent("2 open complaint(s) about October 2026."));
+    expect(within(dialog).getByRole("button", { name: /Close & lock/ })).toBeEnabled();
   });
 
   it("disables Close & lock when a must-pass check fails", async () => {

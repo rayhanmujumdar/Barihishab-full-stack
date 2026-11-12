@@ -251,6 +251,7 @@ describe("closeChecks", () => {
     expensesWithoutBill: 0,
     monthOver: true,
     reserveAfterClosePaisa: 0,
+    openComplaints: 0,
   };
 
   it("passes everything for a clean month", () => {
@@ -268,8 +269,8 @@ describe("closeChecks", () => {
   });
 
   it("warns without blocking", () => {
-    const r = closeChecks({ ...ok, incomeCount: 0, unpaidUnitCount: 1, expensesWithoutBill: 2, monthOver: false, reserveAfterClosePaisa: -1 });
-    expect(r.warnings).toEqual(["NO_INCOME", "UNPAID_RENT", "MISSING_BILLS", "MONTH_NOT_OVER", "RESERVE_NEGATIVE"]);
+    const r = closeChecks({ ...ok, incomeCount: 0, unpaidUnitCount: 1, expensesWithoutBill: 2, monthOver: false, reserveAfterClosePaisa: -1, openComplaints: 2 });
+    expect(r.warnings).toEqual(["NO_INCOME", "UNPAID_RENT", "MISSING_BILLS", "MONTH_NOT_OVER", "RESERVE_NEGATIVE", "OPEN_COMPLAINTS"]);
     expect(r.canClose).toBe(true);
   });
 });

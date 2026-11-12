@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useQuestioned } from "@/components/complaints/use-questioned";
 import { apiGet, qk, useServerSeed } from "@/lib/api/query";
 import { translator, type Locale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
@@ -71,6 +72,7 @@ export function EntriesView({ locale, data, autoOpen }: { locale: Locale; data: 
   // A fresh server render (navigation, router.refresh) wins over an older cached list.
   useServerSeed(qk.transactions.list(filter), data, (d) => ({ pages: [{ items: d.items, nextCursor: d.nextCursor }], pageParams: [null] }));
   const items = list.data.pages.flatMap((p) => p.items);
+  const questioned = useQuestioned("ENTRY", items.map((t) => t.id), !!data.perms.complaints);
 
   const go = (q: { period?: string; type?: Kind; category?: string }) =>
     router.push(entriesHref(locale, { period: q.period ?? data.month, type: q.type ?? data.type, category: q.category }), { scroll: false });
@@ -192,7 +194,7 @@ export function EntriesView({ locale, data, autoOpen }: { locale: Locale; data: 
             <ul className="entry-list" aria-label={tr("entries.list")}>
               {items.map((t) => (
                 <li key={t.id}>
-                  <EntryRow locale={locale} entry={t} onOpen={() => setDetailId(t.id)} />
+                  <EntryRow locale={locale} entry={t} questioned={!!questioned[t.id]} onOpen={() => setDetailId(t.id)} />
                 </li>
               ))}
             </ul>
@@ -251,6 +253,7 @@ export function EntriesView({ locale, data, autoOpen }: { locale: Locale; data: 
         locale={locale}
         id={detailId}
         perms={data.perms}
+        questionedId={detailId ? questioned[detailId] : undefined}
         onClose={() => {
           setDetailId(null);
           dropDeepLink();
@@ -267,7 +270,7 @@ export function EntriesView({ locale, data, autoOpen }: { locale: Locale; data: 
   );
 }
 
-function EntryRow({ locale, entry: t, onOpen }: { locale: Locale; entry: TxnDto; onOpen: () => void }) {
+function EntryRow({ locale, entry: t, questioned = false, onOpen }: { locale: Locale; entry: TxnDto; questioned?: boolean; onOpen: () => void }) {
   const tr = translator(locale);
   const meta = [t.vendor, t.fundAccountName].filter(Boolean).join(" · ");
   return (
@@ -279,6 +282,7 @@ function EntryRow({ locale, entry: t, onOpen }: { locale: Locale; entry: TxnDto;
           {t.voidedAt ? <Badge variant="neutral">{tr("entries.tag.void")}</Badge> : null}
           {t.isCorrected ? <Badge variant="outline">{tr("entries.tag.corrected")}</Badge> : null}
           {t.fromReserve ? <Badge variant="accent">{tr("entries.tag.reserve")}</Badge> : null}
+          {questioned ? <Badge variant="accent">{tr("nc.questioned")}</Badge> : null}
           {t.attachmentCount ? (
             <span className="inline-flex items-center gap-0.5 text-xs" aria-label={tr("entries.tag.files", { count: t.attachmentCount })}>
               <PaperClipIcon className="size-3.5" aria-hidden />

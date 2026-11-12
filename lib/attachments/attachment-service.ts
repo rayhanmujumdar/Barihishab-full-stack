@@ -2,6 +2,7 @@
 // private bucket; rows are created unlinked at presign time and linked to an
 // entry once the upload is verified (exists, size, magic bytes).
 import { visibleTo } from "@/lib/accounting/requests";
+import { canSee as canSeeComplaint } from "@/lib/complaints/rules";
 import { randomUUID } from "node:crypto";
 import type { Prisma, Attachment } from "@/lib/generated/prisma/client";
 import { Abort, inTransaction as run } from "@/lib/api/in-transaction";
@@ -91,7 +92,7 @@ export async function prepareAttachments(propertyId: string, ids: string[], exis
  * Links verified uploads to an entry inside the caller's transaction (one audit row each).
  * Must run inside `inTransaction`: an upload linked or swept meanwhile aborts with a 422.
  */
-export type AttachmentEntity = "house_transaction" | "owner_ledger_entry" | "loan" | "money_request";
+export type AttachmentEntity = "house_transaction" | "owner_ledger_entry" | "loan" | "money_request" | "notice" | "complaint" | "complaint_comment";
 
 export async function linkAttachments(
   tx: Tx,
@@ -173,7 +174,8 @@ function etagMatches(ifNoneMatch: string, etag: string) {
 }
 
 /** Who opens a file: request files follow the request's visibility (Requests F15, Rule 12). */
-export type FileViewer = { userId: string; viewAll: boolean };
+/** `viewAll` = `request.view.all`; `complaintViewAll` = `complaint.view.all`. */
+export type FileViewer = { userId: string; viewAll: boolean; complaintViewAll?: boolean };
 
 /**
  * Bills, receipts and loan files are visible to everyone with `attachment.view`;
@@ -181,6 +183,13 @@ export type FileViewer = { userId: string; viewAll: boolean };
  * once paid out, to every owner unless the requester marked the file Private.
  */
 async function mayView(att: { entityType: string; entityId: string | null; isPrivate: boolean }, viewer: FileViewer): Promise<boolean> {
+  // Complaint and comment files follow the complaint's visibility; hidden comments hide their files (Rule 17, G13).
+  if (att.entityType === "complaint" || att.entityType === "complaint_comment") {
+    const where =
+      att.entityType === "complaint" ? { id: att.entityId! } : { comments: { some: { id: att.entityId!, hiddenAt: null } } };
+    const c = await prisma.complaint.findFirst({ where, select: { visibility: true, createdById: true } });
+    return !!c && canSeeComplaint(c, { userId: viewer.userId, viewAll: viewer.complaintViewAll ?? false });
+  }
   if (att.entityType !== "money_request") return true;
   const r = await prisma.moneyRequest.findUnique({ where: { id: att.entityId! }, select: { status: true, createdById: true, owner: { select: { userId: true } } } });
   if (!r) return false;

@@ -8,7 +8,15 @@ export const MeSchema = z
   .object({ profile: PublicUserSchema, roles: z.array(RoleSchema), permissions: z.array(PermissionSchema) })
   .meta({ id: "Me" });
 
-export const PatchMeBodySchema = z.object({ ...profileFields, ...identityFields, avatarId: avatarIdField }).strict().meta({ id: "PatchMeBody" });
+export const PatchMeBodySchema = z
+  .object({
+    ...profileFields,
+    ...identityFields,
+    avatarId: avatarIdField,
+    emailNotices: z.boolean({ error: "Choose on or off." }).optional().meta({ description: "Notices & complaints emails that may be turned off (Notices & Complaints PRD §11)" }),
+  })
+  .strict()
+  .meta({ id: "PatchMeBody" });
 
 registry.registerPath({
   method: "get",

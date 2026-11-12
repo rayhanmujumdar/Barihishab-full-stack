@@ -295,6 +295,14 @@ describe("badge, paging and editing files (F1, F3)", () => {
 });
 
 describe("detail sheet (F9)", () => {
+  it("shows Questioned and Raise an objection for the request (Notices & Complaints C8)", () => {
+    const r = req();
+    render(<RequestsView locale="en" data={ownerPage({ detail: { request: r, attachments: [], context: null, timeline: [] }, complaints: { questionedId: "c-5", complain: true } })} />);
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("link", { name: "Questioned" })).toHaveAttribute("href", "/en/notices?complaint=c-5");
+    expect(within(sheet).getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", `/en/notices?raise=1&link=REQUEST%3A${r.id}`);
+  });
+
   it("shows the linked entry and the timeline", () => {
     const r = req({ status: "DISBURSED", linkedEntry: { kind: "LOAN", id: "loan-3", label: "Loan L3", loanNumber: 3, month: "2026-10", ownerId: "o-nasrin", voided: false } });
     render(

@@ -13,7 +13,7 @@ export const OutboxStatusSchema = z
     lastFailure: z
       .object({
         at: z.iso.datetime(),
-        template: z.enum(["INVITE", "RESET", "PASSWORD_CHANGED", "REQUEST_UPDATE"]),
+        template: z.enum(["INVITE", "RESET", "PASSWORD_CHANGED", "REQUEST_UPDATE", "NOTICE", "COMPLAINT_UPDATE"]),
         failureCode: z.enum(FAILURE_CODES).nullable(),
       })
       .nullable(),

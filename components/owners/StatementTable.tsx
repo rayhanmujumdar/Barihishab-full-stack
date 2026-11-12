@@ -1,5 +1,6 @@
 "use client";
 
+import { QuestionedBadge, RaiseObjectionButton } from "@/components/complaints/ComplaintLinks";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { RequestTag } from "@/components/requests/RequestTag";
@@ -12,7 +13,7 @@ import { formatMoney } from "@/lib/money";
 import { monthLabel } from "@/lib/periods/month";
 import { cn } from "@/lib/utils";
 import { balanceText, balanceTone, signedMoney, typeLabel } from "./format";
-import type { LedgerEntryDto, StatementDto } from "./types";
+import type { LedgerEntryDto, OwnerComplaints, StatementDto } from "./types";
 
 type Row = StatementDto["rows"][number];
 
@@ -21,9 +22,12 @@ export function StatementTable({
   locale,
   statement,
   onVoid,
+  complaints,
 }: {
   locale: Locale;
   statement: StatementDto;
+  /** Questioned payments/advances and Raise an objection (Notices & Complaints C8). */
+  complaints?: OwnerComplaints;
   /** Present when the viewer may void and a month is open. */
   onVoid?: (entry: LedgerEntryDto) => void;
 }) {
@@ -73,6 +77,11 @@ export function StatementTable({
                     <Badge variant="neutral" className="ml-1.5">
                       {tr("st.tag.void")}
                     </Badge>
+                  ) : null}
+                  {complaints?.questioned[r.id] ? (
+                    <span className="ml-1.5 inline-flex">
+                      <QuestionedBadge locale={locale} complaintId={complaints.questioned[r.id]} />
+                    </span>
                   ) : null}
                 </td>
                 <td className={cn("num", r.amountPaisa > 0 && !r.voided && "bal-pos")}>{signedMoney(locale, r.amountPaisa)}</td>
@@ -125,6 +134,7 @@ export function StatementTable({
       <RowDetail
         locale={locale}
         row={selected}
+        complain={!!complaints?.complain}
         onClose={() => setSelected(null)}
         onOriginal={(id) => setSelected(statement.rows.find((r) => r.id === id) ?? null)}
       />
@@ -132,7 +142,7 @@ export function StatementTable({
   );
 }
 
-function RowDetail({ locale, row, onClose, onOriginal }: { locale: Locale; row: Row | null; onClose: () => void; onOriginal: (id: string) => void }) {
+function RowDetail({ locale, row, complain, onClose, onOriginal }: { locale: Locale; row: Row | null; complain: boolean; onClose: () => void; onOriginal: (id: string) => void }) {
   const tr = translator(locale);
   const items: [MessageKey, React.ReactNode][] = row
     ? (
@@ -181,6 +191,7 @@ function RowDetail({ locale, row, onClose, onOriginal }: { locale: Locale; row: 
                 {tr("st.detail.showOriginal")}
               </Button>
             ) : null}
+            {complain && (row.type === "PAYOUT" || row.type === "ADVANCE") ? <RaiseObjectionButton locale={locale} type="LEDGER" id={row.id} /> : null}
           </div>
         ) : null}
       </SheetContent>

@@ -1,5 +1,6 @@
 // Distribution read model (Distribution PRD F1–F4, F7, F8, F15; DST-01, DST-05).
 // Open month → live preview; closed month → its snapshot only (Rule 6).
+import { openComplaintCountForMonth } from "@/lib/complaints/questioned";
 import { attachmentFileUrl } from "@/lib/attachments/file-url";
 import {
   boardRows,
@@ -304,11 +305,13 @@ export async function getClosePreview(propertyId: string, month: string): Promis
   const { periods, index, owners, names } = l;
   const period = periods[index];
   const f = await computeMonth(prisma, propertyId, periods, index, owners);
-  const [unpaid, missingBills, reserveBal, lastReopen] = await Promise.all([
+  const [unpaid, missingBills, reserveBal, lastReopen, openComplaints] = await Promise.all([
     unpaidUnitsIn(propertyId, period.id),
     expensesWithoutBill(period.id),
     reserveBalance(prisma, propertyId),
     prisma.periodReopen.findFirst({ where: { periodId: period.id }, orderBy: { reopenedAt: "desc" } }),
+    // Every visibility: the closer is the Super Admin (period.close).
+    openComplaintCountForMonth(propertyId, { userId: "", viewAll: true }, period.key),
   ]);
   const reserveAfterClose = reserveBal + f.stair.reservePaisa;
   const sumEntitlements = f.entitlements.reduce((sum, e) => sum + e.amountPaisa, 0);
@@ -327,12 +330,14 @@ export async function getClosePreview(propertyId: string, month: string): Promis
     expensesWithoutBill: missingBills,
     monthOver: currentMonthKey() > period.key,
     reserveAfterClosePaisa: reserveAfterClose,
+    openComplaints,
   });
   const detail: Partial<Record<WarningCode, Omit<ClosePreviewDto["warnings"][number], "code">>> = {
     UNPAID_RENT: { units: unpaid },
     MISSING_BILLS: { count: missingBills },
     MONTH_NOT_OVER: { nextMonth: next },
     RESERVE_NEGATIVE: { reserveAfterClosePaisa: reserveAfterClose },
+    OPEN_COMPLAINTS: { count: openComplaints },
   };
   return {
     month: period.key,

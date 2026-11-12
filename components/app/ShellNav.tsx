@@ -40,12 +40,14 @@ export function TopbarAction({ locale, action }: { locale: Locale; action: "entr
 /**
  * Sidebar (≥ 860px) and bottom bar + More sheet (< 860px) (Home PRD §4).
  * `requestBadge`: pending requests (Super Admin) or own unseen decisions (Requests PRD F1, F14).
+ * `noticeBadge`: unread notices + complaints with unseen comments (Notices & Complaints PRD §11).
  */
 export function ShellNav({
   locale,
   viewer,
   pendingInvites,
   requestBadge = 0,
+  noticeBadge = 0,
   houseName = null,
   monthOpen = true,
 }: {
@@ -53,6 +55,7 @@ export function ShellNav({
   viewer: ShellViewer;
   pendingInvites: number;
   requestBadge?: number;
+  noticeBadge?: number;
   houseName?: string | null;
   /** Some month is open: the [+] cell adds an expense to it. */
   monthOpen?: boolean;
@@ -69,7 +72,7 @@ export function ShellNav({
   const { slots, more } = bottomNav(viewer, { monthOpen });
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
-  const count = (i: NavItem) => (i.badge === "requests" ? requestBadge : i.badge === "invites" ? pendingInvites : 0);
+  const count = (i: NavItem) => (i.badge === "requests" ? requestBadge : i.badge === "invites" ? pendingInvites : i.badge === "notices" ? noticeBadge : 0);
   const badge = (i: NavItem) => {
     const n = count(i);
     return n ? (locale === "bn" ? toBanglaDigits(String(n)) : String(n)) : null;

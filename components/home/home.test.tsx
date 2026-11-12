@@ -263,6 +263,21 @@ describe("PinnedNotices (F9, G6)", () => {
     expect(more).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(more);
     expect(more).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: /All notices/ })).toHaveAttribute("href", "/en/notices");
+  });
+
+  it("records the read when an unread notice is expanded (Notices & Complaints N4)", async () => {
+    const api = vi.mocked((await import("@/lib/api/client")).apiFetch);
+    api.mockClear();
+    render(<PinnedNotices locale="en" notices={notices()} more={false} />);
+    await userEvent.click(screen.getAllByRole("button", { name: "Read more" })[0]);
+    expect(api).toHaveBeenCalledWith("/notices/00000000-0000-4000-8000-0000000000n1/read", { method: "POST" });
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("links each title to the notice and always offers All notices", () => {
+    render(<PinnedNotices locale="en" notices={notices()} more={false} />);
+    expect(screen.getByRole("link", { name: "Water tank cleaning" })).toHaveAttribute("href", "/en/notices?notice=00000000-0000-4000-8000-0000000000n1");
     expect(screen.getByRole("link", { name: /All notices/ })).toBeInTheDocument();
   });
 

@@ -39,6 +39,7 @@ function user(p: Partial<PublicUser>): PublicUser {
     houseResponsibility: null,
     avatarUrl: null,
     locale: "en",
+    emailNotices: true,
     status: "ACTIVE",
     roles: ["OWNER"],
     lastLoginAt: null,

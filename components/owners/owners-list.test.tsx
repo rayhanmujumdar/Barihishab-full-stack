@@ -61,6 +61,14 @@ describe("OwnersView (F1)", () => {
     expect(dialog).toHaveTextContent("Gifted 10 units to Sabrina, deed 20 May 2026 · by Rayhan Ahmed");
   });
 
+  it("marks a questioned share change and offers Raise an objection on each (Notices & Complaints C8, G9)", async () => {
+    render(<OwnersView locale="en" data={ownersData({ complaints: { questioned: { "s-jun": "c-7" }, complain: true } })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Share timeline" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share timeline" });
+    expect(within(dialog).getByRole("link", { name: "Questioned" })).toHaveAttribute("href", "/en/notices?complaint=c-7");
+    expect(within(dialog).getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", "/en/notices?raise=1&link=SHARE_SET%3As-jun");
+  });
+
   it("shows the setup empty state with Add owner for admins", () => {
     const data = ownersData();
     data.list = { ...data.list, owners: [], totalUnits: 0 };

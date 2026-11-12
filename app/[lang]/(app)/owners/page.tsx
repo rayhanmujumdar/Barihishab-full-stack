@@ -1,3 +1,4 @@
+import { questionedFor } from "@/lib/complaints/questioned";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Forbidden } from "@/components/app/Forbidden";
@@ -40,6 +41,12 @@ async function Owners() {
     listPeriods(propertyId),
     manage ? linkableUsers(propertyId) : Promise.resolve([]),
   ]);
+  const complaints = can(viewer, "complaint.view")
+    ? {
+        questioned: await questionedFor(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, "SHARE_SET", timeline.map((s) => s.id)),
+        complain: can(viewer, "complaint.create"),
+      }
+    : undefined;
   return (
     <OwnersView
       locale={locale}
@@ -50,6 +57,7 @@ async function Owners() {
         effectiveMonths: effectiveMonths(periods),
         linkableUsers: users,
         perms: { manage, shares: can(viewer, "share.manage") },
+        complaints,
       }}
     />
   );

@@ -1,3 +1,4 @@
+import type { ItemComplaints } from "@/components/complaints/ComplaintLinks";
 // Client-side shapes of the Advances & loans screen (server DTOs, type-only).
 import type { HistoryRow, LoanStatus } from "@/lib/accounting/loans";
 import type { AdvanceListDto, AdvanceRowDto, StandingDto } from "@/lib/loans/advance-service";
@@ -24,4 +25,6 @@ export type AdvancesLoansData = {
   /** Month the next close applies to (earliest open), or null. */
   openMonth: string | null;
   perms: LoansPerms;
+  /** The open loan's live complaint and Raise an objection (Notices & Complaints C8). */
+  complaints?: ItemComplaints;
 };

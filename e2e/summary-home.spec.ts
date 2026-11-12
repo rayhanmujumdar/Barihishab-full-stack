@@ -160,7 +160,7 @@ test("in বাংলা at 360px the owner's Home fits with no sideways scroll 
   await expect(phone.getByRole("heading", { level: 1, name: /^স্বাগতম, / })).toBeVisible();
   await expect(phone.getByTestId("hero-amount")).toHaveText(/৳[০-৯]/);
   const labels = await phone.locator("nav.bottom-nav > *").evaluateAll((els) => els.map((el) => (el.getAttribute("aria-label") ?? el.textContent ?? "").split(" · ")[0]));
-  expect(labels).toEqual(["হোম", "আমার হিসাব", "অনুরোধ", "আয় ও ব্যয়", "আরও"]);
+  expect(labels).toEqual(["হোম", "আমার হিসাব", "অনুরোধ", "নোটিশ", "আরও"]);
   const overflow = await phone.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await phone.screenshot({ path: ".context/screens/mobile-bn-home.png", fullPage: true });

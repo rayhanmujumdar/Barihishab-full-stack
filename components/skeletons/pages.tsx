@@ -180,6 +180,26 @@ export function RequestsSkeleton({ locale }: Props) {
   );
 }
 
+/** Notices & complaints: head + two actions, then notices and complaints columns (stacked on phones). */
+export function NoticesSkeleton({ locale }: Props) {
+  return (
+    <Page locale={locale} label="loading.notices">
+      <SkeletonPageHead action />
+      <div className="grid gap-10 min-[860px]:grid-cols-2">
+        <section>
+          <SkeletonSectionHead action />
+          <SkeletonRows rows={3} meta />
+        </section>
+        <section>
+          <SkeletonSectionHead />
+          <SkeletonTabs tabs={5} />
+          <SkeletonCardList cards={3} />
+        </section>
+      </div>
+    </Page>
+  );
+}
+
 /** Users: head + invite action, search toolbar, 6-column table. */
 export function UsersSkeleton({ locale }: Props) {
   return (

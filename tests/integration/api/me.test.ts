@@ -19,7 +19,7 @@ describe("GET /api/v1/me", () => {
     const body = await json(res);
     expect(body.data.profile).toMatchObject({ id: owner.id, phone: "01712345678" });
     expect(body.data.roles).toEqual(["OWNER"]);
-    expect(body.data.permissions).toHaveLength(12); // RBAC-02: 6 auth/money keys + owner.view + distribution.view + loan.view + request.create + request.view + report.view
+    expect(body.data.permissions).toHaveLength(15); // RBAC-02: 6 auth/money keys + owner.view + distribution.view + loan.view + request.create + request.view + report.view + 3 notices & complaints
     expect(JSON.stringify(body)).not.toMatch(/argon2|tokenVersion|failedLoginCount/);
   });
 
@@ -75,6 +75,26 @@ describe("PATCH /api/v1/me", () => {
       p,
     );
     expect((await json(res)).data.profile.whatsapp).toBe("+8801712345678");
+  });
+});
+
+describe("notices & complaints email setting (Notices & Complaints PRD §11)", () => {
+  it("is on by default and an Owner can turn it off", async () => {
+    const owner = await createUser({ roles: ["OWNER"] });
+    const login = await loginAs(owner);
+    expect((await json(await getMe(apiRequest("/me", { login }), p))).data.profile.emailNotices).toBe(true);
+    const res = await patchMe(apiRequest("/me", { method: "PATCH", body: { emailNotices: false }, login }), p);
+    expect(res.status).toBe(200);
+    expect((await json(res)).data.profile.emailNotices).toBe(false);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: owner.id } })).emailNotices).toBe(false);
+    const row = await prisma.auditLog.findFirstOrThrow({ where: { entityId: owner.id, action: "user.updated" } });
+    expect(row.after).toEqual({ emailNotices: false });
+  });
+
+  it("rejects a non-boolean value", async () => {
+    const owner = await createUser({ roles: ["OWNER"] });
+    const res = await patchMe(apiRequest("/me", { method: "PATCH", body: { emailNotices: "no" }, login: await loginAs(owner) }), p);
+    expect(res.status).toBe(422);
   });
 });
 

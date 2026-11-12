@@ -47,6 +47,17 @@ export function MeScreen({
   const logoutEverywhere = useApiMutation(["auth", "logout-all"], () => apiFetch("/auth/logout-all", { method: "POST" }));
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  // Notices & Complaints §11: one on/off for the emails that may be turned off.
+  const [emailNotices, setEmailNotices] = useState(profile.emailNotices);
+  const [savingEmails, setSavingEmails] = useState(false);
+  async function toggleEmails(on: boolean) {
+    setSavingEmails(true);
+    const res = await updateMe.run({ emailNotices: on });
+    setSavingEmails(false);
+    if (!res.ok) return toast.error(res.status === 0 ? tr("common.network") : res.error.message);
+    setEmailNotices(on);
+    toast(tr(on ? "me.emailNoticesOn" : "me.emailNoticesOff"));
+  }
   const canIdentity = can({ permissions }, "profile.identity.self");
   const [form, setForm] = useState({
     username: profile.username,
@@ -247,6 +258,19 @@ export function MeScreen({
             </Button>
           </div>
         </form>
+      </section>
+
+      <section aria-labelledby="me-emails" className="flex flex-col gap-2">
+        <div className="section-head">
+          <h2 id="me-emails">{tr("me.emailNotices")}</h2>
+        </div>
+        <div className="flex min-h-11 items-center gap-2">
+          <Checkbox id="me-email-notices" checked={emailNotices} disabled={savingEmails} onCheckedChange={(c) => void toggleEmails(c === true)} aria-describedby="me-email-notices-hint" />
+          <Label htmlFor="me-email-notices">{tr("me.emailNotices")}</Label>
+        </div>
+        <p id="me-email-notices-hint" className="muted m-0 text-sm">
+          {tr("me.emailNoticesHint")}
+        </p>
       </section>
 
       <section aria-labelledby="me-security">

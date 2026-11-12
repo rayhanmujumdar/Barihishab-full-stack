@@ -78,6 +78,26 @@ import "./reports/yearly/schema";
 import "./reports/rent-roll/schema";
 import "./reports/expenses/schema";
 import "./reports/funds/schema";
+import "./notices/schema";
+import "./notices/[id]/schema";
+import "./notices/[id]/archive/schema";
+import "./notices/[id]/read/schema";
+import "./notices/[id]/reads/schema";
+import "./notices/[id]/remind/schema";
+import "./notices/read-all/schema";
+import "./complaints/schema";
+import "./complaints/[id]/schema";
+import "./complaints/[id]/status/schema";
+import "./complaints/[id]/withdraw/schema";
+import "./complaints/[id]/reopen/schema";
+import "./complaints/[id]/publish/schema";
+import "./complaints/[id]/seen/schema";
+import "./complaints/[id]/comments/schema";
+import "./complaints/[id]/comments/[commentId]/schema";
+import "./complaints/[id]/comments/[commentId]/hide/schema";
+import "./complaints/links/schema";
+import "./complaints/links/[type]/[id]/schema";
+import "./complaints/questioned/schema";
 
 let cached: ReturnType<OpenApiGeneratorV31["generateDocument"]> | undefined;
 

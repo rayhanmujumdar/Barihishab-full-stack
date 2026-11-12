@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Forbidden } from "@/components/app/Forbidden";
+import { MonthComplaintsNote } from "@/components/complaints/ComplaintLinks";
 import { csvHref, printHref } from "@/components/reports/format";
 import { MonthlyReport } from "@/components/reports/MonthlyReport";
 import { MonthPicker } from "@/components/reports/Pickers";
 import { ReportsHeader } from "@/components/reports/ReportsHeader";
 import { ReportsSkeleton } from "@/components/skeletons/pages";
 import { requirePagePermission } from "@/lib/auth/server";
+import { openComplaintCountForMonth } from "@/lib/complaints/questioned";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
+import { can } from "@/lib/permissions";
 import { currentPropertyId } from "@/lib/property";
 import { loadHouse } from "@/lib/reports/month-figures";
 import { monthlyReport } from "@/lib/reports/monthly";
@@ -48,6 +51,8 @@ async function Monthly({ searchParams }: Props) {
     );
   }
   const month = data.month.key;
+  // Notices & Complaints C8: "{n} open complaint(s) about {Month}." (visible complaints only).
+  const openComplaints = can(viewer, "complaint.view") ? await openComplaintCountForMonth(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, month) : 0;
   return (
     <div className="page-stack">
       <ReportsHeader
@@ -58,6 +63,7 @@ async function Monthly({ searchParams }: Props) {
       >
         <MonthPicker locale={locale} tab="monthly" months={data.months} current={month} />
       </ReportsHeader>
+      <MonthComplaintsNote locale={locale} month={month} count={openComplaints} />
       <MonthlyReport locale={locale} data={data} />
     </div>
   );

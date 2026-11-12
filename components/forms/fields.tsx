@@ -78,6 +78,28 @@ export function TextField({ id, label, hint, error, className, ...input }: Commo
   );
 }
 
+/** Multi-line text (notice messages, complaint text, comments): same label/hint/error wiring as TextField. */
+export function TextAreaField({ id, label, hint, error, className, rows = 4, ...input }: Common & Omit<ComponentProps<"textarea">, "id">) {
+  return (
+    <Field className={className}>
+      <FieldLabel htmlFor={id} className={labelClass} {...requiredProps(isEnforced(input))}>
+        {label}
+      </FieldLabel>
+      <textarea
+        id={id}
+        name={input.name ?? id}
+        rows={rows}
+        data-slot="textarea"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(id, hint, error)}
+        className="min-h-24 w-full min-w-0 resize-y rounded-none border border-input bg-card px-3 py-2 text-[15px] transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm"
+        {...input}
+      />
+      <Messages id={id} hint={hint} error={error} />
+    </Field>
+  );
+}
+
 export function PasswordField({
   id,
   label,

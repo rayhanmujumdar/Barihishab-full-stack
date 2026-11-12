@@ -18,6 +18,8 @@ export type OwnersData = {
   effectiveMonths: string[];
   linkableUsers: UserLite[];
   perms: { manage: boolean; shares: boolean };
+  /** Questioned share changes (share set id → complaint id) (Notices & Complaints C8). */
+  complaints?: OwnerComplaints;
 };
 
 export type OwnerPageData = {
@@ -35,7 +37,11 @@ export type OwnerPageData = {
   perms: { pay: boolean; advance: boolean; void: boolean; adjust: boolean; manage: boolean; loan: boolean };
   /** Advance limit for this owner (Advances & Loans F14); null = no closed months yet. */
   advanceLimitPaisa?: number | null;
+  /** Questioned payments/advances (entry id → complaint id) and whether the viewer may raise one (Notices & Complaints C8). */
+  complaints?: OwnerComplaints;
 };
+
+export type OwnerComplaints = { questioned: Record<string, string>; complain: boolean };
 
 /** What the pay / advance drawer needs: the owner's id, name and balance plus the fund accounts (F11, F12; Distribution F12). */
 export type PayDrawerData = Pick<OwnerPageData, "funds" | "houseFundPaisa" | "advanceLimitPaisa"> & {

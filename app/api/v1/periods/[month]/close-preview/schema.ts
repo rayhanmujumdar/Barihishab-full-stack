@@ -16,7 +16,7 @@ export const ClosePreviewSchema = z
     mustPass: z.array(z.object({ code: z.enum(["SHARES", "PREVIOUS_CLOSED", "BALANCED", "STILL_OPEN"]), ok: z.boolean(), month: MonthKeySchema.nullable().optional() })),
     warnings: z.array(
       z.object({
-        code: z.enum(["NO_INCOME", "UNPAID_RENT", "MISSING_BILLS", "MONTH_NOT_OVER", "RESERVE_NEGATIVE"]),
+        code: z.enum(["NO_INCOME", "UNPAID_RENT", "MISSING_BILLS", "MONTH_NOT_OVER", "RESERVE_NEGATIVE", "OPEN_COMPLAINTS"]),
         units: z.array(z.object({ name: z.string(), tenantName: z.string().nullable() })).optional(),
         count: z.number().int().optional(),
         nextMonth: MonthKeySchema.optional(),

@@ -1,3 +1,4 @@
+import { questionedFor } from "@/lib/complaints/questioned";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Forbidden } from "@/components/app/Forbidden";
@@ -72,6 +73,13 @@ async function Requests({ searchParams }: { searchParams: Search }) {
   const funds = perms.disburse ? (await listFunds(propertyId)).filter((f) => f.isActive).map((f) => ({ id: f.id, name: f.name, balancePaisa: f.balancePaisa })) : [];
   const open = await prisma.period.findFirst({ where: { propertyId, status: "OPEN" }, orderBy: { month: "desc" }, select: { month: true } });
   const detail = isUuid(requestId) ? await requestDetail(propertyId, requestId!, who) : null;
+  const complaints =
+    detail && can(viewer, "complaint.view")
+      ? {
+          questionedId: (await questionedFor(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, "REQUEST", [detail.request.id]))[detail.request.id] ?? null,
+          complain: can(viewer, "complaint.create"),
+        }
+      : undefined;
 
   const data: RequestsPageData = {
     tab,
@@ -84,6 +92,7 @@ async function Requests({ searchParams }: { searchParams: Search }) {
     funds,
     openMonth: open ? open.month.toISOString().slice(0, 7) : null,
     detail,
+    complaints,
   };
   return <RequestsView locale={locale} data={data} autoNew={one(sp.new) === "1"} />;
 }

@@ -84,6 +84,14 @@ describe("Loans tab (F2, F6)", () => {
 });
 
 describe("Loan detail (F3, F8)", () => {
+  it("shows Questioned and Raise an objection for the loan (Notices & Complaints C8)", () => {
+    const d = detail();
+    render(<AdvancesLoansView locale="en" data={pageData({ detail: d, complaints: { questionedId: "c-3", complain: true } })} />);
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByRole("link", { name: "Questioned" })).toHaveAttribute("href", "/en/notices?complaint=c-3");
+    expect(within(sheet).getByRole("link", { name: "Raise an objection" })).toHaveAttribute("href", `/en/notices?raise=1&link=LOAN%3A${d.loan.id}`);
+  });
+
   it("lists movements oldest first, strikes voided ones and offers Void only on voidable rows", () => {
     render(<AdvancesLoansView locale="en" data={pageData({ detail: detail() })} />);
     const sheet = screen.getByRole("dialog");

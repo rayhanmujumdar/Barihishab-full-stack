@@ -1,3 +1,6 @@
+import { openComplaintCountForMonth } from "@/lib/complaints/questioned";
+import { monthDate } from "@/lib/periods/month";
+import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -49,6 +52,12 @@ async function Distribution({ searchParams }: { searchParams: Search }) {
   const [data, funds] = await Promise.all([getDistribution(propertyId, month, viewer.id), perms.pay ? listFunds(propertyId) : Promise.resolve([])]);
   if (!data) notFound();
   const activeFunds = funds.filter((f) => f.isActive);
+  const key = data.month?.key;
+  const period = key && can(viewer, "complaint.view") ? await prisma.period.findFirst({ where: { propertyId, month: monthDate(key) }, select: { id: true } }) : null;
+  const complaints =
+    key && period
+      ? { periodId: period.id, openCount: await openComplaintCountForMonth(propertyId, { userId: viewer.id, viewAll: can(viewer, "complaint.view.all") }, key), complain: can(viewer, "complaint.create") }
+      : undefined;
   return (
     <DistributionView
       locale={locale}
@@ -56,6 +65,7 @@ async function Distribution({ searchParams }: { searchParams: Search }) {
       perms={perms}
       funds={funds.map((f) => ({ id: f.id, name: f.name, isActive: f.isActive, balancePaisa: f.balancePaisa }))}
       houseFundPaisa={activeFunds.reduce((sum, f) => sum + f.balancePaisa, 0)}
+      complaints={complaints}
     />
   );
 }

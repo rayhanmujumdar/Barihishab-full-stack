@@ -252,7 +252,7 @@ export function RequestsView({ locale, data, autoNew = false }: { locale: Locale
         <ReasonDialog locale={locale} kind={open.kind} request={open.request} onClose={() => setOpen(null)} onDone={done} />
       ) : null}
       {open?.kind === "disburse" ? <DisburseDialog locale={locale} request={open.request} funds={data.funds} openMonth={data.openMonth} onClose={() => setOpen(null)} onDone={done} /> : null}
-      {data.detail ? <RequestDetailSheet locale={locale} detail={data.detail} onClose={() => go({ request: null })} /> : null}
+      {data.detail ? <RequestDetailSheet locale={locale} detail={data.detail} complaints={data.complaints} onClose={() => go({ request: null })} /> : null}
     </div>
   );
 }

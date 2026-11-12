@@ -1,3 +1,4 @@
+import type { ItemComplaints } from "@/components/complaints/ComplaintLinks";
 // Page data for the Requests screen (Requests PRD F1). Client-safe.
 import type { DecisionContext, RequestDetailDto, RequestDto, RequestListDto, RequestStatus, RequestType } from "@/lib/requests/dto";
 import type { RequestReminder } from "@/lib/requests/reminders";
@@ -28,4 +29,6 @@ export type RequestsPageData = {
   /** Latest open month (YYYY-MM); null → Disburse is disabled (G13). */
   openMonth: string | null;
   detail: RequestDetailDto | null;
+  /** The open request's live complaint and Raise an objection (Notices & Complaints C8). */
+  complaints?: ItemComplaints;
 };

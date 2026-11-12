@@ -40,6 +40,7 @@ const profile = {
   houseResponsibility: null,
   avatarUrl: null as string | null,
   locale: "en" as const,
+  emailNotices: true,
   status: "ACTIVE" as const,
   roles: ["OWNER" as const],
   lastLoginAt: null,
@@ -51,6 +52,19 @@ const sessions = [
 ];
 
 beforeEach(() => api.mockReset());
+
+describe("MeScreen notices & complaints emails (Notices & Complaints §11)", () => {
+  it("reflects the setting and saves a change", async () => {
+    api.mockResolvedValue({ ok: true, status: 200, data: { profile: { ...profile, emailNotices: false }, roles: ["OWNER"], permissions: [] } });
+    render(<MeScreen locale="en" profile={profile} permissions={permissionsFor(["OWNER"])} sessions={sessions} navigate={vi.fn()} />);
+    const box = screen.getByRole("checkbox", { name: "Notices & complaints emails" });
+    expect(box).toBeChecked();
+    expect(screen.getByText(/Urgent notices, reminders and answers to your own complaints always arrive/)).toBeInTheDocument();
+    await userEvent.click(box);
+    expect(api).toHaveBeenCalledWith("/me", { method: "PATCH", body: { emailNotices: false } });
+    await waitFor(() => expect(box).not.toBeChecked());
+  });
+});
 
 describe("MeScreen (A7)", () => {
   it("shows email and username read-only for Owners", () => {

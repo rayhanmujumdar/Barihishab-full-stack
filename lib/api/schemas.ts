@@ -22,6 +22,7 @@ export const PublicUserSchema = z
     houseResponsibility: z.string().nullable(),
     avatarUrl: z.string().nullable().meta({ description: "Same-origin URL of the profile photo (served by GET /attachments/{id}/file), or null", example: "/api/v1/attachments/3f1c2a4e-0000-4000-8000-000000000000/file" }),
     locale: z.enum(["bn", "en"]),
+    emailNotices: z.boolean().meta({ description: "Notices & complaints emails on (Notices & Complaints PRD §11)" }),
     status: z.enum(["INVITED", "ACTIVE", "INACTIVE"]),
     roles: z.array(RoleSchema),
     lastLoginAt: z.iso.datetime().nullable(),
